@@ -1,0 +1,91 @@
+Buyer Dashboard Sidebar Implementation
+======================================
+
+Where the sidebar is mounted
+-----------------------------
+The buyer dashboard layout (`app/buyer-dashboard/layout.tsx`) renders the sidebar component by including:
+- `<BuyerSidebar />` from `components/buyer-sidebar.tsx`
+
+The layout uses a two-column flex row:
+- Sidebar column + a `<main>` area that scrolls independently (`<main className="flex-1 overflow-auto">`)
+- Background tint: `bg-muted/20`
+
+Sidebar component responsibilities (`components/buyer-sidebar.tsx`)
+-------------------------------------------------------------------
+The sidebar is implemented as a client component (`'use client'`) and handles:
+1. Mobile drawer open/close state
+2. Active nav highlighting (based on current route)
+3. Showing buyer name/email in the workspace header
+4. Logout (clears local storage, signs out via Supabase, redirects)
+
+Active route highlighting
+-------------------------
+It uses `usePathname()` to determine which nav item is active:
+- Each item’s `isActive` is computed as `pathname === item.href`
+- The active link gets:
+  - `bg-primary/95 text-primary-foreground shadow-sm`
+  - plus a small left-side indicator dot:
+    - `span` positioned absolutely on the left (`absolute left-1 ... bg-primary-foreground/80`)
+- Inactive links get:
+  - `text-foreground hover:bg-accent/70`
+
+Nav items and routes
+---------------------
+The sidebar defines `navItems` as an array of links (icon + label + `href`):
+- `Dashboard` -> `/buyer`
+- `Orders` -> `/buyer/orders`
+- `Services` -> `/buyer/services`
+- `Wishlist` -> `/buyer/wishlist`
+- `Addresses` -> `/buyer/addresses`
+- `Profile` -> `/buyer/profile`
+- `Support` -> `/buyer/support`
+
+Mobile vs desktop behavior
+----------------------------
+Mobile header (only on `md:hidden`)
+- A sticky top header appears on mobile:
+  - Title: "MyGarage Buyer"
+  - Subtitle: `buyerName`
+- Includes a hamburger button that toggles `mobileMenuOpen`.
+- When the drawer is open, a dark backdrop button is rendered to close it.
+
+Mobile drawer / off-canvas sidebar
+- The `<aside>` uses responsive classes that switch between:
+  - `fixed` off-canvas on mobile:
+    - `fixed inset-y-0 left-0 ... w-72 ... transition-transform`
+    - if closed: `-translate-x-full`
+    - if open: `translate-x-0`
+  - `md:static` on desktop:
+    - `md:static md:translate-x-0`
+
+Desktop workspace header
+- On desktop (`md:block`), the sidebar shows a top workspace section with:
+  - Small "Workspace" label
+  - "MyGarage Buyer" title
+  - Buyer name (`buyerName`)
+  - Buyer email (`buyerEmail`)
+- This block is hidden on mobile (`hidden ... md:block`) because mobile uses the sticky header.
+
+Logout and identity data
+--------------------------
+Buyer identity comes from two places:
+- Initially from `localStorage` in a `useEffect`:
+  - `currentBuyerName` -> `buyerName`
+  - `currentBuyerEmail` -> `buyerEmail`
+- Then it also calls `supabase.auth.getUser()`:
+  - If Supabase returns a user email, it updates `buyerEmail`
+  - If `currentBuyerName` wasn’t set yet, it derives name from the email prefix (`email.split('@')[0]`)
+
+The "Sign out" button:
+- Removes these localStorage keys:
+  - `currentBuyerName`, `currentBuyerEmail`, `buyerProfile`
+- Calls `supabase.auth.signOut()`
+- Redirects the browser to:
+  - `/auth?role=buyer&next=/buyer`
+
+Bottom actions
+---------------
+At the bottom of the sidebar there are two links/buttons:
+- "Back to Shop" -> `/` (arrow-left icon)
+- "Sign out" -> triggers `handleLogout`
+

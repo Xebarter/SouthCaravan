@@ -1,0 +1,85 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { MainNav } from '@/components/main-nav';
+import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
+import {
+  DEFAULT_MARKETPLACE_TAXONOMY,
+  type DefaultMarketplaceSection,
+} from '@/lib/default-marketplace-taxonomy';
+import { isVendorConsolePath } from '@/lib/vendor-console-path';
+
+const publicRoutePrefixes = [
+  '/',
+  '/product',
+  '/public',
+  '/categories',
+  '/cart',
+  '/checkout',
+  '/features',
+  '/pricing',
+  '/about',
+  '/contact',
+  '/resources',
+  '/blog',
+  '/faq',
+  '/help',
+  '/security',
+  '/privacy',
+  '/terms',
+  '/cookies',
+  '/status',
+];
+
+function isPublicRoute(pathname: string) {
+  return publicRoutePrefixes.some((route) => {
+    if (route === '/') {
+      return pathname === '/';
+    }
+    return pathname === route || pathname.startsWith(`${route}/`);
+  });
+}
+
+export function AppShell({
+  children,
+  menuSections = DEFAULT_MARKETPLACE_TAXONOMY,
+}: {
+  children: React.ReactNode;
+  menuSections?: DefaultMarketplaceSection[];
+}) {
+  const pathname = usePathname();
+  const publicPage = useMemo(() => isPublicRoute(pathname), [pathname]);
+  const adminPage = useMemo(
+    () => pathname === '/admin' || pathname.startsWith('/admin/'),
+    [pathname],
+  );
+  const vendorConsolePage = useMemo(() => isVendorConsolePath(pathname), [pathname]);
+
+  if (!publicPage) {
+    if (adminPage || vendorConsolePage) {
+      return <main className="flex-1 min-h-screen">{children}</main>;
+    }
+
+    return (
+      <>
+        <MainNav />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Header />
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 min-w-0 flex flex-col">
+          <main className="flex-1 min-w-0">{children}</main>
+          <Footer />
+        </div>
+      </div>
+    </>
+  );
+}

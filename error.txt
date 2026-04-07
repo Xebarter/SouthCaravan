@@ -1,0 +1,25 @@
+## Error Type
+Build Error
+
+## Error Message
+Parsing CSS source code failed
+
+## Build Output
+./app/globals.css:6829:8
+Parsing CSS source code failed
+  6827 |   initial-value: 0;
+  6828 | }
+> 6829 | @import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Mono:wght@400;500;700&display=swap');
+       |        ^
+  6830 | :root {
+  6831 |   --background: oklch(1 0 0);
+  6832 |   --foreground: oklch(0.145 0 0);
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+Next.js version: 16.1.6 (Turbopack)
