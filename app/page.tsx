@@ -27,13 +27,6 @@ const heroCategories = [
   'Logistics Services',
 ];
 
-const quickMarketStats = [
-  { label: 'Verified Suppliers', value: '12,000+' },
-  { label: 'Product Listings', value: '250,000+' },
-  { label: 'Countries Served', value: '46' },
-  { label: 'Avg. Fulfillment Rate', value: '98.4%' },
-];
-
 export default async function HomePage() {
   const products = await getLandingProducts();
   const heroProducts = products.slice(0, 5);
@@ -148,17 +141,6 @@ export default async function HomePage() {
             <Button size="lg" variant="outline" className="rounded-full px-6 border-slate-300 bg-white" asChild>
               <Link href="/public/vendors">Explore Suppliers</Link>
             </Button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {quickMarketStats.map((stat) => (
-              <Card key={stat.label} className="border-slate-200 rounded-xl bg-white shadow-sm">
-                <CardContent className="pt-5 pb-4">
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="text-sm text-slate-600">{stat.label}</p>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
       </section>

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import {
   AlertCircle,
   BadgeCheck,
+  CheckCircle2,
   ImageIcon,
   Loader2,
   Pencil,
@@ -112,6 +113,67 @@ type ReplaceTarget =
   | { kind: 'new'; index: number }
   | null;
 
+type UploadUiState =
+  | { status: 'idle' }
+  | { status: 'uploading'; progress: number }
+  | { status: 'success'; progress: number }
+  | { status: 'error' };
+
+async function uploadFormDataWithProgress({
+  url,
+  method,
+  body,
+  onProgress,
+  signal,
+}: {
+  url: string;
+  method: 'POST' | 'PATCH';
+  body: FormData;
+  onProgress?: (progress: number) => void;
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
+  return await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const progress = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      onProgress?.(progress);
+    };
+
+    xhr.onload = () => {
+      const status = xhr.status;
+      const ok = status >= 200 && status < 300;
+      const text = xhr.responseText ?? '';
+      resolve({
+        ok,
+        status,
+        json: async () => {
+          try {
+            return text ? JSON.parse(text) : {};
+          } catch {
+            return { error: text || 'Invalid server response' };
+          }
+        },
+      });
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.onabort = () => reject(new Error('Upload cancelled'));
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+        return;
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
+
+    xhr.send(body);
+  });
+}
+
 function ImageUploader({
   newImages,
   onNewImagesChange,
@@ -174,6 +236,12 @@ function ImageUploader({
             ? 'Image too large'
             : 'Unsupported file type';
       setUploadAlert({ title, description: lines.join('\n\n') });
+
+      if (tooLarge.length > 0) {
+        toast.error(`Image too large. Max size is ${productImageMaxSizeLabel()} per file.`);
+      } else if (badType.length > 0) {
+        toast.error('Unsupported image type. Use PNG, JPG, WEBP, or GIF.');
+      }
     } else {
       setUploadAlert(null);
     }
@@ -201,6 +269,7 @@ function ImageUploader({
         'Unsupported file type',
         `Use PNG, JPG, WEBP, or GIF. "${file.name}" is not supported.`,
       );
+      toast.error('Unsupported image type. Use PNG, JPG, WEBP, or GIF.');
       return false;
     }
     if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
@@ -208,6 +277,7 @@ function ImageUploader({
         'Image too large',
         `Maximum size is ${productImageMaxSizeLabel()} per file. "${file.name}" is too large.`,
       );
+      toast.error(`Image too large. Max size is ${productImageMaxSizeLabel()} per file.`);
       return false;
     }
     return true;
@@ -387,6 +457,7 @@ export default function ProductManagementClient() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadUi, setUploadUi] = useState<UploadUiState>({ status: 'idle' });
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [featuredUpdatingId, setFeaturedUpdatingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -519,6 +590,7 @@ export default function ProductManagementClient() {
     newImages.forEach((item) => URL.revokeObjectURL(item.preview));
     setNewImages([]);
     setMode('create');
+    setUploadUi({ status: 'idle' });
   }
 
   function openCreateDialog() {
@@ -554,6 +626,7 @@ export default function ProductManagementClient() {
 
   async function onSubmit(values: ProductFormValues) {
     setSubmitting(true);
+    setUploadUi({ status: 'uploading', progress: 0 });
     try {
       const specificationMap: Record<string, string> = {};
       for (const item of values.specifications) specificationMap[item.key] = item.value;
@@ -573,24 +646,37 @@ export default function ProductManagementClient() {
       formData.append('specifications', JSON.stringify(specificationMap));
       for (const image of newImages) formData.append('images', image.file);
 
-      let response: Response;
+      let response: { ok: boolean; status: number; json: () => Promise<unknown> };
       if (mode === 'create') {
-        response = await fetch('/api/admin/products', { method: 'POST', body: formData });
+        response = await uploadFormDataWithProgress({
+          url: '/api/admin/products',
+          method: 'POST',
+          body: formData,
+          onProgress: (progress) => setUploadUi({ status: 'uploading', progress }),
+        });
       } else {
         if (!editingProduct) throw new Error('Missing product to edit');
         formData.append('id', editingProduct.id);
         formData.append('existingImages', JSON.stringify(existingImages));
-        response = await fetch('/api/admin/products', { method: 'PATCH', body: formData });
+        response = await uploadFormDataWithProgress({
+          url: '/api/admin/products',
+          method: 'PATCH',
+          body: formData,
+          onProgress: (progress) => setUploadUi({ status: 'uploading', progress }),
+        });
       }
 
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? 'Failed to save product');
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload?.error ?? 'Failed to save product');
 
+      setUploadUi({ status: 'success', progress: 100 });
       toast.success(mode === 'create' ? 'Product created' : 'Product updated');
+      await new Promise((r) => setTimeout(r, 600));
       setDialogOpen(false);
       resetDialogState();
       await fetchProducts();
     } catch (error) {
+      setUploadUi({ status: 'error' });
       toast.error(error instanceof Error ? error.message : 'Could not save product');
     } finally {
       setSubmitting(false);
@@ -1046,8 +1132,18 @@ export default function ProductManagementClient() {
                   <Button type="submit" disabled={submitting}>
                     {submitting ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        {mode === 'create' ? 'Creating...' : 'Saving...'}
+                        {uploadUi.status === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin text-emerald-600" />
+                        )}
+                        {uploadUi.status === 'uploading'
+                          ? `Uploading ${uploadUi.progress}%`
+                          : uploadUi.status === 'success'
+                            ? 'Success'
+                            : mode === 'create'
+                              ? 'Creating...'
+                              : 'Saving...'}
                       </>
                     ) : (
                       <>

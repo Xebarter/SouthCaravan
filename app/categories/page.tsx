@@ -82,7 +82,7 @@ export default async function CategoriesPage({
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
             {products.map((product) => (
               <Link key={product.id} href={`/product/${product.id}`} className="block">
-                <Card className="border border-slate-200 shadow-none rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow h-full">
+                <Card className="border border-slate-200 shadow-none rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow h-full py-0 gap-0">
                   <CardContent className="p-0">
                     {product.images?.[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
