@@ -5,7 +5,10 @@ import { useCurrency } from '@/hooks/use-currency';
 import { cn } from '@/lib/utils';
 
 type MoneyProps = {
-  amountUSD: number;
+  /** Amount in base currency. Prefer `amount` + `baseCurrency`. */
+  amountUSD?: number;
+  amount?: number;
+  baseCurrency?: string;
   className?: string;
   showUsdInBrackets?: boolean;
   notation?: 'standard' | 'compact';
@@ -31,24 +34,36 @@ function formatCurrencySafe(
   }
 }
 
-export function Money({ amountUSD, className, showUsdInBrackets = true, notation = 'standard' }: MoneyProps) {
+export function Money({
+  amountUSD,
+  amount,
+  baseCurrency = 'USD',
+  className,
+  showUsdInBrackets = true,
+  notation = 'standard',
+}: MoneyProps) {
   const { selectedCurrency, convertCurrency } = useCurrency('AUTO');
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
+  const normalizedBase = baseCurrency.toUpperCase();
+  const normalizedAmount =
+    typeof amount === 'number' && Number.isFinite(amount) ? amount : (amountUSD ?? 0);
+
   const localAmount = useMemo(() => {
-    if (!Number.isFinite(amountUSD)) return 0;
-    if (selectedCurrency === 'USD') return amountUSD;
-    return convertCurrency(amountUSD, 'USD', selectedCurrency);
-  }, [amountUSD, convertCurrency, selectedCurrency]);
+    if (!Number.isFinite(normalizedAmount)) return 0;
+    if (selectedCurrency === normalizedBase) return normalizedAmount;
+    return convertCurrency(normalizedAmount, normalizedBase, selectedCurrency);
+  }, [normalizedAmount, normalizedBase, convertCurrency, selectedCurrency]);
 
   const localFormatted = useMemo(
     () => formatCurrencySafe(localAmount, selectedCurrency, locale, notation),
     [localAmount, selectedCurrency, locale, notation],
   );
-  const usdFormatted = useMemo(
-    () => formatCurrencySafe(amountUSD, 'USD', locale, notation),
-    [amountUSD, locale, notation],
+  const usdAmount = useMemo(
+    () => convertCurrency(normalizedAmount, normalizedBase, 'USD'),
+    [normalizedAmount, normalizedBase, convertCurrency],
   );
+  const usdFormatted = useMemo(() => formatCurrencySafe(usdAmount, 'USD', locale, notation), [usdAmount, locale, notation]);
 
   return (
     <span className={cn('inline-flex items-baseline gap-1 tabular-nums', className)}>

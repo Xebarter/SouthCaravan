@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { CheckCircle2, AlertCircle, Lock, Bell, Shield } from 'lucide-react';
 import { CURRENCIES, formatCurrencyOption } from '@/lib/currencies';
+import { useCurrency } from '@/hooks/use-currency';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const { currencyPreference, setSelectedCurrency } = useCurrency('AUTO');
   const [notifications, setNotifications] = useState({
     orderUpdates: true,
     newProducts: true,
@@ -190,8 +192,12 @@ export default function SettingsPage() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label>Default Currency</Label>
-                <select className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-foreground">
-                  <option value="AUTO" defaultValue="AUTO">AUTO - Detect from location</option>
+                <select
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-foreground"
+                  value={currencyPreference}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                >
+                  <option value="AUTO">AUTO - Detect from location</option>
                   {CURRENCIES.map((currency) => (
                     <option key={currency.code} value={currency.code}>
                       {formatCurrencyOption(currency)}
