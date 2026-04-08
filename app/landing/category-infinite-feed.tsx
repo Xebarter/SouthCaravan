@@ -79,14 +79,17 @@ export default function CategoryInfiniteFeed({
   const isEmpty = useMemo(() => sections.length === 0 && !loading, [sections.length, loading]);
 
   return (
-    <section className="px-4 md:px-6 py-6 md:py-8 bg-[#f3f5f7]">
-      <div className="max-w-[1500px] mx-auto space-y-5">
+    <section className="px-2 sm:px-4 md:px-6 py-5 sm:py-6 md:py-8 bg-[#f3f5f7]">
+      <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-5">
         {sections.map((section, sectionIndex) => {
           const isInitialSection = sectionIndex < initialSectionCount;
           return (
-            <div key={section.category} className="bg-white border border-slate-200 rounded-xl px-4 md:px-6 py-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-900">
+            <div
+              key={section.category}
+              className="bg-white border border-slate-200 rounded-xl px-2.5 sm:px-4 md:px-6 py-3.5 sm:py-5 shadow-sm"
+            >
+            <div className="flex items-center justify-between mb-3 sm:mb-4 gap-3">
+              <h3 className="text-base sm:text-xl font-bold text-slate-900">
                 Top picks in{' '}
                 <Link
                   href={`/categories?category=${encodeURIComponent(section.category)}`}
@@ -102,7 +105,7 @@ export default function CategoryInfiniteFeed({
                 See more
               </Link>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 sm:gap-4">
               {section.products.slice(0, 4).map((product, index) => (
                 <Link
                   key={product.id}
@@ -128,16 +131,16 @@ export default function CategoryInfiniteFeed({
                         )}
                       </div>
 
-                      <div className="p-3 space-y-2 flex-1">
+                      <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2 flex-1">
                         <p className="text-sm text-slate-900 line-clamp-2 min-h-10">{product.name}</p>
                         <div className="flex items-baseline justify-between">
-                          <p className="text-lg font-bold text-slate-900">${Number(product.price).toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-bold text-slate-900">${Number(product.price).toFixed(2)}</p>
                           <span className="text-[11px] text-slate-500">{product.minimum_order} {product.unit} min</span>
                         </div>
                         <p className="text-xs text-slate-500 line-clamp-1">{getVendorName(product.vendor_id)}</p>
                       </div>
 
-                      <div className="mt-auto px-3 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                      <div className="mt-auto px-2 sm:px-3 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
                         <div className="flex items-center gap-1 text-[11px] text-amber-500">
                           <Star className="w-3 h-3 fill-current" />
                           <span>{product.is_featured ? 'Spotlight' : 'Verified'}</span>

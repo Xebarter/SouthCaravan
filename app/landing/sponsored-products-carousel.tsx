@@ -11,8 +11,8 @@ export default function SponsoredProductsCarousel({ items }: { items: SponsoredI
   if (!items?.length) return null;
 
   return (
-    <section className="pt-3 md:pt-4 px-4 md:px-6">
-      <div className="max-w-[1500px] mx-auto rounded-2xl border border-slate-200 bg-white p-3.5 md:p-4 shadow-sm">
+    <section className="pt-3 md:pt-4 px-2 sm:px-4 md:px-6">
+      <div className="max-w-[1500px] mx-auto rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3.5 md:p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-center gap-3">
           <span className="h-px w-10 bg-gradient-to-r from-transparent to-amber-300" />
           <p className="rounded-full border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-amber-50 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800 shadow-sm">

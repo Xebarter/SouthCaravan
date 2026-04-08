@@ -5,6 +5,8 @@ import { AppShellWithMenu } from '@/components/app-shell-with-menu'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://southcaravan.com'
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -13,13 +15,19 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'SouthCaravan - B2B Vendor Management',
   description: 'Professional B2B vendor management platform for streamlined procurement and supply chain management',
   generator: 'v0.app',
   icons: {
-    icon: [{ url: '/logo.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/logo.svg', type: 'image/svg+xml' }],
-    shortcut: '/logo.svg',
+    // Include favicon.ico for browsers that request it early on first load.
+    icon: [
+      { url: '/favicon.ico', type: 'image/x-icon' },
+      { url: '/icon1.png', type: 'image/png' },
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    apple: [{ url: '/apple-icon.png', type: 'image/png' }],
+    shortcut: '/favicon.ico',
   },
   openGraph: {
     type: 'website',
@@ -28,6 +36,13 @@ export const metadata: Metadata = {
     siteName: 'SouthCaravan',
     title: 'SouthCaravan - B2B Vendor Management',
     description: 'Professional B2B vendor management platform for streamlined procurement',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'SouthCaravan' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SouthCaravan - B2B Vendor Management',
+    description: 'Professional B2B vendor management platform for streamlined procurement and supply chain management',
+    images: ['/twitter-image'],
   },
   robots: {
     index: true,

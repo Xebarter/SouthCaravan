@@ -46,16 +46,16 @@ export default async function HomePage() {
       ))}
 
       <ProductAdBannerSection items={sponsoredItems} />
-      <section className="px-4 md:px-6 pt-4 pb-8 md:pt-6 md:pb-10">
-        <div className="max-w-[1500px] mx-auto space-y-6">
-          <div className="space-y-4">
+      <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10">
+        <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">
+          <div className="space-y-3 sm:space-y-4">
             <Badge className="bg-sky-100 text-sky-800 border-sky-200">
               Featured Marketplace Picks
             </Badge>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4">
               <Link href={heroProducts[0] ? `/product/${heroProducts[0].id}` : '/public/vendors'} className="lg:col-span-6 block">
                 <Card className="border-slate-200 bg-gradient-to-br from-sky-50 via-white to-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-5 space-y-4">
+                  <CardContent className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
                     {heroProducts[0]?.images?.[0] ? (
                       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-md">
                         <Image
@@ -90,11 +90,11 @@ export default async function HomePage() {
                 </Card>
               </Link>
 
-              <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                 {heroProducts.slice(1).map((product) => (
                   <Link key={product.id} href={`/product/${product.id}`} className="block">
                     <Card className="border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all bg-white">
-                      <CardContent className="p-4 space-y-3">
+                      <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                         {product.images?.[0] ? (
                           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
                             <Image
@@ -124,22 +124,22 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button size="lg" className="rounded-full px-6" asChild>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <Button size="lg" className="rounded-full px-5 sm:px-6" asChild>
               <Link href="/login">
                 Post My RFQ
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="rounded-full px-6 border-slate-300 bg-white" asChild>
+            <Button size="lg" variant="outline" className="rounded-full px-5 sm:px-6 border-slate-300 bg-white" asChild>
               <Link href="/public/vendors">Explore Suppliers</Link>
             </Button>
           </div>
         </div>
       </section>
 
-      <section className="px-4 md:px-6 pb-7">
-        <div className="max-w-[1500px] mx-auto bg-white border border-slate-200 rounded-xl p-3 md:p-4 shadow-sm">
+      <section className="px-2 sm:px-4 md:px-6 pb-6 sm:pb-7">
+        <div className="max-w-[1500px] mx-auto bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 md:p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <Package className="w-4 h-4 text-sky-700" />
             <p className="text-sm font-semibold text-slate-900">Popular Marketplace Categories</p>
