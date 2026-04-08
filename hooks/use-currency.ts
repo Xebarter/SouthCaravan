@@ -1,10 +1,16 @@
 import { useState, useCallback } from 'react';
 import { CURRENCIES, Currency, getCurrencyByCode } from '@/lib/currencies';
+import { detectUserCurrencyCode } from '@/lib/currency-detection';
 
-export const useCurrency = (initialCurrency: string = 'USD') => {
+export const useCurrency = (initialCurrency: string = 'AUTO') => {
   const [selectedCurrency, setSelectedCurrency] = useState<string>(initialCurrency);
   
-  const currency = getCurrencyByCode(selectedCurrency);
+  const effectiveCurrencyCode =
+    selectedCurrency === 'AUTO'
+      ? detectUserCurrencyCode(typeof navigator !== 'undefined' ? navigator.language : undefined, 'USD')
+      : selectedCurrency;
+
+  const currency = getCurrencyByCode(effectiveCurrencyCode);
 
   const formatPrice = useCallback((amount: number, includeSymbol = true) => {
     const formatted = amount.toLocaleString('en-US', {
@@ -40,7 +46,7 @@ export const useCurrency = (initialCurrency: string = 'USD') => {
   }, []);
 
   return {
-    selectedCurrency,
+    selectedCurrency: effectiveCurrencyCode,
     setSelectedCurrency,
     currency,
     formatPrice,

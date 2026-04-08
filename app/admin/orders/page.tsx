@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import {
   Select,
   SelectContent,
@@ -64,7 +65,9 @@ export default function AdminOrdersPage() {
           </Card>
           <Card className="border-border/50">
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold">${(stats.totalGMV / 1000).toFixed(1)}k</div>
+              <div className="text-2xl font-bold">
+                <Money amountUSD={stats.totalGMV} notation="compact" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">GMV</p>
             </CardContent>
           </Card>
@@ -152,7 +155,7 @@ export default function AdminOrdersPage() {
                             <span className="text-sm">{order.items.length}</span>
                           </td>
                           <td className="py-3 px-4 font-bold text-primary">
-                            ${order.totalAmount.toLocaleString()}
+                            <Money amountUSD={order.totalAmount} />
                           </td>
                           <td className="py-3 px-4 text-sm">
                             {order.createdAt.toLocaleDateString()}

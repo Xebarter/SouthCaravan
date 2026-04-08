@@ -5,12 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 import type { SponsoredItem, SponsoredProductSummary } from '@/lib/landing-data'
-
-function formatProductPriceLabel(product: SponsoredProductSummary | null | undefined) {
-  if (!product) return '$0.00'
-  // Sponsored items currently provide a single price in this repo.
-  return `$${product.price.toFixed(2)}`
-}
+import { Money } from '@/components/money'
 
 export default function ProductAdBannerSection({ items }: { items: SponsoredItem[] }) {
   const [activeBannerIndex, setActiveBannerIndex] = React.useState(0)
@@ -112,7 +107,7 @@ export default function ProductAdBannerSection({ items }: { items: SponsoredItem
 
                 <div className="flex items-center gap-2 sm:gap-2.5 mb-2">
                   <span className="text-base sm:text-lg font-bold text-foreground">
-                    {formatProductPriceLabel(activeBannerProduct)}
+                    <Money amountUSD={Number(activeBannerProduct.price)} />
                   </span>
                   <span className="text-xs bg-accent text-accent-foreground px-2.5 py-1 rounded-full">
                     {activeBannerProduct.subcategory || activeBannerProduct.category}

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Users, ShoppingCart, DollarSign } from 'lucide-react';
 import { mockOrders, mockProducts } from '@/lib/mock-data';
+import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
 import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 
@@ -70,7 +71,9 @@ export default function VendorAnalyticsPage() {
               <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(totalRevenue / 1000).toFixed(1)}k</div>
+              <div className="text-2xl font-bold">
+                <Money amountUSD={totalRevenue} notation="compact" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">All time</p>
             </CardContent>
           </Card>
@@ -81,7 +84,9 @@ export default function VendorAnalyticsPage() {
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${avgOrderValue.toFixed(0)}</div>
+              <div className="text-2xl font-bold">
+                <Money amountUSD={avgOrderValue} />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">{vendorOrders.length} orders</p>
             </CardContent>
           </Card>

@@ -16,6 +16,7 @@ import { mockProducts } from '@/lib/mock-data';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { useAuth } from '@/lib/auth-context';
 import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
+import { Money } from '@/components/money';
 
 export default function VendorProductsPage() {
   const { user } = useAuth();
@@ -61,7 +62,9 @@ export default function VendorProductsPage() {
           </Card>
           <Card className="border-border/50">
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold">${vendorProducts.reduce((sum, p) => sum + p.price, 0).toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                <Money amountUSD={vendorProducts.reduce((sum, p) => sum + p.price, 0)} />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">Total Value</p>
             </CardContent>
           </Card>
@@ -106,7 +109,9 @@ export default function VendorProductsPage() {
                           <td className="py-3 px-4">
                             <Badge variant="outline">{product.category}</Badge>
                           </td>
-                          <td className="py-3 px-4 font-medium">${product.price.toFixed(2)}</td>
+                          <td className="py-3 px-4 font-medium">
+                            <Money amountUSD={Number(product.price)} />
+                          </td>
                           <td className="py-3 px-4">{product.minimumOrder}</td>
                           <td className="py-3 px-4">
                             <Badge className={

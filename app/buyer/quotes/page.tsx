@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import { AlertCircle, CheckCircle, Clock, XCircle, ArrowRight, Plus } from 'lucide-react';
 import { mockQuotes, mockVendors, mockOrders } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
@@ -144,7 +145,9 @@ export default function BuyerQuotesPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Amount</p>
-                            <p className="font-bold text-primary">${quote.totalAmount.toLocaleString()}</p>
+                            <p className="font-bold text-primary">
+                              <Money amountUSD={quote.totalAmount} />
+                            </p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Valid Until</p>
@@ -162,7 +165,9 @@ export default function BuyerQuotesPage() {
                           {quote.items.slice(0, 3).map((item, idx) => (
                             <div key={idx} className="flex justify-between text-xs">
                               <span className="text-muted-foreground">Qty: {item.quantity}</span>
-                              <span className="font-medium">${item.subtotal.toLocaleString()}</span>
+                              <span className="font-medium">
+                                <Money amountUSD={item.subtotal} />
+                              </span>
                             </div>
                           ))}
                           {quote.items.length > 3 && (

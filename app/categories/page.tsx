@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Money } from '@/components/money';
 import { Package, Star } from 'lucide-react';
 import { getProductsByCategory } from '@/lib/landing-data';
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
@@ -102,7 +103,9 @@ export default async function CategoriesPage({
                       <p className="text-sm text-slate-900 line-clamp-2 min-h-10">{product.name}</p>
                       <p className="text-xs text-slate-500 line-clamp-2">{stripHtmlForPreview(product.description)}</p>
                       <div className="flex items-baseline justify-between">
-                        <p className="text-base font-bold text-slate-900">${Number(product.price).toFixed(2)}</p>
+                        <p className="text-base font-bold text-slate-900">
+                          <Money amountUSD={Number(product.price)} />
+                        </p>
                         <span className="text-[11px] text-slate-500">
                           {product.minimum_order} {product.unit} min
                         </span>

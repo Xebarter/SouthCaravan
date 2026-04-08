@@ -16,6 +16,7 @@ import {
 import { Search, ShoppingCart } from 'lucide-react';
 import { mockProducts, mockVendors } from '@/lib/mock-data';
 import { stripHtmlForPreview } from '@/lib/strip-html';
+import { Money } from '@/components/money';
 
 export default function CatalogClient() {
   const searchParams = useSearchParams();
@@ -204,7 +205,9 @@ export default function CatalogClient() {
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Unit Price:</span>
-                        <span className="text-lg font-bold text-primary">${product.price}</span>
+                        <span className="text-lg font-bold text-primary">
+                          <Money amountUSD={Number(product.price)} />
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Min Order:</span>

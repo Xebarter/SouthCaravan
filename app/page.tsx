@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import {
   ArrowRight,
   Package,
@@ -84,7 +85,9 @@ export default async function HomePage() {
                       <Badge variant="outline" className="border-slate-300 bg-white/80">
                         {heroProducts[0]?.subcategory ?? heroProducts[0]?.category ?? 'Category'}
                       </Badge>
-                      <p className="font-bold text-lg text-slate-900">${heroProducts[0]?.price.toFixed(2) ?? '0.00'}</p>
+                      <p className="font-bold text-lg text-slate-900">
+                        <Money amountUSD={Number(heroProducts[0]?.price ?? 0)} />
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -114,7 +117,9 @@ export default async function HomePage() {
                         <p className="font-semibold text-sm text-slate-900 line-clamp-1">{product.name}</p>
                         <div className="flex items-center justify-between">
                           <Badge variant="outline" className="text-[11px] border-slate-300 bg-slate-50">{product.subcategory || product.category}</Badge>
-                          <p className="text-sm font-bold text-slate-900">${product.price.toFixed(2)}</p>
+                          <p className="text-sm font-bold text-slate-900">
+                            <Money amountUSD={Number(product.price)} />
+                          </p>
                         </div>
                       </CardContent>
                     </Card>

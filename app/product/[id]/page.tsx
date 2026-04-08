@@ -4,13 +4,11 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Building2, CheckCircle2, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProductImageGallery } from '@/components/product-image-gallery';
 import { ProductRichText } from '@/components/product-rich-text';
 import { ProductPurchaseActions } from '@/components/product-purchase-actions';
+import { Money } from '@/components/money';
 import { getProductById, getRelatedProducts } from '@/lib/product-data';
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-}
 
 function getVendorDisplayName(vendorId: string | null) {
   if (!vendorId) return 'SouthCaravan Verified Supplier';
@@ -54,36 +52,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div className="grid gap-5 lg:grid-cols-12">
           <Card className="lg:col-span-7 border-slate-200 shadow-sm">
             <CardContent className="p-4 md:p-5 space-y-3">
-              {product.images?.[0] ? (
-                <div className="relative w-full h-[340px] md:h-[440px] rounded-lg overflow-hidden bg-slate-100">
-                  <Image
-                    src={product.images[0]}
-                    alt={product.name}
-                    fill
-                    priority
-                    sizes="(min-width: 1024px) 58vw, 100vw"
-                    className="object-cover"
-                  />
-                </div>
+              {product.images?.length ? (
+                <ProductImageGallery images={product.images} alt={product.name} />
               ) : (
                 <div className="w-full h-[340px] md:h-[440px] rounded-lg bg-slate-100 flex items-center justify-center">
                   <Package className="h-12 w-12 text-slate-400" />
-                </div>
-              )}
-              {product.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {product.images.slice(1, 5).map((imageUrl) => (
-                    <div key={imageUrl} className="relative h-20 w-full rounded-md overflow-hidden bg-slate-100">
-                      <Image
-                        src={imageUrl}
-                        alt={product.name}
-                        fill
-                        priority
-                        sizes="20vw"
-                        className="object-cover"
-                      />
-                    </div>
-                  ))}
                 </div>
               )}
             </CardContent>
@@ -103,7 +76,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div>
                     <p className="text-xs text-slate-500">Reference Unit Price</p>
-                    <p className="text-xl font-bold text-slate-900">{formatMoney(Number(product.price))}</p>
+                    <p className="text-xl font-bold text-slate-900">
+                      <Money amountUSD={Number(product.price)} />
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Minimum Order</p>
@@ -218,7 +193,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     )}
                     <div className="p-2.5 space-y-1.5">
                       <p className="text-sm font-medium text-slate-900 line-clamp-2">{item.name}</p>
-                      <p className="text-xs text-slate-600">{formatMoney(Number(item.price))} / {item.unit}</p>
+                      <p className="text-xs text-slate-600">
+                        <Money amountUSD={Number(item.price)} /> / {item.unit}
+                      </p>
                     </div>
                   </Link>
                 ))}

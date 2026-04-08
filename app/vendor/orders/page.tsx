@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Eye, Filter } from 'lucide-react';
+import { Money } from '@/components/money';
 import { mockOrders, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
@@ -85,7 +86,9 @@ export default function VendorOrdersPage() {
           </Card>
           <Card className="border-border/50">
             <CardContent className="pt-4">
-              <div className="text-lg font-bold text-primary">${(totalRevenue / 1000).toFixed(1)}k</div>
+              <div className="text-lg font-bold text-primary">
+                <Money amountUSD={totalRevenue} notation="compact" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">Revenue</p>
             </CardContent>
           </Card>
@@ -141,7 +144,9 @@ export default function VendorOrdersPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Amount</p>
-                            <p className="font-bold text-primary">${order.totalAmount.toLocaleString()}</p>
+                            <p className="font-bold text-primary">
+                              <Money amountUSD={order.totalAmount} />
+                            </p>
                           </div>
                         </div>
 
@@ -150,7 +155,9 @@ export default function VendorOrdersPage() {
                           {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-xs">
                               <span className="text-muted-foreground">Qty: {item.quantity}</span>
-                              <span className="font-medium">${item.subtotal.toLocaleString()}</span>
+                              <span className="font-medium">
+                                <Money amountUSD={item.subtotal} />
+                              </span>
                             </div>
                           ))}
                         </div>

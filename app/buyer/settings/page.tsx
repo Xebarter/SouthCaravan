@@ -191,7 +191,7 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label>Default Currency</Label>
                 <select className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-foreground">
-                  <option value="USD" defaultValue="USD">{formatCurrencyOption(CURRENCIES[33])}</option>
+                  <option value="AUTO" defaultValue="AUTO">AUTO - Detect from location</option>
                   {CURRENCIES.map((currency) => (
                     <option key={currency.code} value={currency.code}>
                       {formatCurrencyOption(currency)}

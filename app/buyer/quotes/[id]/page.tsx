@@ -6,6 +6,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import { Download, Printer } from 'lucide-react';
 import Link from 'next/link';
 
@@ -84,7 +85,9 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total</span>
-                <span className="font-semibold text-primary">${quote.totalAmount.toLocaleString()}</span>
+                <span className="font-semibold text-primary">
+                  <Money amountUSD={quote.totalAmount} />
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Created</span>
@@ -107,8 +110,12 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
                           <p className="text-sm text-muted-foreground mt-1">Qty: {line.quantity}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold">${line.subtotal.toLocaleString()}</p>
-                          <p className="text-sm text-muted-foreground">${line.unitPrice.toFixed(2)} each</p>
+                          <p className="font-semibold">
+                            <Money amountUSD={line.subtotal} />
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <Money amountUSD={line.unitPrice} /> each
+                          </p>
                         </div>
                       </div>
                     );

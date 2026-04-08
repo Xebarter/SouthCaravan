@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Money } from '@/components/money';
 import { mockOrders, mockProducts, mockUsers, mockVendors } from '@/lib/mock-data';
 
 type FeaturedState = Record<string, boolean>;
@@ -63,7 +64,9 @@ export default function AdminOverviewPage() {
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-muted-foreground">Total GMV</p>
-            <p className="text-2xl font-bold">${(totalGMV / 1000).toFixed(1)}k</p>
+            <p className="text-2xl font-bold">
+              <Money amountUSD={totalGMV} notation="compact" />
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -138,7 +141,9 @@ export default function AdminOverviewPage() {
               <div key={product.id} className="rounded-md border border-border p-3 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className="font-medium line-clamp-1">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">${product.price.toFixed(2)} - {product.category}</p>
+                  <p className="text-xs text-muted-foreground">
+                    <Money amountUSD={Number(product.price)} /> - {product.category}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant="outline">{featured[product.id] ? 'Featured' : 'Standard'}</Badge>

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Trash2, ShoppingCart, Truck, Tags } from 'lucide-react';
 import { setCheckoutLineItems } from '@/lib/checkout-session';
+import { Money } from '@/components/money';
 
 interface CartItem {
   id: string;
@@ -110,7 +111,9 @@ export default function CartPage() {
                       <h3 className="font-semibold text-foreground">{item.name}</h3>
                       <p className="text-sm text-muted-foreground">{item.vendor}</p>
                     </div>
-                    <p className="text-lg font-bold text-primary">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="text-lg font-bold text-primary">
+                      <Money amountUSD={item.price * item.quantity} />
+                    </p>
                   </div>
 
                   <div className="flex flex-col items-end justify-between">
@@ -154,12 +157,14 @@ export default function CartPage() {
             <CardContent className="space-y-3 text-sm">
               {shipping === 0 ? (
                 <div className="p-3 bg-primary/10 border border-primary/30 rounded text-primary">
-                  Free shipping applied (order over $500)
+                  Free shipping applied (order over <Money amountUSD={500} />)
                 </div>
               ) : (
                 <div className="text-muted-foreground">
-                  <p>Standard Shipping: ${shipping.toFixed(2)}</p>
-                  <p className="text-xs mt-1">Free shipping available on orders over $500</p>
+                  <p>
+                    Standard Shipping: <Money amountUSD={shipping} />
+                  </p>
+                  <p className="text-xs mt-1">Free shipping available on orders over <Money amountUSD={500} /></p>
                 </div>
               )}
             </CardContent>
@@ -176,27 +181,37 @@ export default function CartPage() {
               <div className="space-y-3 text-sm border-b border-border pb-4">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">
+                    <Money amountUSD={subtotal} />
+                  </span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-primary">
                     <span>Discount</span>
-                    <span>-${discount.toFixed(2)}</span>
+                    <span>
+                      −<Money amountUSD={discount} />
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-semibold">${shipping.toFixed(2)}</span>
+                  <span className="font-semibold">
+                    <Money amountUSD={shipping} />
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax (8%)</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+                  <span className="font-semibold">
+                    <Money amountUSD={tax} />
+                  </span>
                 </div>
               </div>
 
               <div className="flex justify-between items-center pt-4 border-t border-border">
                 <span className="font-bold text-lg">Total</span>
-                <span className="text-2xl font-bold text-primary">${total.toFixed(2)}</span>
+                <span className="text-2xl font-bold text-primary">
+                  <Money amountUSD={total} />
+                </span>
               </div>
 
               <Button

@@ -47,6 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
+import { Money } from '@/components/money';
 
 const UNITS = ['piece', 'kg', 'g', 'tonne', 'litre', 'ml', 'metre', 'sqm', 'box', 'pack', 'dozen', 'set'] as const;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -899,7 +900,7 @@ export default function ProductManagementClient() {
                         </p>
                       </td>
                       <td className="whitespace-nowrap py-2.5 px-2 align-top sm:py-3 sm:px-3">
-                        ${Number(product.price).toFixed(2)}
+                        <Money amountUSD={Number(product.price)} />
                       </td>
                       <td className="min-w-0 py-2.5 px-2 align-top sm:py-3 sm:px-3">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">

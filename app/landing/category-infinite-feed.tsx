@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Package, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Money } from '@/components/money';
 import type { FeedSection } from '@/lib/landing-data';
 
 function getVendorName(vendorId: string | null) {
@@ -134,7 +135,9 @@ export default function CategoryInfiniteFeed({
                       <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2 flex-1">
                         <p className="text-sm text-slate-900 line-clamp-2 min-h-10">{product.name}</p>
                         <div className="flex items-baseline justify-between">
-                          <p className="text-base sm:text-lg font-bold text-slate-900">${Number(product.price).toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-bold text-slate-900">
+                            <Money amountUSD={Number(product.price)} />
+                          </p>
                           <span className="text-[11px] text-slate-500">{product.minimum_order} {product.unit} min</span>
                         </div>
                         <p className="text-xs text-slate-500 line-clamp-1">{getVendorName(product.vendor_id)}</p>

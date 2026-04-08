@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import { Download, Eye, Filter } from 'lucide-react';
 import { mockOrders, mockVendors, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
@@ -132,7 +133,9 @@ export default function BuyerOrdersPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Total</p>
-                            <p className="font-bold text-primary">${order.totalAmount.toLocaleString()}</p>
+                            <p className="font-bold text-primary">
+                              <Money amountUSD={order.totalAmount} />
+                            </p>
                           </div>
                         </div>
 

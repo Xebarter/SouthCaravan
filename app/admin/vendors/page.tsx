@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +50,9 @@ export default function AdminVendorsPage() {
           </Card>
           <Card className="border-border/50">
             <CardContent className="pt-4">
-              <div className="text-lg font-bold text-primary">${(totalVendorRevenue / 1000).toFixed(1)}k</div>
+              <div className="text-lg font-bold text-primary">
+                <Money amountUSD={totalVendorRevenue} notation="compact" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">Platform Revenue</p>
             </CardContent>
           </Card>
@@ -124,7 +127,9 @@ export default function AdminVendorsPage() {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Revenue: </span>
-                            <span className="font-bold text-primary">${(vendorRevenue / 1000).toFixed(1)}k</span>
+                            <span className="font-bold text-primary">
+                              <Money amountUSD={vendorRevenue} notation="compact" />
+                            </span>
                           </div>
                         </div>
                       </div>

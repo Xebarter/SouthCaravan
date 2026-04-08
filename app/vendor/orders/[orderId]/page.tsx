@@ -6,13 +6,10 @@ import { ArrowLeft, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
 import { getBuyerLabel, getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 import { mockOrders, mockProducts } from '@/lib/mock-data';
-
-function formatMoney(n: number) {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-}
 
 export default function VendorOrderDetailPage({
   params,
@@ -74,7 +71,9 @@ export default function VendorOrderDetailPage({
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total</span>
-              <span className="font-semibold tabular-nums">{formatMoney(order.totalAmount)}</span>
+              <span className="font-semibold tabular-nums">
+                <Money amountUSD={order.totalAmount} />
+              </span>
             </div>
             {order.estimatedDelivery && (
               <div className="flex justify-between">
@@ -116,11 +115,11 @@ export default function VendorOrderDetailPage({
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{product?.name ?? line.productId}</p>
                     <p className="text-xs text-muted-foreground">
-                      Qty {line.quantity.toLocaleString()} · {formatMoney(line.unitPrice)} unit
+                      Qty {line.quantity.toLocaleString()} · <Money amountUSD={line.unitPrice} /> unit
                     </p>
                   </div>
                   <span className="text-sm font-semibold tabular-nums shrink-0">
-                    {formatMoney(line.subtotal)}
+                    <Money amountUSD={line.subtotal} />
                   </span>
                 </div>
               );

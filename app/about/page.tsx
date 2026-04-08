@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Money } from '@/components/money';
 import Link from 'next/link';
 import { ArrowRight, Award, Users, Target, Zap } from 'lucide-react';
 
@@ -104,7 +105,12 @@ export default function AboutPage() {
               {
                 name: 'Priya Patel',
                 role: 'COO',
-                background: '12 years in supply chain. Managed $500M+ vendor networks.',
+                background: (
+                  <>
+                    12 years in supply chain. Managed <Money amountUSD={500_000_000} notation="compact" />+ vendor
+                    networks.
+                  </>
+                ),
               },
             ].map((member) => (
               <div key={member.name} className="bg-background border border-border rounded-lg p-8 text-center">
@@ -128,9 +134,23 @@ export default function AboutPage() {
           <div className="space-y-8 max-w-2xl mx-auto">
             {[
               { year: '2021', milestone: 'Founded SouthCaravan with mission to simplify B2B procurement' },
-              { year: '2022', milestone: 'Reached 100 vendors, $100M GMV, Series A funding' },
+              {
+                year: '2022',
+                milestone: (
+                  <>
+                    Reached 100 vendors, <Money amountUSD={100_000_000} notation="compact" /> GMV, Series A funding
+                  </>
+                ),
+              },
               { year: '2023', milestone: 'Expanded to 300+ vendors, 5,000+ active buyers' },
-              { year: '2024', milestone: 'Hit 500+ vendors, $2B+ GMV, Enterprise features' },
+              {
+                year: '2024',
+                milestone: (
+                  <>
+                    Hit 500+ vendors, <Money amountUSD={2_000_000_000} notation="compact" />+ GMV, Enterprise features
+                  </>
+                ),
+              },
             ].map((item) => (
               <div key={item.year} className="flex gap-8 items-start">
                 <div className="text-lg font-bold text-primary whitespace-nowrap">{item.year}</div>
@@ -148,7 +168,14 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
           {[
             { label: 'Verified Vendors', value: '500+' },
-            { label: 'Annual GMV', value: '$2B+' },
+            {
+              label: 'Annual GMV',
+              value: (
+                <>
+                  <Money amountUSD={2_000_000_000} notation="compact" />+
+                </>
+              ),
+            },
             { label: 'Active Buyers', value: '10K+' },
             { label: 'Team Members', value: '150+' },
           ].map((stat) => (

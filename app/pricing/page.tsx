@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Check, ArrowRight } from 'lucide-react';
+import { Money } from '@/components/money';
 
 export const metadata = {
   title: 'Pricing - SouthCaravan B2B Platform',
@@ -48,7 +49,7 @@ export default function PricingPage() {
                   },
                   {
                     name: 'Professional',
-                    price: '$299',
+                    price: 299,
                     period: '/month',
                     description: 'For growing procurement teams',
                     highlighted: true,
@@ -127,7 +128,7 @@ export default function PricingPage() {
                   },
                   {
                     name: 'Growth',
-                    price: '$99',
+                    price: 99,
                     period: '/month',
                     description: 'For vendors ready to scale',
                     highlighted: true,
@@ -166,7 +167,9 @@ export default function PricingPage() {
                   >
                     <h4 className="text-xl font-semibold mb-2">{plan.name}</h4>
                     <div className="mb-4">
-                      <span className="text-3xl font-bold">{plan.price}</span>
+                      <span className="text-3xl font-bold">
+                        {typeof plan.price === 'number' ? <Money amountUSD={plan.price} /> : plan.price}
+                      </span>
                       <span className="text-foreground/60"> {plan.period}</span>
                     </div>
                     <p className="text-foreground/70 text-sm mb-6">{plan.description}</p>

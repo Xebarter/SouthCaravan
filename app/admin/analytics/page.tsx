@@ -1,12 +1,13 @@
 import { ArrowUpRight, BarChart3, DollarSign, Globe2, ShoppingBag, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 
 const geoPerformance = [
-  { region: 'Africa', revenue: '$420k', growth: '+18%' },
-  { region: 'Europe', revenue: '$295k', growth: '+11%' },
-  { region: 'Middle East', revenue: '$210k', growth: '+23%' },
-  { region: 'North America', revenue: '$188k', growth: '+9%' },
+  { region: 'Africa', revenueUSD: 420_000, growth: '+18%' },
+  { region: 'Europe', revenueUSD: 295_000, growth: '+11%' },
+  { region: 'Middle East', revenueUSD: 210_000, growth: '+23%' },
+  { region: 'North America', revenueUSD: 188_000, growth: '+9%' },
 ];
 
 export default function AdminAnalyticsPage() {
@@ -26,7 +27,9 @@ export default function AdminAnalyticsPage() {
               <p className="text-xs text-muted-foreground">Gross Revenue (30d)</p>
               <DollarSign className="w-4 h-4 text-primary" />
             </div>
-            <p className="text-2xl font-bold mt-2">$1.1M</p>
+            <p className="text-2xl font-bold mt-2">
+              <Money amountUSD={1_100_000} notation="compact" />
+            </p>
             <p className="text-xs text-green-500 mt-1">+14.2% MoM</p>
           </CardContent>
         </Card>
@@ -76,7 +79,9 @@ export default function AdminAnalyticsPage() {
                   <span className="font-medium">{row.region}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge variant="outline">{row.revenue}</Badge>
+                  <Badge variant="outline">
+                    <Money amountUSD={row.revenueUSD} notation="compact" />
+                  </Badge>
                   <span className="text-sm text-green-500">{row.growth}</span>
                 </div>
               </div>

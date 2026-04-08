@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { Money } from '@/components/money';
 
 type ProductOption = {
   id: string;
@@ -346,9 +347,14 @@ export default function AdminAddsPage() {
                   className="h-10 w-full justify-between font-normal"
                 >
                   <span className="truncate text-left">
-                    {selectedProduct
-                      ? `${selectedProduct.name} - $${Number(selectedProduct.price).toFixed(2)}`
-                      : 'Search and select product'}
+                    {selectedProduct ? (
+                      <>
+                        <span>{selectedProduct.name} - </span>
+                        <Money amountUSD={Number(selectedProduct.price)} />
+                      </>
+                    ) : (
+                      'Search and select product'
+                    )}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -384,7 +390,7 @@ export default function AdminAddsPage() {
                           <div className="min-w-0">
                             <p className="truncate">{product.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              ${Number(product.price).toFixed(2)} - {product.in_stock ? 'In stock' : 'Out of stock'}
+                              <Money amountUSD={Number(product.price)} /> - {product.in_stock ? 'In stock' : 'Out of stock'}
                             </p>
                           </div>
                         </CommandItem>
@@ -477,7 +483,7 @@ export default function AdminAddsPage() {
                     <div className="min-w-0 space-y-1">
                       <p className="font-medium line-clamp-1">{item.products?.name ?? 'Unknown product'}</p>
                       <p className="text-xs text-muted-foreground">
-                        ${Number(item.products?.price ?? 0).toFixed(2)} - {item.products?.category ?? 'No category'}
+                        <Money amountUSD={Number(item.products?.price ?? 0)} /> - {item.products?.category ?? 'No category'}
                       </p>
                       <div className="flex items-center gap-2 text-xs">
                         <Badge variant={item.draftIsActive ? 'default' : 'outline'}>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Money } from '@/components/money';
 import {
   Users,
   TrendingUp,
@@ -36,7 +37,9 @@ export function AdminDashboard() {
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(totalRevenue / 1000).toFixed(1)}k</div>
+              <div className="text-2xl font-bold">
+                <Money amountUSD={totalRevenue} notation="compact" />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">Platform GMV</p>
             </CardContent>
           </Card>
@@ -109,7 +112,7 @@ export function AdminDashboard() {
                             {buyer?.company || buyer?.name} → {vendor?.companyName}
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Order #{order.id.slice(-4).toUpperCase()} • ${order.totalAmount.toLocaleString()}
+                            Order #{order.id.slice(-4).toUpperCase()} • <Money amountUSD={order.totalAmount} />
                           </p>
                           <div className="flex items-center gap-3 mt-2">
                             <span className={`text-xs px-2 py-1 rounded-full ${
@@ -222,7 +225,9 @@ export function AdminDashboard() {
                           <div className="flex items-center gap-3 mt-2">
                             <span className="text-sm">Rating: {vendor.rating.toFixed(1)}/5</span>
                             <span className="text-sm text-muted-foreground">•</span>
-                            <span className="text-sm">${(vendorRevenue / 1000).toFixed(1)}k revenue</span>
+                            <span className="text-sm">
+                              <Money amountUSD={vendorRevenue} notation="compact" /> revenue
+                            </span>
                             <span className="text-sm text-muted-foreground">•</span>
                             <span className="text-sm">{vendorOrders.length} orders</span>
                           </div>

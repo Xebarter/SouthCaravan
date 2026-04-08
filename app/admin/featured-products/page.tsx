@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Money } from '@/components/money';
 import { mockProducts } from '@/lib/mock-data';
 
 export default function AdminFeaturedProductsPage() {
@@ -37,7 +38,9 @@ export default function AdminFeaturedProductsPage() {
             <div key={product.id} className="rounded-md border border-border p-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-medium line-clamp-1">{product.name}</p>
-                <p className="text-xs text-muted-foreground">${product.price.toFixed(2)} - {product.category}</p>
+                <p className="text-xs text-muted-foreground">
+                  <Money amountUSD={Number(product.price)} /> - {product.category}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <Badge variant={featuredMap[product.id] ? 'default' : 'outline'}>

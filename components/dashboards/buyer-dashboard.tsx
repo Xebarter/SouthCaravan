@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Money } from '@/components/money';
 import {
   ShoppingCart,
   Package,
@@ -542,7 +543,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {order.items.length} item{order.items.length !== 1 ? 's' : ''} • ${order.totalAmount.toLocaleString()}
+                            {order.items.length} item{order.items.length !== 1 ? 's' : ''} • <Money amountUSD={order.totalAmount} />
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Ordered: {order.createdAt.toLocaleDateString()}
@@ -589,7 +590,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            ${quote.totalAmount.toLocaleString()} • Valid until: {quote.validUntil.toLocaleDateString()}
+                            <Money amountUSD={quote.totalAmount} /> • Valid until: {quote.validUntil.toLocaleDateString()}
                           </p>
                         </div>
                         <Link href={`/buyer/quotes/${quote.id}`}>
@@ -803,7 +804,9 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">Total spend</p>
-                            <p className="font-bold text-primary">${spend.toLocaleString()}</p>
+                            <p className="font-bold text-primary">
+                              <Money amountUSD={spend} />
+                            </p>
                           </div>
                         </div>
                       );

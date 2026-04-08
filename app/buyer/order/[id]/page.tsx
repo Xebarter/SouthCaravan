@@ -6,6 +6,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import { Download, MessageCircle, Printer } from 'lucide-react';
 
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
@@ -158,8 +159,12 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                       <p className="text-sm text-muted-foreground">Qty: {line.quantity}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-foreground">${lineTotal.toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">${line.unitPrice.toFixed(2)} each</p>
+                      <p className="font-semibold text-foreground">
+                        <Money amountUSD={lineTotal} />
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        <Money amountUSD={line.unitPrice} /> each
+                      </p>
                     </div>
                   </div>
                 );
@@ -189,19 +194,27 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>${order.totalAmount.toFixed(2)}</span>
+                <span>
+                  <Money amountUSD={order.totalAmount} />
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Shipping</span>
-                <span>$0.00</span>
+                <span>
+                  <Money amountUSD={0} />
+                </span>
               </div>
               <div className="flex justify-between text-sm border-t border-border pt-3 mt-3">
                 <span className="text-muted-foreground">Tax</span>
-                <span>$0.00</span>
+                <span>
+                  <Money amountUSD={0} />
+                </span>
               </div>
               <div className="flex justify-between items-center pt-3 border-t border-border font-bold text-lg">
                 <span>Total</span>
-                <span className="text-primary">${order.totalAmount.toFixed(2)}</span>
+                <span className="text-primary">
+                  <Money amountUSD={order.totalAmount} />
+                </span>
               </div>
             </CardContent>
           </Card>
