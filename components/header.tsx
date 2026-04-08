@@ -6,6 +6,7 @@ import { ChevronDown, Menu, MessageSquare, UserCircle2, ShoppingCart } from 'luc
 import { Button } from '@/components/ui/button';
 import { HeaderSearch } from '@/components/header-search';
 import { AddItemsSidebar } from '@/components/additems-sidebar';
+import { SiteLogoMark } from '@/components/site-logo';
 
 const HOVER_CLOSE_DELAY_MS = 150;
 
@@ -139,10 +140,12 @@ export function Header() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/" className="hidden md:flex items-center gap-2 font-bold text-lg">
-              <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-                SC
-              </div>
+            <Link
+              href="/"
+              className="hidden md:flex items-center gap-2 font-bold text-lg"
+              aria-label="SouthCaravan home"
+            >
+              <SiteLogoMark />
               <span className="hidden sm:inline">SouthCaravan</span>
             </Link>
           </div>

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { SiteLogoMark } from '@/components/site-logo'
 
 export const authFieldClassName =
   'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30'
@@ -26,10 +27,8 @@ export function AuthPageBackground({ children }: { children: React.ReactNode }) 
 export function AuthBrandBanner() {
   return (
     <div className="mb-5 text-center">
-      <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm">
-          SC
-        </span>
+      <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl" aria-label="SouthCaravan home">
+        <SiteLogoMark size={36} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
         <span>SouthCaravan</span>
       </Link>
       <p className="mt-1 text-xs text-muted-foreground">Sign in to continue to your dashboard.</p>

@@ -22,12 +22,12 @@ import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 import { cn } from '@/lib/utils';
 
 const vendorNavItems = [
-  { href: '/vendor', label: 'Overview', icon: LayoutGrid },
-  { href: '/vendor/products', label: 'Products', icon: Package },
   { href: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/vendor/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/vendor/products', label: 'Products', icon: Package },
   { href: '/vendor/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/vendor/settings', label: 'Settings', icon: Settings },
+  { href: '/vendor/overview', label: 'Overview', icon: LayoutGrid },
 ];
 
 function VendorSidebar({
@@ -50,9 +50,7 @@ function VendorSidebar({
       <nav className="p-3 space-y-1">
         {vendorNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            pathname === item.href ||
-            (item.href !== '/vendor' && pathname.startsWith(`${item.href}/`));
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
@@ -71,20 +69,23 @@ function VendorSidebar({
             </Link>
           );
         })}
-        <Link
-          href={storefrontHref}
-          onClick={onNavigate}
-          className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-            pathname === storefrontHref
-              ? 'bg-primary text-primary-foreground'
-              : 'text-foreground/80 hover:bg-secondary',
-          )}
-        >
-          <Store className="w-4 h-4" />
-          Public storefront
-          <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-70" aria-hidden />
-        </Link>
+
+        <div className="pt-2 mt-2 border-t border-border/60">
+          <Link
+            href={storefrontHref}
+            onClick={onNavigate}
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+              pathname === storefrontHref
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
+            )}
+          >
+            <Store className="w-4 h-4" />
+            Public storefront
+            <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-70" aria-hidden />
+          </Link>
+        </div>
       </nav>
     </aside>
   );

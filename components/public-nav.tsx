@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Menu, MessageSquare, ShoppingCart, User } from 'lucide-react';
 import { HeaderSearch } from '@/components/header-search';
+import { SiteLogoMark } from '@/components/site-logo';
 
 /** Radix DropdownMenu IDs can mismatch SSR vs client; render menu only after mount. */
 function MobileProfileMenu() {
@@ -99,10 +100,12 @@ export function PublicNav({
               <Menu className="w-5 h-5" />
             </Button>
           </div>
-          <Link href="/" className="hidden md:flex items-center gap-2 font-bold text-lg">
-            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-              SC
-            </div>
+          <Link
+            href="/"
+            className="hidden md:flex items-center gap-2 font-bold text-lg"
+            aria-label="SouthCaravan home"
+          >
+            <SiteLogoMark />
             <span className="hidden sm:inline">SouthCaravan</span>
           </Link>
         </div>

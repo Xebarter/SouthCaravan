@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-// Vendor hub and storefront profiles under /vendor are not gated by middleware.
-// `/buyer/*` is also public now (demo content), while `/services/*` remains protected.
-const PROTECTED_PREFIXES = ['/services']
+const PROTECTED_PREFIXES = ['/buyer', '/vendor', '/services']
 const ADMIN_PREFIX = '/admin'
 
 const ADMIN_AUTH_DISABLED =
@@ -15,6 +13,8 @@ function isProtectedPath(pathname: string) {
 }
 
 function inferRoleFromPath(pathname: string) {
+  if (pathname.startsWith('/admin')) return 'admin'
+  if (pathname.startsWith('/buyer')) return 'buyer'
   if (pathname.startsWith('/vendor')) return 'vendor'
   if (pathname.startsWith('/services')) return 'services'
   return 'buyer'

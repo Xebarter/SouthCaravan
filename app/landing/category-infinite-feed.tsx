@@ -102,26 +102,33 @@ export default function CategoryInfiniteFeed({
                 See more
               </Link>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {section.products.map((product) => (
-                <Link key={product.id} href={`/product/${product.id}`} className="block">
-                  <Card className="border border-slate-200 shadow-none rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow py-0 gap-0">
-                    <CardContent className="p-0">
-                      {product.images?.[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="aspect-square object-cover w-full bg-slate-50"
-                          loading={isInitialSection ? 'eager' : 'lazy'}
-                          decoding="async"
-                        />
-                      ) : (
-                        <div className="aspect-square bg-slate-100 flex items-center justify-center">
-                          <Package className="w-8 h-8 text-slate-400" />
-                        </div>
-                      )}
-                      <div className="p-3 space-y-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+              {section.products.slice(0, 4).map((product, index) => (
+                <Link
+                  key={product.id}
+                  href={`/product/${product.id}`}
+                  className={['block', index >= 3 ? 'lg:hidden' : ''].join(' ')}
+                >
+                  <Card className="border border-slate-200 shadow-none rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow py-0 gap-0 h-full">
+                    <CardContent className="p-0 h-full flex flex-col">
+                      <div className="aspect-square w-full overflow-hidden bg-slate-50">
+                        {product.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                            loading={isInitialSection ? 'eager' : 'lazy'}
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="h-full w-full bg-slate-100 flex items-center justify-center">
+                            <Package className="w-8 h-8 text-slate-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 space-y-2 flex-1">
                         <p className="text-sm text-slate-900 line-clamp-2 min-h-10">{product.name}</p>
                         <div className="flex items-baseline justify-between">
                           <p className="text-lg font-bold text-slate-900">${Number(product.price).toFixed(2)}</p>
@@ -129,7 +136,8 @@ export default function CategoryInfiniteFeed({
                         </div>
                         <p className="text-xs text-slate-500 line-clamp-1">{getVendorName(product.vendor_id)}</p>
                       </div>
-                      <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
+
+                      <div className="mt-auto px-3 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
                         <div className="flex items-center gap-1 text-[11px] text-amber-500">
                           <Star className="w-3 h-3 fill-current" />
                           <span>{product.is_featured ? 'Spotlight' : 'Verified'}</span>

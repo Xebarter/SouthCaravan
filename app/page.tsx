@@ -9,29 +9,22 @@ import {
 } from 'lucide-react';
 import CategoryInfiniteFeed from './landing/category-infinite-feed';
 import ProductAdBannerSection from './landing/product-ad-banner-section';
+import PopularCategories from './landing/popular-categories';
 import {
   getLandingCategoryFeedSections,
   getLandingProducts,
   getSponsoredProducts,
 } from '@/lib/landing-data';
 import { stripHtmlForPreview } from '@/lib/strip-html';
-
-const heroCategories = [
-  'Agriculture & Food Products',
-  'Processed Foods',
-  'Minerals',
-  'Textiles & Apparel',
-  'Handicrafts',
-  'Industrial Goods',
-  'Technology',
-  'Logistics Services',
-];
+import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
 
 export default async function HomePage() {
   const products = await getLandingProducts();
   const heroProducts = products.slice(0, 5);
   const sponsoredItems = await getSponsoredProducts();
   const initialCategoryFeed = await getLandingCategoryFeedSections({ page: 0, pageSize: 3, perCategory: 4 });
+  const menuSections = await getMarketplaceMenuSections();
+  const popularCategories = menuSections.map((s) => s.title).filter(Boolean);
 
   const criticalPreloadUrls = Array.from(
     new Set(
@@ -146,22 +139,12 @@ export default async function HomePage() {
       </section>
 
       <section className="px-4 md:px-6 pb-7">
-        <div className="max-w-[1500px] mx-auto bg-white border border-slate-200 rounded-xl p-4 md:p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="max-w-[1500px] mx-auto bg-white border border-slate-200 rounded-xl p-3 md:p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
             <Package className="w-4 h-4 text-sky-700" />
             <p className="text-sm font-semibold text-slate-900">Popular Marketplace Categories</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {heroCategories.map((category) => (
-              <Link
-                key={category}
-                href={`/categories?category=${encodeURIComponent(category)}`}
-                className="px-3 py-2 rounded-full border border-slate-300 bg-slate-50 text-sm text-slate-700 hover:bg-slate-100 transition"
-              >
-                {category}
-              </Link>
-            ))}
-          </div>
+          <PopularCategories categories={popularCategories} />
         </div>
       </section>
 

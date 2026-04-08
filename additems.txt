@@ -1,91 +1,189 @@
-Buyer Dashboard Sidebar Implementation
-======================================
+Authentication in this project (detailed)
+========================================
 
-Where the sidebar is mounted
------------------------------
-The buyer dashboard layout (`app/buyer-dashboard/layout.tsx`) renders the sidebar component by including:
-- `<BuyerSidebar />` from `components/buyer-sidebar.tsx`
+Overview (what provides auth)
+------------------------------
+Authentication is handled by **Supabase Auth** using:
+- A **browser Supabase client** for sign-in/sign-up/reset flows (`lib/supabase/client.ts`)
+- A **server Supabase client** for server rendering and cookie-backed session checks (`lib/supabase/server.ts`)
+- A **Next.js middleware** that protects routes, redirects unauthenticated users to `/auth`, and exchanges `?code=` for a Supabase session (`middleware.ts`)
 
-The layout uses a two-column flex row:
-- Sidebar column + a `<main>` area that scrolls independently (`<main className="flex-1 overflow-auto">`)
-- Background tint: `bg-muted/20`
+The app also uses “portal roles” (buyer / vendor / services / admin) driven by:
+- URL query params on `/auth` (`role` + `next`)
+- Supabase `user.app_metadata.role` / `user.app_metadata.roles` (admin checks)
+- LocalStorage keys that the app sets after login to personalize each portal UI (e.g. `currentBuyerName`, `currentVendorName`, etc.)
 
-Sidebar component responsibilities (`components/buyer-sidebar.tsx`)
--------------------------------------------------------------------
-The sidebar is implemented as a client component (`'use client'`) and handles:
-1. Mobile drawer open/close state
-2. Active nav highlighting (based on current route)
-3. Showing buyer name/email in the workspace header
-4. Logout (clears local storage, signs out via Supabase, redirects)
+Environment variables
+----------------------
+Supabase config is read from environment variables (`lib/supabase/env.ts`):
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only, used for admin RPC / admin operations)
 
-Active route highlighting
--------------------------
-It uses `usePathname()` to determine which nav item is active:
-- Each item’s `isActive` is computed as `pathname === item.href`
-- The active link gets:
-  - `bg-primary/95 text-primary-foreground shadow-sm`
-  - plus a small left-side indicator dot:
-    - `span` positioned absolutely on the left (`absolute left-1 ... bg-primary-foreground/80`)
-- Inactive links get:
-  - `text-foreground hover:bg-accent/70`
+Client vs server Supabase clients
+----------------------------------
+Browser client (`lib/supabase/client.ts`)
+- Uses `createBrowserClient(url, anonKey)` from `@supabase/ssr`
+- Memoized as a singleton so components reuse one instance
 
-Nav items and routes
----------------------
-The sidebar defines `navItems` as an array of links (icon + label + `href`):
-- `Dashboard` -> `/buyer`
-- `Orders` -> `/buyer/orders`
-- `Services` -> `/buyer/services`
-- `Wishlist` -> `/buyer/wishlist`
-- `Addresses` -> `/buyer/addresses`
-- `Profile` -> `/buyer/profile`
-- `Support` -> `/buyer/support`
+Server client (`lib/supabase/server.ts`)
+- Uses `createServerClient(url, anonKey, { cookies })` from `@supabase/ssr`
+- Reads/writes auth cookies via Next’s `cookies()` store
+- `setAll` is wrapped in try/catch because server components may not allow setting cookies
 
-Mobile vs desktop behavior
-----------------------------
-Mobile header (only on `md:hidden`)
-- A sticky top header appears on mobile:
-  - Title: "MyGarage Buyer"
-  - Subtitle: `buyerName`
-- Includes a hamburger button that toggles `mobileMenuOpen`.
-- When the drawer is open, a dark backdrop button is rendered to close it.
+Route protection (middleware)
+------------------------------
+The middleware (`middleware.ts`) is the main **gatekeeper** for protected areas.
 
-Mobile drawer / off-canvas sidebar
-- The `<aside>` uses responsive classes that switch between:
-  - `fixed` off-canvas on mobile:
-    - `fixed inset-y-0 left-0 ... w-72 ... transition-transform`
-    - if closed: `-translate-x-full`
-    - if open: `translate-x-0`
-  - `md:static` on desktop:
-    - `md:static md:translate-x-0`
+Protected route prefixes:
+- `/buyer/*`, `/vendor/*`, `/services/*`
+- Admin: `/admin/*`
 
-Desktop workspace header
-- On desktop (`md:block`), the sidebar shows a top workspace section with:
-  - Small "Workspace" label
-  - "MyGarage Buyer" title
-  - Buyer name (`buyerName`)
-  - Buyer email (`buyerEmail`)
-- This block is hidden on mobile (`hidden ... md:block`) because mobile uses the sticky header.
+Important exception:
+- Buyer roadside/help services are intentionally public:
+  - `/buyer/services`
+  - `/buyer/services/*`
 
-Logout and identity data
---------------------------
-Buyer identity comes from two places:
-- Initially from `localStorage` in a `useEffect`:
-  - `currentBuyerName` -> `buyerName`
-  - `currentBuyerEmail` -> `buyerEmail`
-- Then it also calls `supabase.auth.getUser()`:
-  - If Supabase returns a user email, it updates `buyerEmail`
-  - If `currentBuyerName` wasn’t set yet, it derives name from the email prefix (`email.split('@')[0]`)
+What the middleware does:
+1. Creates a Supabase server client wired to request/response cookies.
+2. Handles auth callback `?code=...`:
+   - Calls `supabase.auth.exchangeCodeForSession(code)`
+   - If successful, redirects to the same URL **without** the `code` param
+   - Forwards `Set-Cookie` headers so the session cookie persists.
+3. Checks current session user: `supabase.auth.getUser()`.
+4. If **not signed in** and path is protected:
+   - Redirects to `/auth`
+   - Adds `next=<original pathname + search>` (so the app can return you where you came from)
+   - Adds `role=buyer|vendor|services` based on the path prefix.
+5. Admin routes:
+   - If not signed in: redirect to `/auth?role=admin&next=...`
+   - If signed in but user is not admin (by `app_metadata.role/roles`): redirect to
+     `/auth?role=admin&next=/admin&error=admin_required`
 
-The "Sign out" button:
-- Removes these localStorage keys:
-  - `currentBuyerName`, `currentBuyerEmail`, `buyerProfile`
-- Calls `supabase.auth.signOut()`
-- Redirects the browser to:
-  - `/auth?role=buyer&next=/buyer`
+Middleware matching:
+- Applies broadly, excluding Next static/image routes and common image files via `config.matcher`.
 
-Bottom actions
+The `/auth` page (multi-portal sign-in / sign-up)
+--------------------------------------------------
+Main auth UI is `app/auth/page.tsx` and is a client component.
+
+Inputs (from URL):
+- `role = searchParams.get('role') || 'buyer'`
+- `nextPath = searchParams.get('next') || getDefaultNext(role)`
+
+Default portal landing paths (`getDefaultNext`):
+- buyer -> `/buyer`
+- vendor -> `/vendor`
+- services -> `/services/orders`
+- admin -> `/admin`
+
+Session conflict handling (“Already signed in”)
+-----------------------------------------------
+On load (and whenever `role` changes), `/auth` calls `supabase.auth.getUser()`:
+- If there is NO user: show the sign-in form.
+- If there IS a user: determine which portal the current session corresponds to:
+  - Admin: based on `user.app_metadata.role/roles`
+  - Non-admin: based on localStorage hints:
+    - `currentVendorName` => vendor
+    - `currentServiceProviderName` => services
+    - `currentBuyerName` => buyer
+- If the session matches the requested portal, it redirects straight to `nextPath`.
+- If it’s a different portal, it renders a conflict UI:
+  - Button to **sign out and continue** (clears portal localStorage keys and calls `supabase.auth.signOut()`)
+  - Optional button to **stay** in the current portal dashboard
+
+Signing in (email + password)
+------------------------------
+Primary sign-in call:
+- `supabase.auth.signInWithPassword({ email, password })`
+
+Post-sign-in checks:
+- Admin portal: calls `hasAdminAccess()` (reads `app_metadata`) and signs out if not allowed.
+- Buyer portal: applies a phone-number gate (details below).
+
+If checks pass:
+- `persistSessionProfile()` writes portal identity data into localStorage
+- Navigates using `router.replace(nextPath)`
+
+Sign-up behavior (only after “invalid credentials”)
+---------------------------------------------------
+If sign-in fails with “invalid login credentials” (and the portal isn’t admin), `/auth` may attempt sign-up.
+
+Before signing up it calls:
+- `POST /api/auth/check-email-registered` with `{ email, portal: role }`
+
+That endpoint (`app/api/auth/check-email-registered/route.ts`):
+- Uses a service role Supabase client (`lib/supabase/admin.ts`)
+- Calls RPC: `auth_portal_signup_blocked(check_email, portal)`
+- Returns `{ registered: boolean }`
+
+Then it calls Supabase sign-up:
+- Buyer:
+  - `supabase.auth.signUp({ email, password, options: { emailRedirectTo: <origin>/auth?role=buyer&next=<nextPath> } })`
+  - The redirect ensures that after email verification, Supabase sends the user back into `/auth` with the correct portal and destination.
+- Vendor/services:
+  - `supabase.auth.signUp({ email, password })` (no explicit redirect configured in this file)
+
+After sign-up:
+- If Supabase returns **no session** (common when email confirmation is required), the UI shows a “check your email” success message.
+- If a session exists immediately:
+  - Buyer flow ensures a `customers` row exists via `/api/customers` (see below)
+  - Buyer phone gate may trigger
+  - Then it persists localStorage portal identity and redirects to `nextPath`.
+
+Buyer phone gate (required for buyers)
+---------------------------------------
+Buyers must have a usable phone number so service providers can contact them.
+
+When it checks:
+- `gateBuyerPhoneIfNeeded(email)` calls `/api/customers?email=...`
+- It considers the phone valid only if it has **at least 9 digits** (digits-only count)
+
+If the phone is missing/too short:
+- `/auth` switches to a dedicated “Add your mobile number” step
+- User enters a phone number and clicks “Save and continue”
+
+Saving the phone:
+1. Reads current user from Supabase (`supabase.auth.getUser()`)
+2. Updates or creates the customer record:
+   - If customer exists: `PUT /api/customers/:id` with `{ phone }`
+   - If not: `POST /api/customers` with `{ id: user.id, name, email, phone, ... }`
+3. Calls `persistSessionProfile()` (writes localStorage keys)
+4. Redirects to `nextPath`
+
+Persisting portal identity (localStorage)
+------------------------------------------
+After successful auth, the app stores portal identity hints in localStorage so sidebars/dashboards can display names and IDs.
+
+In `persistSessionProfile()`:
+- Vendor portal:
+  - `currentVendorId = user.id`
+  - `currentVendorName = "<emailPrefix> (vendor)"`
+  - Best-effort `POST /api/vendor/bootstrap`
+- Services portal:
+  - `currentServiceProviderName = "<emailPrefix> (service provider)"`
+  - Also sets `currentVendorId` and `currentVendorName` to the same id/name
+  - Best-effort `POST /api/vendor/bootstrap`
+- Buyer portal:
+  - `currentBuyerName = "<emailPrefix> (buyer)"`
+  - `currentBuyerEmail = user.email`
+  - Fetches `/api/customers?email=...` to store `currentBuyerId` and `currentBuyerPhone` if present
+
+Password reset
 ---------------
-At the bottom of the sidebar there are two links/buttons:
-- "Back to Shop" -> `/` (arrow-left icon)
-- "Sign out" -> triggers `handleLogout`
+From `/auth` (Forgot password mode):
+- Calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: <origin>/auth/reset-password })`
 
+Reset password page (`app/auth/reset-password/page.tsx`):
+- Waits and checks `supabase.auth.getSession()`; if no session appears it shows a hint about expired links / redirect URL misconfiguration
+- Updates the password using `supabase.auth.updateUser({ password })`
+- Redirects back to `/auth`
+
+End-to-end flow summary
+------------------------
+1. User visits a protected route (e.g. `/buyer/orders`).
+2. Middleware sees no Supabase user -> redirects to `/auth?role=buyer&next=/buyer/orders`.
+3. User signs in (or signs up) via Supabase on `/auth`.
+4. Buyer-only: may be required to add a phone number before continuing.
+5. `/auth` persists portal identity hints in localStorage and navigates to `nextPath` with `router.replace`.
+6. If Supabase returns the user via a `?code=` callback, middleware exchanges it for a session and cleans the URL.

@@ -15,7 +15,9 @@ function formatProductPriceLabel(product: SponsoredProductSummary | null | undef
 export default function ProductAdBannerSection({ items }: { items: SponsoredItem[] }) {
   const [activeBannerIndex, setActiveBannerIndex] = React.useState(0)
   const [bannerFading, setBannerFading] = React.useState(false)
-  const [promoBanners, setPromoBanners] = React.useState<SponsoredItem[]>([])
+  const [promoBanners, setPromoBanners] = React.useState<SponsoredItem[]>(
+    () => (Array.isArray(items) ? items : []),
+  )
 
   React.useEffect(() => {
     // Initialize from server-provided items. (The design spec calls this "promo banners".)
@@ -61,13 +63,30 @@ export default function ProductAdBannerSection({ items }: { items: SponsoredItem
     <section className="bg-background py-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {!activeBannerProduct ? (
-          <div className="rounded-2xl border border-border bg-card p-3 md:p-4 shadow-sm min-h-[150px] md:h-[210px] flex flex-col items-center justify-center text-center">
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-foreground mb-1.5 md:mb-2 leading-tight">
-              Sponsored product spots
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              No active sponsored banners yet. Add them in <span className="font-medium text-foreground">Admin → Adds</span> to feature products here.
-            </p>
+          <div className="rounded-2xl border border-border bg-card p-3 md:p-4 shadow-sm min-h-[150px] md:h-[210px] overflow-hidden">
+            {Array.isArray(items) && items.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <h2 className="text-base sm:text-lg md:text-xl font-bold text-foreground mb-1 leading-tight">
+                  Sponsored placements
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
+                  No sponsored placements are available right now.
+                </p>
+              </div>
+            ) : (
+              <div className="h-full flex items-center gap-4">
+                <div className="hidden sm:block h-[120px] md:h-[170px] w-[44%] rounded-xl bg-muted animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+                  <div className="h-7 w-3/4 rounded bg-muted animate-pulse" />
+                  <div className="h-4 w-2/3 rounded bg-muted animate-pulse" />
+                  <div className="mt-3 flex gap-2">
+                    <div className="h-9 w-28 rounded-lg bg-muted animate-pulse" />
+                    <div className="h-9 w-28 rounded-lg bg-muted animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border border-border bg-card p-3 md:p-4 shadow-sm flex flex-col">
