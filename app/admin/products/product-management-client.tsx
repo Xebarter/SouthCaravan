@@ -1039,7 +1039,7 @@ export default function ProductManagementClient() {
                     <div className="grid md:grid-cols-3 gap-3">
                       <FormField control={form.control} name="price" render={({ field }) => (
                         <FormItem data-field="price">
-                          <FormLabel>Price (USD) *</FormLabel>
+                          <FormLabel>Base Price (USD) *</FormLabel>
                           <FormControl><Input {...field} type="number" step="0.01" min={0} /></FormControl>
                           <FormMessage />
                         </FormItem>
