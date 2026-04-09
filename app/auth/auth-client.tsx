@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 
 import {
   AuthBrandBanner,
@@ -125,6 +126,7 @@ export default function AuthClient() {
   const [mode, setMode] = React.useState<Mode>('signin')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
+  const [showPassword, setShowPassword] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [message, setMessage] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
@@ -474,15 +476,26 @@ export default function AuthClient() {
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
             />
-            <input
-              className={authFieldClassName}
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={busy}
-            />
+            <div className="relative">
+              <input
+                className={`${authFieldClassName} pr-10`}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition disabled:opacity-60"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={busy}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
 
             <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
               {busy ? 'Working…' : 'Continue'}

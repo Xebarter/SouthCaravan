@@ -2,15 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Edit,
+  ImageIcon,
+  Loader2,
+  Package,
+  Plus,
+  Trash2,
+  TrendingUp,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -20,9 +23,16 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { MoreVertical, Plus, Edit, Trash2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
@@ -92,14 +102,19 @@ export default function VendorProductsPage() {
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyTree[]>([]);
-  const categoryOptions = useMemo(() => taxonomyTree.map((item) => item.name), [taxonomyTree]);
-
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
 
+  const categoryOptions = useMemo(
+    () => taxonomyTree.map((item) => item.name),
+    [taxonomyTree],
+  );
+
   const availableSubcategories = useMemo(
-    () => taxonomyTree.find((item) => item.name === draft.category)?.subcategories.map((sub) => sub.name) ?? [],
+    () =>
+      taxonomyTree
+        .find((item) => item.name === draft.category)
+        ?.subcategories.map((sub) => sub.name) ?? [],
     [taxonomyTree, draft.category],
   );
 
@@ -113,43 +128,44 @@ export default function VendorProductsPage() {
   );
 
   useEffect(() => {
-    // Keep draft values consistent when taxonomy changes.
     if (draft.subcategory && !availableSubcategories.includes(draft.subcategory)) {
       setDraft((prev) => ({ ...prev, subcategory: '', subSubCategory: '' }));
     }
+  }, [availableSubcategories, draft.subcategory]);
+
+  useEffect(() => {
     if (draft.subSubCategory && !availableSubSubcategories.includes(draft.subSubCategory)) {
       setDraft((prev) => ({ ...prev, subSubCategory: '' }));
     }
-  }, [availableSubcategories, availableSubSubcategories, draft.subcategory, draft.subSubCategory]);
+  }, [availableSubSubcategories, draft.subSubCategory]);
 
   async function fetchTaxonomy() {
     try {
-      const response = await fetch('/api/categories');
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? 'Failed to load categories');
+      const res = await fetch('/api/categories');
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? 'Failed to load categories');
       setTaxonomyTree(payload.tree ?? []);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not load categories');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not load categories');
     }
   }
 
   async function fetchProducts() {
     setLoading(true);
     try {
-      const response = await fetch('/api/vendor/products');
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? 'Failed to fetch products');
+      const res = await fetch('/api/vendor/products');
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? 'Failed to fetch products');
       setProducts(payload.products ?? []);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not load products');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not load products');
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) return;
+    if (authLoading || !user) return;
     fetchTaxonomy();
     fetchProducts();
   }, [authLoading, user]);
@@ -157,26 +173,24 @@ export default function VendorProductsPage() {
   const stats = useMemo(() => {
     const total = products.length;
     const inStock = products.filter((p) => p.in_stock).length;
-    const outOfStock = total - inStock;
     const totalValue = products.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
-    return { total, inStock, outOfStock, totalValue };
+    return { total, inStock, outOfStock: total - inStock, totalValue };
   }, [products]);
 
-  function openCreateDialog() {
+  function openCreate() {
     const cat = categoryOptions[0] ?? '';
-    const sub = taxonomyTree.find((item) => item.name === cat)?.subcategories[0]?.name ?? '';
+    const sub = taxonomyTree.find((i) => i.name === cat)?.subcategories[0]?.name ?? '';
     const leaf =
       taxonomyTree
-        .find((item) => item.name === cat)
+        .find((i) => i.name === cat)
         ?.subcategories.find((s) => s.name === sub)
         ?.subSubcategories[0]?.name ?? '';
-
     setDraft(emptyDraft(cat, sub, leaf));
     setMode('create');
     setDialogOpen(true);
   }
 
-  function openEditDialog(product: SupabaseProduct) {
+  function openEdit(product: SupabaseProduct) {
     setDraft({
       id: product.id,
       name: product.name ?? '',
@@ -196,30 +210,17 @@ export default function VendorProductsPage() {
   async function saveDraft() {
     const name = draft.name.trim();
     const category = draft.category.trim();
-    if (!name) {
-      toast.error('Product name is required');
-      return;
-    }
-    if (!category) {
-      toast.error('Category is required');
-      return;
-    }
-
+    if (!name) { toast.error('Product name is required'); return; }
+    if (!category) { toast.error('Category is required'); return; }
     const price = Number(draft.price);
     const minimumOrder = Number(draft.minimumOrder);
-    if (!Number.isFinite(price) || price < 0) {
-      toast.error('Price must be 0 or more');
-      return;
-    }
-    if (!Number.isFinite(minimumOrder) || minimumOrder < 1) {
-      toast.error('Minimum order must be at least 1');
-      return;
-    }
+    if (!Number.isFinite(price) || price < 0) { toast.error('Price must be 0 or more'); return; }
+    if (!Number.isFinite(minimumOrder) || minimumOrder < 1) { toast.error('Minimum order must be at least 1'); return; }
 
     setSaving(true);
     try {
-      const payload = {
-        ...(mode === 'edit' ? { id: draft.id } : null),
+      const body = {
+        ...(mode === 'edit' ? { id: draft.id } : {}),
         name,
         description: draft.description,
         category: draft.category,
@@ -230,20 +231,18 @@ export default function VendorProductsPage() {
         unit: draft.unit,
         inStock: draft.inStock,
       };
-
-      const response = await fetch('/api/vendor/products', {
+      const res = await fetch('/api/vendor/products', {
         method: mode === 'create' ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error ?? 'Save failed');
-
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Save failed');
       toast.success(mode === 'create' ? 'Product created' : 'Product updated');
       setDialogOpen(false);
       await fetchProducts();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Save failed');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -253,272 +252,333 @@ export default function VendorProductsPage() {
     if (!confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
     setDeletingId(product.id);
     try {
-      const response = await fetch(`/api/vendor/products?id=${product.id}`, { method: 'DELETE' });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error ?? 'Delete failed');
+      const res = await fetch(`/api/vendor/products?id=${product.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Delete failed');
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       toast.success('Product deleted');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delete failed');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     } finally {
       setDeletingId(null);
     }
   }
 
-  if (authLoading) return null;
-  if (!user) return null;
+  if (authLoading || !user) return null;
 
   return (
-    <main className="flex-1 overflow-auto">
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Product Catalog</h1>
-            <p className="text-muted-foreground mt-2">Manage your product listings</p>
-          </div>
-          <Button onClick={openCreateDialog} disabled={categoryOptions.length === 0}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Product
-          </Button>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage your catalog listings
+          </p>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total Products</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.inStock}</div>
-              <p className="text-xs text-muted-foreground mt-1">In Stock</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">
-                <Money amountUSD={stats.totalValue} />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Total Value</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.outOfStock}</div>
-              <p className="text-xs text-muted-foreground mt-1">Out of Stock</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle>Your Products</CardTitle>
-            <CardDescription>These products are stored in the database and scoped to your vendor account.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="py-12 text-center text-muted-foreground">Loading products…</div>
-            ) : products.length > 0 ? (
-              <div className="space-y-3 overflow-x-auto">
-                <div className="inline-block w-full">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/50">
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Product Name</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Category</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Price</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Min Order</th>
-                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Status</th>
-                        <th className="text-right py-3 px-4 font-semibold text-muted-foreground">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((product) => (
-                        <tr
-                          key={product.id}
-                          className="border-b border-border/50 hover:bg-secondary/50 transition-colors"
-                        >
-                          <td className="py-3 px-4">
-                            <div>
-                              <p className="font-medium">{product.name}</p>
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {stripHtmlForPreview(product.description ?? '')}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge variant="outline">{product.category}</Badge>
-                          </td>
-                          <td className="py-3 px-4 font-medium">
-                            <Money amountUSD={Number(product.price)} />
-                          </td>
-                          <td className="py-3 px-4">{product.minimum_order}</td>
-                          <td className="py-3 px-4">
-                            <Badge
-                              className={
-                                product.in_stock
-                                  ? 'bg-green-500/10 text-green-400'
-                                  : 'bg-red-500/10 text-red-400'
-                              }
-                            >
-                              {product.in_stock ? 'In Stock' : 'Out of Stock'}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  id={`vendor-product-actions-${product.id}`}
-                                  variant="ghost"
-                                  size="sm"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(product)}>
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => handleDelete(product)}
-                                  disabled={deletingId === product.id}
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="py-12 text-center">
-                <p className="text-muted-foreground mb-4">You haven't added any products yet.</p>
-                <Button onClick={openCreateDialog} disabled={categoryOptions.length === 0}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Your First Product
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Button
+          onClick={openCreate}
+          disabled={categoryOptions.length === 0}
+          size="sm"
+          className="gap-2 shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          Add product
+        </Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => setDialogOpen(open)}>
-        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl">
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {(
+          [
+            { label: 'Total products', value: stats.total,    color: 'bg-blue-500',   icon: Package },
+            { label: 'In stock',       value: stats.inStock,  color: 'bg-emerald-500', icon: Package },
+            { label: 'Out of stock',   value: stats.outOfStock, color: 'bg-red-500',   icon: Package },
+            { label: 'Total value',    value: <Money amountUSD={stats.totalValue} notation="compact" />, color: 'bg-violet-500', icon: TrendingUp },
+          ] as const
+        ).map(({ label, value, color, icon: Icon }) => (
+          <Card key={label} className="border-border/60">
+            <CardContent className="pt-5 pb-4 flex items-center gap-3">
+              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', color)}>
+                <Icon className="h-4 w-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight tabular-nums">{value}</p>
+                <p className="text-xs text-muted-foreground truncate">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Products table */}
+      {loading ? (
+        <div className="flex items-center justify-center py-28 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading products…</span>
+        </div>
+      ) : products.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <div className="rounded-full bg-secondary p-5 mb-5">
+            <Package className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <p className="text-base font-semibold">No products yet</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+            Add your first product to start selling on the marketplace.
+          </p>
+          <Button
+            onClick={openCreate}
+            disabled={categoryOptions.length === 0}
+            className="mt-5 gap-2"
+            size="sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add your first product
+          </Button>
+          {categoryOptions.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Categories need to be set up before you can add products.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/60 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="border-b border-border/60 bg-secondary/50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Product
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Category
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Price
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Min. order
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Stock
+                  </th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    &nbsp;
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {products.map((product) => (
+                  <tr
+                    key={product.id}
+                    className="group hover:bg-secondary/30 transition-colors"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {product.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="h-9 w-9 shrink-0 rounded-lg border border-border object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground/60" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium truncate max-w-[200px] leading-tight">
+                            {product.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">
+                            {stripHtmlForPreview(product.description ?? '').trim() || 'No description'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge variant="outline" className="text-xs">
+                        {product.category}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-4 font-semibold tabular-nums text-sm">
+                      <Money amountUSD={Number(product.price)} />
+                    </td>
+                    <td className="px-5 py-4 text-sm text-muted-foreground">
+                      {product.minimum_order} {product.unit}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border',
+                          product.in_stock
+                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            : 'bg-red-500/10 text-red-500 border-red-500/20',
+                        )}
+                      >
+                        {product.in_stock ? 'In stock' : 'Out of stock'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(product)}
+                          aria-label={`Edit ${product.name}`}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(product)}
+                          disabled={deletingId === product.id}
+                          aria-label={`Delete ${product.name}`}
+                        >
+                          {deletingId === product.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!saving) setDialogOpen(open); }}>
+        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
             <DialogDescription>
-              {mode === 'create' ? 'Create a new product in your catalog.' : 'Update your product details.'}
+              {mode === 'create'
+                ? 'Fill in the details below to add a new product to your catalog.'
+                : 'Update the product details below.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="vendor-product-name">Product name *</Label>
-              <Input
-                id="vendor-product-name"
-                value={draft.name}
-                onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g. Organic Arabica Coffee Beans"
-              />
+          <div className="space-y-5 mt-1">
+            {/* Name + Description */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="dp-name" className="text-sm">
+                  Product name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="dp-name"
+                  value={draft.name}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Stainless Steel Ball Bearings"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="dp-desc" className="text-sm">
+                  Description
+                </Label>
+                <Input
+                  id="dp-desc"
+                  value={draft.description}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Brief description shown in listings"
+                />
+              </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="vendor-product-description">Description</Label>
-              <Input
-                id="vendor-product-description"
-                value={draft.description}
-                onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Short description shown in listings"
-              />
-            </div>
+            <Separator />
 
-            <div className="grid md:grid-cols-3 gap-3">
-              <div className="grid gap-2">
-                <Label>Category *</Label>
+            {/* Category selectors */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">
+                Category <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <Select
                   value={draft.category || '__none__'}
-                  onValueChange={(value) =>
+                  onValueChange={(v) =>
                     setDraft((prev) => ({
                       ...prev,
-                      category: value === '__none__' ? '' : value,
+                      category: v === '__none__' ? '' : v,
                       subcategory: '',
                       subSubCategory: '',
                     }))
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Select…</SelectItem>
-                    {categoryOptions.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
+                    {categoryOptions.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div className="grid gap-2">
-                <Label>Subcategory</Label>
                 <Select
                   value={draft.subcategory || '__none__'}
-                  onValueChange={(value) =>
-                    setDraft((prev) => ({ ...prev, subcategory: value === '__none__' ? '' : value, subSubCategory: '' }))
+                  onValueChange={(v) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      subcategory: v === '__none__' ? '' : v,
+                      subSubCategory: '',
+                    }))
                   }
-                  disabled={!draft.category}
+                  disabled={!draft.category || availableSubcategories.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select subcategory" />
+                    <SelectValue placeholder="Subcategory" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None</SelectItem>
                     {availableSubcategories.map((sub) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
+                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div className="grid gap-2">
-                <Label>Sub-subcategory</Label>
                 <Select
                   value={draft.subSubCategory || '__none__'}
-                  onValueChange={(value) => setDraft((prev) => ({ ...prev, subSubCategory: value === '__none__' ? '' : value }))}
-                  disabled={!draft.category || !draft.subcategory}
+                  onValueChange={(v) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      subSubCategory: v === '__none__' ? '' : v,
+                    }))
+                  }
+                  disabled={!draft.subcategory || availableSubSubcategories.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select sub-subcategory" />
+                    <SelectValue placeholder="Sub-category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None</SelectItem>
                     {availableSubSubcategories.map((leaf) => (
-                      <SelectItem key={leaf} value={leaf}>
-                        {leaf}
-                      </SelectItem>
+                      <SelectItem key={leaf} value={leaf}>{leaf}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="vendor-product-price">Price (USD) *</Label>
+            <Separator />
+
+            {/* Pricing + ordering */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="dp-price" className="text-sm">
+                  Price (USD) <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  id="vendor-product-price"
+                  id="dp-price"
                   type="number"
                   step="0.01"
                   min={0}
@@ -526,10 +586,12 @@ export default function VendorProductsPage() {
                   onChange={(e) => setDraft((prev) => ({ ...prev, price: e.target.value }))}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="vendor-product-min-order">Minimum order *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="dp-min-order" className="text-sm">
+                  Min. order <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  id="vendor-product-min-order"
+                  id="dp-min-order"
                   type="number"
                   step="1"
                   min={1}
@@ -537,10 +599,10 @@ export default function VendorProductsPage() {
                   onChange={(e) => setDraft((prev) => ({ ...prev, minimumOrder: e.target.value }))}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="vendor-product-unit">Unit</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="dp-unit" className="text-sm">Unit</Label>
                 <Input
-                  id="vendor-product-unit"
+                  id="dp-unit"
                   value={draft.unit}
                   onChange={(e) => setDraft((prev) => ({ ...prev, unit: e.target.value }))}
                   placeholder="piece"
@@ -548,25 +610,45 @@ export default function VendorProductsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            {/* In stock toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
               <div>
                 <p className="text-sm font-medium">In stock</p>
-                <p className="text-xs text-muted-foreground">Visible as available to buyers</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mark as available to buyers
+                </p>
               </div>
-              <Switch checked={draft.inStock} onCheckedChange={(checked) => setDraft((prev) => ({ ...prev, inStock: checked }))} />
+              <Switch
+                checked={draft.inStock}
+                onCheckedChange={(v) => setDraft((prev) => ({ ...prev, inStock: v }))}
+              />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={saving}
+              >
                 Cancel
               </Button>
-              <Button onClick={saveDraft} disabled={saving}>
-                {saving ? 'Saving…' : mode === 'create' ? 'Create product' : 'Save changes'}
+              <Button onClick={saveDraft} disabled={saving} className="min-w-28">
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving…
+                  </>
+                ) : mode === 'create' ? (
+                  'Create product'
+                ) : (
+                  'Save changes'
+                )}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 }

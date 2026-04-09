@@ -1,212 +1,267 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useMemo, useState } from 'react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Eye, Filter } from 'lucide-react';
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  PackageCheck,
+  PackageX,
+  ShoppingBag,
+  TrendingUp,
+  Truck,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
 import { mockOrders, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 
+type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+const ALL_TABS = ['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
+type Tab = typeof ALL_TABS[number];
+
+const STATUS_META: Record<OrderStatus, { label: string; badgeCn: string; icon: React.ElementType }> = {
+  pending:   { label: 'Pending',   badgeCn: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',     icon: Clock },
+  confirmed: { label: 'Confirmed', badgeCn: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400',         icon: CheckCircle2 },
+  shipped:   { label: 'Shipped',   badgeCn: 'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400', icon: Truck },
+  delivered: { label: 'Delivered', badgeCn: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400', icon: PackageCheck },
+  cancelled: { label: 'Cancelled', badgeCn: 'bg-red-500/10 text-red-500 border-red-500/20',                               icon: PackageX },
+};
+
 export default function VendorOrdersPage() {
   const { user } = useAuth();
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<Tab>('all');
 
   const vendor = getVendorProfileForConsole(user);
   if (!vendor) return null;
 
-  const vendorOrders = mockOrders.filter(o => o.vendorId === vendor.id);
+  const vendorOrders = mockOrders.filter((o) => o.vendorId === vendor.id);
+  const totalRevenue = vendorOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
-  const filteredOrders = statusFilter === 'all'
-    ? vendorOrders
-    : vendorOrders.filter(o => o.status === statusFilter);
+  const counts = useMemo(
+    () =>
+      ALL_TABS.reduce<Record<Tab, number>>(
+        (acc, tab) => {
+          acc[tab] =
+            tab === 'all'
+              ? vendorOrders.length
+              : vendorOrders.filter((o) => o.status === tab).length;
+          return acc;
+        },
+        {} as Record<Tab, number>,
+      ),
+    [vendorOrders],
+  );
 
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500/10 text-yellow-400',
-    confirmed: 'bg-blue-500/10 text-blue-400',
-    shipped: 'bg-purple-500/10 text-purple-400',
-    delivered: 'bg-green-500/10 text-green-400',
-    cancelled: 'bg-red-500/10 text-red-400',
-  };
-
-  const stats = {
-    total: vendorOrders.length,
-    pending: vendorOrders.filter(o => o.status === 'pending').length,
-    confirmed: vendorOrders.filter(o => o.status === 'confirmed').length,
-    shipped: vendorOrders.filter(o => o.status === 'shipped').length,
-    delivered: vendorOrders.filter(o => o.status === 'delivered').length,
-  };
-
-  const totalRevenue = vendorOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const filtered = useMemo(
+    () =>
+      activeTab === 'all'
+        ? vendorOrders
+        : vendorOrders.filter((o) => o.status === activeTab),
+    [vendorOrders, activeTab],
+  );
 
   return (
-    <main className="flex-1 overflow-auto">
-      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Customer Orders</h1>
-          <p className="text-muted-foreground mt-2">Manage incoming orders from your customers</p>
-        </div>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Manage and fulfil incoming customer orders
+        </p>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total Orders</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.pending}</div>
-              <p className="text-xs text-muted-foreground mt-1">Pending</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.confirmed}</div>
-              <p className="text-xs text-muted-foreground mt-1">Confirmed</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.shipped}</div>
-              <p className="text-xs text-muted-foreground mt-1">Shipped</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-lg font-bold text-primary">
-                <Money amountUSD={totalRevenue} notation="compact" />
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {(
+          [
+            {
+              label: 'Total orders',
+              value: vendorOrders.length,
+              icon: ShoppingBag,
+              color: 'bg-blue-500',
+            },
+            {
+              label: 'Pending',
+              value: counts.pending,
+              icon: Clock,
+              color: 'bg-amber-500',
+            },
+            {
+              label: 'In transit',
+              value: counts.shipped,
+              icon: Truck,
+              color: 'bg-violet-500',
+            },
+            {
+              label: 'Lifetime revenue',
+              value: <Money amountUSD={totalRevenue} notation="compact" />,
+              icon: TrendingUp,
+              color: 'bg-emerald-500',
+            },
+          ] as const
+        ).map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="border-border/60">
+            <CardContent className="pt-5 pb-4 flex items-center gap-3">
+              <div
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                  color,
+                )}
+              >
+                <Icon className="h-4 w-4 text-white" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Revenue</p>
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight tabular-nums">{value}</p>
+                <p className="text-xs text-muted-foreground truncate">{label}</p>
+              </div>
             </CardContent>
           </Card>
+        ))}
+      </div>
+
+      {/* Status tabs */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {ALL_TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
+              activeTab === tab
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-secondary text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <span className="capitalize">
+              {tab === 'all' ? 'All orders' : STATUS_META[tab as OrderStatus]?.label ?? tab}
+            </span>
+            {counts[tab] > 0 && (
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums',
+                  activeTab === tab ? 'bg-white/25' : 'bg-border',
+                )}
+              >
+                {counts[tab]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <div className="rounded-full bg-secondary p-5 mb-5">
+            <ShoppingBag className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm font-semibold">No orders here</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+            {activeTab === 'all'
+              ? 'Orders will appear here once buyers start purchasing from your catalog.'
+              : `You have no ${activeTab} orders right now.`}
+          </p>
         </div>
-
-        {/* Filters */}
-        <div className="mb-6 flex gap-2 items-center">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48 bg-secondary">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Orders</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="shipped">Shipped</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Orders List */}
-        <div className="space-y-4">
-          {filteredOrders.length > 0 ? (
-            filteredOrders.map(order => {
-              const buyer = mockUsers.find(u => u.id === order.buyerId);
-              return (
-                <Card key={order.id} className="border-border/50 hover:border-primary/30 transition-colors">
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      {/* Order Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold">{buyer?.company || buyer?.name}</h3>
-                          <Badge className={statusColors[order.status]}>
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground mt-3">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Order ID</p>
-                            <p className="font-mono text-foreground">{order.id.slice(-6)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Date</p>
-                            <p className="font-medium">{order.createdAt.toLocaleDateString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Items</p>
-                            <p className="font-medium">{order.items.length}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Amount</p>
-                            <p className="font-bold text-primary">
-                              <Money amountUSD={order.totalAmount} />
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Items Summary */}
-                        <div className="mt-3 p-2 bg-secondary/50 rounded text-sm space-y-1 max-h-20 overflow-y-auto">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Qty: {item.quantity}</span>
-                              <span className="font-medium">
-                                <Money amountUSD={item.subtotal} />
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Shipping */}
-                        {order.shippingAddress && (
-                          <div className="mt-3 p-2 bg-secondary/30 rounded text-xs">
-                            <p className="text-muted-foreground">Shipping: <span className="font-medium text-foreground">{order.shippingAddress}</span></p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 md:flex-col md:gap-3">
-                        {order.status === 'pending' && (
-                          <Button size="sm" className="flex-1 md:flex-none md:w-28">
-                            Confirm Order
-                          </Button>
-                        )}
-                        {order.status === 'confirmed' && (
-                          <Button size="sm" className="flex-1 md:flex-none md:w-28">
-                            Mark Shipped
-                          </Button>
-                        )}
-                        {['pending', 'confirmed', 'shipped'].includes(order.status) && (
-                          <Button variant="outline" size="sm" className="flex-1 md:flex-none md:w-28">
-                            Cancel
-                          </Button>
-                        )}
-                        <Link href={`/vendor/orders/${order.id}`} className="flex-1 md:flex-none">
-                          <Button variant="outline" size="sm" className="w-full md:w-28">
-                            <Eye className="w-4 h-4" />
+      ) : (
+        <div className="rounded-xl border border-border/60 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
+              <thead>
+                <tr className="border-b border-border/60 bg-secondary/50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Order
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Customer
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Date
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Items
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Total
+                  </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    Status
+                  </th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground tracking-wide">
+                    &nbsp;
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {filtered.map((order) => {
+                  const buyer = mockUsers.find((u) => u.id === order.buyerId);
+                  const meta = STATUS_META[order.status as OrderStatus];
+                  const StatusIcon = meta?.icon;
+                  return (
+                    <tr
+                      key={order.id}
+                      className="group hover:bg-secondary/30 transition-colors"
+                    >
+                      <td className="px-5 py-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                        #{order.id.slice(-8).toUpperCase()}
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-sm leading-tight">
+                          {buyer?.company || buyer?.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[180px]">
+                          {buyer?.email}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                        {order.createdAt.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground">
+                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                      </td>
+                      <td className="px-5 py-4 font-semibold tabular-nums text-sm">
+                        <Money amountUSD={order.totalAmount} />
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                            meta?.badgeCn,
+                          )}
+                        >
+                          {StatusIcon && <StatusIcon className="h-3 w-3" />}
+                          {meta?.label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <Link href={`/vendor/orders/${order.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            View
+                            <ChevronRight className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
-          ) : (
-            <Card className="border-border/50">
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No orders found.</p>
-              </CardContent>
-            </Card>
-          )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </main>
+      )}
+    </div>
   );
 }

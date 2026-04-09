@@ -6,14 +6,13 @@ import { useState } from 'react';
 import {
   BarChart3,
   ExternalLink,
-  LayoutGrid,
+  LayoutDashboard,
   LogOut,
   Menu,
   MessageSquare,
   Package,
   Settings,
   ShoppingCart,
-  Store,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,72 +20,95 @@ import { useAuth } from '@/lib/auth-context';
 import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 import { cn } from '@/lib/utils';
 
-const vendorNavItems = [
-  { href: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/vendor/messages', label: 'Messages', icon: MessageSquare },
-  { href: '/vendor/products', label: 'Products', icon: Package },
+const NAV_ITEMS = [
+  { href: '/vendor/orders',    label: 'Orders',    icon: ShoppingCart },
+  { href: '/vendor/messages',  label: 'Messages',  icon: MessageSquare },
+  { href: '/vendor/products',  label: 'Products',  icon: Package },
   { href: '/vendor/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/vendor/settings', label: 'Settings', icon: Settings },
-  { href: '/vendor/overview', label: 'Overview', icon: LayoutGrid },
+  { href: '/vendor/settings',  label: 'Settings',  icon: Settings },
 ];
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 function VendorSidebar({
   pathname,
   storefrontHref,
+  companyName,
+  email,
   onNavigate,
 }: {
   pathname: string;
   storefrontHref: string;
+  companyName: string;
+  email: string;
   onNavigate?: () => void;
 }) {
   return (
-    <aside className="h-full border-r border-border bg-card/40">
-      <div className="h-16 border-b border-border px-5 flex items-center">
-        <div>
-          <p className="text-xs text-muted-foreground">SouthCaravan</p>
-          <h2 className="font-semibold">Vendor Hub</h2>
+    <aside className="flex h-full flex-col border-r border-border bg-card">
+      {/* Brand */}
+      <div className="flex h-16 items-center gap-3 border-b border-border px-5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
+          {getInitials(companyName)}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight">{companyName}</p>
+          <p className="truncate text-[11px] text-muted-foreground">Vendor Hub</p>
         </div>
       </div>
-      <nav className="p-3 space-y-1">
-        {vendorNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-foreground/80 hover:bg-secondary',
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
               )}
             >
-              <Icon className="w-4 h-4" />
+              <Icon
+                className={cn(
+                  'h-4 w-4 shrink-0 transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground',
+                )}
+              />
               {item.label}
+              {isActive && (
+                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+              )}
             </Link>
           );
         })}
-
-        <div className="pt-2 mt-2 border-t border-border/60">
-          <Link
-            href={storefrontHref}
-            onClick={onNavigate}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-              pathname === storefrontHref
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-            )}
-          >
-            <Store className="w-4 h-4" />
-            Public storefront
-            <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-70" aria-hidden />
-          </Link>
-        </div>
       </nav>
+
+      {/* Footer: storefront link */}
+      <div className="border-t border-border p-3">
+        <Link
+          href={storefrontHref}
+          onClick={onNavigate}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <ExternalLink className="h-4 w-4 shrink-0" />
+          View storefront
+        </Link>
+      </div>
     </aside>
   );
 }
@@ -98,6 +120,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
   const [menuOpen, setMenuOpen] = useState(false);
 
   const vendorProfile = getVendorProfileForConsole(user);
+  const companyName = vendorProfile?.companyName ?? 'Vendor Hub';
   const storefrontHref = vendorProfile ? `/vendor/${vendorProfile.id}` : '/catalog';
 
   const handleLogout = () => {
@@ -107,34 +130,39 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="h-16 border-b border-border bg-background/95 backdrop-blur sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between gap-4">
+      {/* Top header */}
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="ghost"
             size="icon"
             className="lg:hidden shrink-0"
             onClick={() => setMenuOpen(true)}
-            aria-label="Open vendor menu"
+            aria-label="Open menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="h-5 w-5" />
           </Button>
-          <div className="min-w-0">
-            <h1 className="font-semibold truncate">
-              {vendorProfile?.companyName ?? 'Vendor hub'}
-            </h1>
-            <p className="text-xs text-muted-foreground truncate">
-              {user?.email ?? 'Preview — sign in to personalize'}
-            </p>
-          </div>
+          {/* Page title — derived from the current nav item */}
+          <span className="text-sm font-semibold truncate">
+            {NAV_ITEMS.find(
+              (n) => pathname === n.href || pathname.startsWith(`${n.href}/`),
+            )?.label ?? companyName}
+          </span>
         </div>
+
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex text-xs">
             <Link href="/">View site</Link>
           </Button>
           {user ? (
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Log out</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Log out</span>
             </Button>
           ) : (
             <Button variant="outline" size="sm" asChild>
@@ -145,38 +173,54 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
       </header>
 
       <div className="flex min-h-[calc(100vh-4rem)]">
-        <div className="hidden lg:block w-72">
-          <VendorSidebar pathname={pathname} storefrontHref={storefrontHref} />
+        {/* Desktop sidebar */}
+        <div className="hidden lg:block w-64 shrink-0">
+          <div className="sticky top-16 h-[calc(100vh-4rem)]">
+            <VendorSidebar
+              pathname={pathname}
+              storefrontHref={storefrontHref}
+              companyName={companyName}
+              email={user?.email ?? ''}
+            />
+          </div>
         </div>
 
-        <div className="flex-1 min-w-0 p-4 sm:p-6 overflow-x-auto">{children}</div>
+        {/* Main content */}
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          {children}
+        </main>
       </div>
 
+      {/* Mobile drawer */}
       {menuOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <button
             type="button"
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setMenuOpen(false)}
-            aria-label="Close vendor menu"
+            aria-label="Close menu"
           />
-          <div className="absolute left-0 top-0 h-full w-[82vw] max-w-sm bg-background shadow-xl">
-            <div className="h-16 border-b border-border px-4 flex items-center justify-between">
-              <p className="font-semibold">Vendor menu</p>
+          <div className="absolute left-0 top-0 flex h-full w-[76vw] max-w-xs flex-col bg-background shadow-2xl">
+            <div className="flex h-16 items-center justify-between border-b border-border px-5">
+              <span className="text-sm font-semibold">{companyName}</span>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMenuOpen(false)}
-                aria-label="Close vendor menu"
+                aria-label="Close menu"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
-            <VendorSidebar
-              pathname={pathname}
-              storefrontHref={storefrontHref}
-              onNavigate={() => setMenuOpen(false)}
-            />
+            <div className="flex-1 overflow-hidden">
+              <VendorSidebar
+                pathname={pathname}
+                storefrontHref={storefrontHref}
+                companyName={companyName}
+                email={user?.email ?? ''}
+                onNavigate={() => setMenuOpen(false)}
+              />
+            </div>
           </div>
         </div>
       )}

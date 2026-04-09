@@ -13,6 +13,9 @@ import { isVendorConsolePath } from '@/lib/vendor-console-path';
 
 const publicRoutePrefixes = [
   '/',
+  '/auth',
+  '/login',
+  '/signup',
   '/product',
   '/public',
   '/categories',
@@ -59,6 +62,14 @@ export function AppShell({
 
   if (!publicPage) {
     if (adminPage || vendorConsolePage) {
+      if (vendorConsolePage) {
+        return (
+          <main data-vendor-console className="flex-1 min-h-screen">
+            {children}
+          </main>
+        );
+      }
+
       return <main className="flex-1 min-h-screen">{children}</main>;
     }
 

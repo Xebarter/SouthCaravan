@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { CheckCircle2, AlertCircle, Mail } from 'lucide-react';
+import { AuthPageBackground, authCardClassName } from '@/components/auth-chrome';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -37,8 +38,8 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
+      <AuthPageBackground>
+        <Card className={`${authCardClassName} max-w-md`}>
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
               <div className="flex justify-center">
@@ -61,13 +62,13 @@ export default function ForgotPasswordPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthPageBackground>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-md">
+    <AuthPageBackground>
+      <Card className={`${authCardClassName} max-w-md`}>
         <CardHeader>
           <CardTitle>Reset Password</CardTitle>
           <CardDescription>
@@ -108,6 +109,6 @@ export default function ForgotPasswordPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthPageBackground>
   );
 }
