@@ -1,16 +1,27 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
+  AlertCircle,
+  CheckCircle2,
   Edit,
   ImageIcon,
   Loader2,
   Package,
   Plus,
+  PlusCircle,
+  RefreshCw,
   Trash2,
   TrendingUp,
+  UploadCloud,
+  X,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,8 +32,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -31,11 +49,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { stripHtmlForPreview } from '@/lib/strip-html';
+import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
+
+const ProductDescriptionEditor = dynamic(
+  () => import('@/components/product-description-editor').then((m) => m.ProductDescriptionEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[220px] rounded-md border border-input bg-muted/40 animate-pulse" aria-hidden />
+    ),
+  },
+);
+
+const UNITS = ['piece', 'kg', 'g', 'tonne', 'litre', 'ml', 'metre', 'sqm', 'box', 'pack', 'dozen', 'set'] as const;
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 interface SupabaseProduct {
   id: string;
@@ -55,6 +86,8 @@ interface SupabaseProduct {
   created_at: string;
 }
 
+type ImageEntry = { file: File; preview: string };
+
 type TaxonomyTree = {
   id: string;
   name: string;
@@ -67,31 +100,368 @@ type TaxonomyTree = {
   }[];
 };
 
-type Draft = {
-  id?: string;
-  name: string;
-  description: string;
-  category: string;
-  subcategory: string;
-  subSubCategory: string;
-  price: string;
-  minimumOrder: string;
-  unit: string;
-  inStock: boolean;
-};
+type ReplaceTarget =
+  | { kind: 'existing'; url: string }
+  | { kind: 'new'; index: number }
+  | null;
 
-function emptyDraft(category = '', subcategory = '', subSubCategory = ''): Draft {
-  return {
-    name: '',
-    description: '',
-    category,
-    subcategory,
-    subSubCategory,
-    price: '0',
-    minimumOrder: '1',
-    unit: 'piece',
-    inStock: true,
-  };
+type UploadUiState =
+  | { status: 'idle' }
+  | { status: 'uploading'; progress: number }
+  | { status: 'success'; progress: number }
+  | { status: 'error' };
+
+const specificationSchema = z.object({
+  key: z.string().min(1, 'Key required'),
+  value: z.string().min(1, 'Value required'),
+});
+
+const productFormSchema = z.object({
+  name: z.string().min(1, 'Product name is required'),
+  description: z.string().default(''),
+  category: z.string().min(1, 'Category is required'),
+  subcategory: z.string().default(''),
+  subSubCategory: z.string().default(''),
+  price: z.coerce.number().min(0, 'Price must be 0 or more'),
+  minimumOrder: z.coerce.number().int().min(1, 'Minimum order must be at least 1'),
+  unit: z.string().min(1, 'Unit is required'),
+  inStock: z.boolean().default(true),
+  specifications: z.array(specificationSchema).default([]),
+});
+
+type ProductFormValues = z.infer<typeof productFormSchema>;
+
+async function uploadFormDataWithProgress({
+  url,
+  method,
+  body,
+  onProgress,
+  signal,
+}: {
+  url: string;
+  method: 'POST' | 'PATCH';
+  body: FormData;
+  onProgress?: (progress: number) => void;
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
+  return await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const progress = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      onProgress?.(progress);
+    };
+
+    xhr.onload = () => {
+      const status = xhr.status;
+      const ok = status >= 200 && status < 300;
+      const text = xhr.responseText ?? '';
+      resolve({
+        ok,
+        status,
+        json: async () => {
+          try {
+            return text ? JSON.parse(text) : {};
+          } catch {
+            return { error: text || 'Invalid server response' };
+          }
+        },
+      });
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.onabort = () => reject(new Error('Upload cancelled'));
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+        return;
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
+
+    xhr.send(body);
+  });
+}
+
+function ImageUploader({
+  newImages,
+  onNewImagesChange,
+  existingImages = [],
+  onExistingImagesChange,
+  dialogOpen,
+}: {
+  newImages: ImageEntry[];
+  onNewImagesChange: (images: ImageEntry[]) => void;
+  existingImages?: string[];
+  onExistingImagesChange?: (images: string[]) => void;
+  dialogOpen: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTarget, setReplaceTarget] = useState<ReplaceTarget>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploadAlert, setUploadAlert] = useState<{ title: string; description: string } | null>(null);
+
+  useEffect(() => {
+    if (dialogOpen) setUploadAlert(null);
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!dialogOpen) setReplaceTarget(null);
+  }, [dialogOpen]);
+
+  function addFiles(fileList: FileList | File[]) {
+    const next: ImageEntry[] = [];
+    const tooLarge: string[] = [];
+    const badType: string[] = [];
+
+    for (const file of Array.from(fileList)) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        badType.push(file.name);
+        continue;
+      }
+      if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
+        tooLarge.push(file.name);
+        continue;
+      }
+      next.push({ file, preview: URL.createObjectURL(file) });
+    }
+
+    const lines: string[] = [];
+    if (tooLarge.length > 0) {
+      lines.push(
+        `Maximum size is ${productImageMaxSizeLabel()} per file. Too large: ${tooLarge.join(', ')}.`,
+      );
+    }
+    if (badType.length > 0) {
+      lines.push(`Unsupported type (use PNG, JPG, WEBP, or GIF): ${badType.join(', ')}.`);
+    }
+
+    if (lines.length > 0) {
+      const title =
+        tooLarge.length > 0 && badType.length > 0
+          ? 'Some images were not added'
+          : tooLarge.length > 0
+            ? 'Image too large'
+            : 'Unsupported file type';
+      setUploadAlert({ title, description: lines.join('\n\n') });
+
+      if (tooLarge.length > 0) {
+        toast.error(`Image too large. Max size is ${productImageMaxSizeLabel()} per file.`);
+      } else if (badType.length > 0) {
+        toast.error('Unsupported image type. Use PNG, JPG, WEBP, or GIF.');
+      }
+    } else {
+      setUploadAlert(null);
+    }
+
+    if (next.length > 0) onNewImagesChange([...newImages, ...next]);
+  }
+
+  function removeNewImage(index: number) {
+    URL.revokeObjectURL(newImages[index].preview);
+    onNewImagesChange(newImages.filter((_, i) => i !== index));
+  }
+
+  function removeExistingImage(url: string) {
+    if (!onExistingImagesChange) return;
+    onExistingImagesChange(existingImages.filter((image) => image !== url));
+  }
+
+  function setReplaceAlert(title: string, description: string) {
+    setUploadAlert({ title, description });
+  }
+
+  function validateReplacementFile(file: File): boolean {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setReplaceAlert(
+        'Unsupported file type',
+        `Use PNG, JPG, WEBP, or GIF. "${file.name}" is not supported.`,
+      );
+      toast.error('Unsupported image type. Use PNG, JPG, WEBP, or GIF.');
+      return false;
+    }
+    if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
+      setReplaceAlert(
+        'Image too large',
+        `Maximum size is ${productImageMaxSizeLabel()} per file. "${file.name}" is too large.`,
+      );
+      toast.error(`Image too large. Max size is ${productImageMaxSizeLabel()} per file.`);
+      return false;
+    }
+    return true;
+  }
+
+  function openReplaceExisting(url: string) {
+    setReplaceTarget({ kind: 'existing', url });
+    replaceInputRef.current?.click();
+  }
+
+  function openReplaceNew(index: number) {
+    setReplaceTarget({ kind: 'new', index });
+    replaceInputRef.current?.click();
+  }
+
+  function onReplaceFilePicked(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !replaceTarget) return;
+    if (!validateReplacementFile(file)) {
+      setReplaceTarget(null);
+      return;
+    }
+
+    if (replaceTarget.kind === 'existing') {
+      const url = replaceTarget.url;
+      if (onExistingImagesChange) {
+        onExistingImagesChange(existingImages.filter((image) => image !== url));
+      }
+      onNewImagesChange([...newImages, { file, preview: URL.createObjectURL(file) }]);
+    } else {
+      const index = replaceTarget.index;
+      const prev = newImages[index];
+      if (prev) URL.revokeObjectURL(prev.preview);
+      const next = [...newImages];
+      next[index] = { file, preview: URL.createObjectURL(file) };
+      onNewImagesChange(next);
+    }
+    setReplaceTarget(null);
+  }
+
+  return (
+    <div className="space-y-3">
+      {uploadAlert && (
+        <Alert className="border-amber-500/60 bg-amber-50 text-amber-950 dark:bg-amber-950/35 dark:text-amber-50 dark:border-amber-500/45 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-400">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>{uploadAlert.title}</AlertTitle>
+          <AlertDescription className="whitespace-pre-wrap text-amber-900/90 dark:text-amber-50/90">
+            {uploadAlert.description}
+          </AlertDescription>
+        </Alert>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          addFiles(event.dataTransfer.files);
+        }}
+        className={[
+          'w-full rounded-lg border-2 border-dashed px-6 py-8 text-center transition-colors',
+          dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-secondary/40',
+        ].join(' ')}
+      >
+        <UploadCloud className="mx-auto mb-2 h-7 w-7 text-muted-foreground" />
+        <p className="text-sm font-medium">Click to upload or drag and drop</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          PNG, JPG, WEBP, GIF up to {productImageMaxSizeLabel()} each
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          className="hidden"
+          accept={ACCEPTED_TYPES.join(',')}
+          onChange={(event) => {
+            const list = event.target.files;
+            if (list) addFiles(list);
+            event.target.value = '';
+          }}
+        />
+      </button>
+
+      <input
+        ref={replaceInputRef}
+        type="file"
+        className="hidden"
+        accept={ACCEPTED_TYPES.join(',')}
+        onChange={onReplaceFilePicked}
+        aria-hidden
+      />
+
+      {(existingImages.length > 0 || newImages.length > 0) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {existingImages.map((url) => (
+            <div
+              key={url}
+              className="relative rounded-md overflow-hidden border border-border aspect-square bg-secondary"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="Existing product image" className="h-full w-full object-cover" />
+              {onExistingImagesChange && (
+                <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-black/55 p-1.5">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="h-8 w-8 shrink-0 bg-background/95 hover:bg-background"
+                    onClick={() => openReplaceExisting(url)}
+                    aria-label="Replace this image"
+                    title="Replace image"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => removeExistingImage(url)}
+                    aria-label="Remove image from product"
+                    title="Remove image"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+          {newImages.map((image, index) => (
+            <div
+              key={`${image.preview}-${index}`}
+              className="relative rounded-md overflow-hidden border border-border aspect-square bg-secondary"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image.preview} alt={image.file.name} className="h-full w-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-black/55 p-1.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  className="h-8 w-8 shrink-0 bg-background/95 hover:bg-background"
+                  onClick={() => openReplaceNew(index)}
+                  aria-label={`Replace ${image.file.name}`}
+                  title="Replace image"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="destructive"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => removeNewImage(index)}
+                  aria-label={`Remove ${image.file.name}`}
+                  title="Remove image"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function VendorProductsPage() {
@@ -99,11 +469,41 @@ export default function VendorProductsPage() {
   const [products, setProducts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadUi, setUploadUi] = useState<UploadUiState>({ status: 'idle' });
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [editingProduct, setEditingProduct] = useState<SupabaseProduct | null>(null);
+  const [newImages, setNewImages] = useState<ImageEntry[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyTree[]>([]);
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft());
+  const [descriptionEditorKey, setDescriptionEditorKey] = useState(0);
+
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      category: '',
+      subcategory: '',
+      subSubCategory: '',
+      price: 0,
+      minimumOrder: 1,
+      unit: 'piece',
+      inStock: true,
+      specifications: [],
+    },
+  });
+
+  const { fields, append, remove, replace } = useFieldArray({
+    control: form.control,
+    name: 'specifications',
+  });
+
+  const selectedCategory = form.watch('category');
+  const selectedSubcategory = form.watch('subcategory');
+  const selectedSubSubcategory = form.watch('subSubCategory');
+  const taxonomyPath = [selectedCategory, selectedSubcategory, selectedSubSubcategory].filter(Boolean).join(' / ');
 
   const categoryOptions = useMemo(
     () => taxonomyTree.map((item) => item.name),
@@ -112,37 +512,32 @@ export default function VendorProductsPage() {
 
   const availableSubcategories = useMemo(
     () =>
-      taxonomyTree
-        .find((item) => item.name === draft.category)
-        ?.subcategories.map((sub) => sub.name) ?? [],
-    [taxonomyTree, draft.category],
+      taxonomyTree.find((item) => item.name === selectedCategory)?.subcategories.map((sub) => sub.name) ?? [],
+    [taxonomyTree, selectedCategory],
   );
 
   const availableSubSubcategories = useMemo(
     () =>
       taxonomyTree
-        .find((item) => item.name === draft.category)
-        ?.subcategories.find((sub) => sub.name === draft.subcategory)
+        .find((item) => item.name === selectedCategory)
+        ?.subcategories.find((sub) => sub.name === selectedSubcategory)
         ?.subSubcategories.map((leaf) => leaf.name) ?? [],
-    [taxonomyTree, draft.category, draft.subcategory],
+    [taxonomyTree, selectedCategory, selectedSubcategory],
   );
 
-  const taxonomyPath = useMemo(() => {
-    const parts = [draft.category, draft.subcategory, draft.subSubCategory].map((v) => (v ?? '').trim()).filter(Boolean);
-    return parts.join(' / ');
-  }, [draft.category, draft.subcategory, draft.subSubCategory]);
+  useEffect(() => {
+    const current = form.getValues('subcategory');
+    if (current && !availableSubcategories.includes(current)) {
+      form.setValue('subcategory', '');
+    }
+  }, [availableSubcategories, form]);
 
   useEffect(() => {
-    if (draft.subcategory && !availableSubcategories.includes(draft.subcategory)) {
-      setDraft((prev) => ({ ...prev, subcategory: '', subSubCategory: '' }));
+    const current = form.getValues('subSubCategory');
+    if (current && !availableSubSubcategories.includes(current)) {
+      form.setValue('subSubCategory', '');
     }
-  }, [availableSubcategories, draft.subcategory]);
-
-  useEffect(() => {
-    if (draft.subSubCategory && !availableSubSubcategories.includes(draft.subSubCategory)) {
-      setDraft((prev) => ({ ...prev, subSubCategory: '' }));
-    }
-  }, [availableSubSubcategories, draft.subSubCategory]);
+  }, [availableSubSubcategories, form]);
 
   async function fetchTaxonomy() {
     try {
@@ -182,75 +577,137 @@ export default function VendorProductsPage() {
     return { total, inStock, outOfStock: total - inStock, totalValue };
   }, [products]);
 
-  function openCreate() {
-    const cat = categoryOptions[0] ?? '';
-    const sub = taxonomyTree.find((i) => i.name === cat)?.subcategories[0]?.name ?? '';
-    const leaf =
+  function resetDialogState() {
+    const firstCategory = categoryOptions[0] ?? '';
+    const firstSubcategory =
+      taxonomyTree.find((item) => item.name === firstCategory)?.subcategories[0]?.name ?? '';
+    const firstSubSubcategory =
       taxonomyTree
-        .find((i) => i.name === cat)
-        ?.subcategories.find((s) => s.name === sub)
+        .find((item) => item.name === firstCategory)
+        ?.subcategories.find((sub) => sub.name === firstSubcategory)
         ?.subSubcategories[0]?.name ?? '';
-    setDraft(emptyDraft(cat, sub, leaf));
+
+    form.reset({
+      name: '',
+      description: '',
+      category: firstCategory,
+      subcategory: firstSubcategory,
+      subSubCategory: firstSubSubcategory,
+      price: 0,
+      minimumOrder: 1,
+      unit: 'piece',
+      inStock: true,
+      specifications: [],
+    });
+    replace([]);
+    setEditingProduct(null);
+    setExistingImages([]);
+    newImages.forEach((item) => URL.revokeObjectURL(item.preview));
+    setNewImages([]);
     setMode('create');
+    setUploadUi({ status: 'idle' });
+  }
+
+  function openCreate() {
+    resetDialogState();
+    setMode('create');
+    setDescriptionEditorKey((k) => k + 1);
     setDialogOpen(true);
   }
 
   function openEdit(product: SupabaseProduct) {
-    setDraft({
-      id: product.id,
+    resetDialogState();
+    setMode('edit');
+    setEditingProduct(product);
+    setExistingImages(product.images ?? []);
+    form.reset({
       name: product.name ?? '',
       description: product.description ?? '',
       category: product.category ?? '',
       subcategory: product.subcategory ?? '',
       subSubCategory: product.sub_subcategory ?? '',
-      price: String(product.price ?? 0),
-      minimumOrder: String(product.minimum_order ?? 1),
+      price: Number(product.price ?? 0),
+      minimumOrder: product.minimum_order ?? 1,
       unit: product.unit ?? 'piece',
       inStock: Boolean(product.in_stock),
+      specifications: Object.entries(product.specifications ?? {}).map(([key, value]) => ({ key, value })),
     });
-    setMode('edit');
+    replace(Object.entries(product.specifications ?? {}).map(([key, value]) => ({ key, value })));
+    setDescriptionEditorKey((k) => k + 1);
     setDialogOpen(true);
   }
 
-  async function saveDraft() {
-    const name = draft.name.trim();
-    const category = draft.category.trim();
-    if (!name) { toast.error('Product name is required'); return; }
-    if (!category) { toast.error('Category is required'); return; }
-    const price = Number(draft.price);
-    const minimumOrder = Number(draft.minimumOrder);
-    if (!Number.isFinite(price) || price < 0) { toast.error('Price must be 0 or more'); return; }
-    if (!Number.isFinite(minimumOrder) || minimumOrder < 1) { toast.error('Minimum order must be at least 1'); return; }
-
-    setSaving(true);
+  async function onSubmit(values: ProductFormValues) {
+    setSubmitting(true);
+    setUploadUi({ status: 'uploading', progress: 0 });
     try {
-      const body = {
-        ...(mode === 'edit' ? { id: draft.id } : {}),
-        name,
-        description: draft.description,
-        category: draft.category,
-        subcategory: draft.subcategory,
-        subSubCategory: draft.subSubCategory,
-        price,
-        minimumOrder,
-        unit: draft.unit,
-        inStock: draft.inStock,
-      };
-      const res = await fetch('/api/vendor/products', {
-        method: mode === 'create' ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Save failed');
+      const specificationMap: Record<string, string> = {};
+      for (const item of values.specifications) specificationMap[item.key] = item.value;
+
+      const formData = new FormData();
+      formData.append('name', values.name);
+      formData.append('description', values.description);
+      formData.append('category', values.category);
+      formData.append('subcategory', values.subcategory);
+      formData.append('subSubCategory', values.subSubCategory);
+      formData.append('price', String(values.price));
+      formData.append('minimumOrder', String(values.minimumOrder));
+      formData.append('unit', values.unit);
+      formData.append('inStock', String(values.inStock));
+      formData.append('specifications', JSON.stringify(specificationMap));
+      for (const image of newImages) formData.append('images', image.file);
+
+      let response: { ok: boolean; status: number; json: () => Promise<unknown> };
+      if (mode === 'create') {
+        response = await uploadFormDataWithProgress({
+          url: '/api/vendor/products',
+          method: 'POST',
+          body: formData,
+          onProgress: (progress) => setUploadUi({ status: 'uploading', progress }),
+        });
+      } else {
+        if (!editingProduct) throw new Error('Missing product to edit');
+        formData.append('id', editingProduct.id);
+        formData.append('existingImages', JSON.stringify(existingImages));
+        response = await uploadFormDataWithProgress({
+          url: '/api/vendor/products',
+          method: 'PATCH',
+          body: formData,
+          onProgress: (progress) => setUploadUi({ status: 'uploading', progress }),
+        });
+      }
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload?.error ?? 'Failed to save product');
+
+      setUploadUi({ status: 'success', progress: 100 });
       toast.success(mode === 'create' ? 'Product created' : 'Product updated');
+      await new Promise((r) => setTimeout(r, 600));
       setDialogOpen(false);
+      resetDialogState();
       await fetchProducts();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed');
+    } catch (error) {
+      setUploadUi({ status: 'error' });
+      toast.error(error instanceof Error ? error.message : 'Could not save product');
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
+  }
+
+  function onInvalidSubmit(errors: Record<string, unknown>) {
+    const firstErrorPath = Object.keys(errors)[0];
+    if (!firstErrorPath) return;
+
+    const normalizedPath = firstErrorPath.replace(/\.\d+\./g, '.');
+    const topLevelField = normalizedPath.split('.')[0];
+    const fieldContainer = document.querySelector<HTMLElement>(`[data-field="${topLevelField}"]`);
+    if (!fieldContainer) return;
+
+    fieldContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const focusTarget = fieldContainer.querySelector<HTMLElement>(
+      'input, textarea, [role="combobox"], button, [contenteditable="true"]',
+    );
+    focusTarget?.focus();
   }
 
   async function handleDelete(product: SupabaseProduct) {
@@ -461,213 +918,238 @@ export default function VendorProductsPage() {
       )}
 
       {/* Add / Edit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!saving) setDialogOpen(open); }}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) resetDialogState();
+      }}>
         <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl lg:max-w-3xl h-[88dvh] p-0 gap-0 overflow-hidden rounded-2xl border shadow-xl">
-          <div className="h-full min-h-0 flex flex-col">
-            <DialogHeader className="border-b border-border px-6 py-4 bg-background/95 backdrop-blur">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <DialogTitle className="text-xl">{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
-                  <DialogDescription className="mt-1">
-                    {mode === 'create'
-                      ? 'Create a new product listing with pricing and taxonomy.'
-                      : 'Update this product’s details and availability.'}
-                  </DialogDescription>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="h-full min-h-0 flex flex-col">
+              <DialogHeader className="border-b border-border px-6 py-4 bg-background/95 backdrop-blur">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <DialogTitle className="text-xl">{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
+                    <DialogDescription className="mt-1">
+                      {mode === 'create'
+                        ? 'Create a new product listing with pricing, images, and specs.'
+                        : 'Update this product\u2019s details, pricing, images, and specs.'}
+                    </DialogDescription>
+                  </div>
                 </div>
-              </div>
-            </DialogHeader>
+              </DialogHeader>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-              <div className="mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
-                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
-                  <h3 className="text-base font-semibold">Product information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1.5 min-w-0">
-                      <Label htmlFor="dp-name" className="text-sm">
-                        Product name <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="dp-name"
-                        value={draft.name}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                        placeholder="e.g. Stainless Steel Ball Bearings"
-                      />
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                <div className="mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold">Product information</h3>
                     </div>
-                    <div className="space-y-1.5 min-w-0">
-                      <Label htmlFor="dp-unit" className="text-sm">Unit</Label>
-                      <Input
-                        id="dp-unit"
-                        value={draft.unit}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, unit: e.target.value }))}
-                        placeholder="piece"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem data-field="name" className="min-w-0">
+                          <FormLabel>Product Name *</FormLabel>
+                          <FormControl><Input {...field} placeholder="e.g. Stainless Steel Ball Bearings" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="unit" render={({ field }) => (
+                        <FormItem data-field="unit" className="min-w-0">
+                          <FormLabel>Unit *</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>{UNITS.map((unit) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                      <FormItem data-field="description" className="min-w-0">
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <ProductDescriptionEditor
+                            key={descriptionEditorKey}
+                            value={field.value}
+                            onChange={field.onChange}
+                            disabled={submitting}
+                            placeholder="Full product description (shown on the public product page)…"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                      <h3 className="text-base font-semibold">Category</h3>
+                      <Badge variant="outline" className="w-full sm:w-auto sm:max-w-[60%] truncate">
+                        {taxonomyPath || 'Select category path'}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <FormField control={form.control} name="category" render={({ field }) => (
+                        <FormItem data-field="category" className="min-w-0">
+                          <FormLabel>Category *</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>{categoryOptions.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="subcategory" render={({ field }) => (
+                        <FormItem data-field="subcategory" className="min-w-0">
+                          <FormLabel>Subcategory (optional)</FormLabel>
+                          <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select subcategory (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
+                              {availableSubcategories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="subSubCategory" render={({ field }) => (
+                        <FormItem data-field="subSubCategory" className="min-w-0">
+                          <FormLabel>Sub-Subcategory (optional)</FormLabel>
+                          <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select sub-subcategory (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
+                              {availableSubSubcategories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                     </div>
                   </div>
-                  <div className="space-y-1.5 min-w-0">
-                    <Label htmlFor="dp-desc" className="text-sm">
-                      Description
-                    </Label>
-                    <Input
-                      id="dp-desc"
-                      value={draft.description}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Brief description shown in listings"
+
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <h3 className="text-base font-semibold">Pricing & availability</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <FormField control={form.control} name="price" render={({ field }) => (
+                        <FormItem data-field="price" className="min-w-0">
+                          <FormLabel>Base Price (USD) *</FormLabel>
+                          <FormControl><Input {...field} type="number" step="0.01" min={0} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="minimumOrder" render={({ field }) => (
+                        <FormItem data-field="minimumOrder" className="min-w-0">
+                          <FormLabel>Minimum Order *</FormLabel>
+                          <FormControl><Input {...field} type="number" step="1" min={1} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    <FormField control={form.control} name="inStock" render={({ field }) => (
+                      <FormItem className="flex items-center gap-2">
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <FormLabel className="!mt-0">In Stock</FormLabel>
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold">Images</h3>
+                      <Badge variant="outline">{existingImages.length + newImages.length} image(s)</Badge>
+                    </div>
+                    <ImageUploader
+                      dialogOpen={dialogOpen}
+                      newImages={newImages}
+                      onNewImagesChange={setNewImages}
+                      existingImages={existingImages}
+                      onExistingImagesChange={setExistingImages}
                     />
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                    <h3 className="text-base font-semibold">Category</h3>
-                    <Badge variant="outline" className="w-full sm:w-auto sm:max-w-[60%] truncate">
-                      {taxonomyPath || 'Select category path'}
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1.5 min-w-0">
-                      <Label className="text-sm">
-                        Category <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={draft.category || '__none__'}
-                        onValueChange={(v) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            category: v === '__none__' ? '' : v,
-                            subcategory: '',
-                            subSubCategory: '',
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Select…</SelectItem>
-                          {categoryOptions.map((cat) => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 pb-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold">Specifications</h3>
+                      <Button type="button" variant="outline" size="sm" onClick={() => append({ key: '', value: '' })}>
+                        <PlusCircle className="w-4 h-4 mr-1" />
+                        Add Specification
+                      </Button>
                     </div>
-
-                    <div className="space-y-1.5 min-w-0">
-                      <Label className="text-sm">Subcategory (optional)</Label>
-                      <Select
-                        value={draft.subcategory || '__none__'}
-                        onValueChange={(v) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            subcategory: v === '__none__' ? '' : v,
-                            subSubCategory: '',
-                          }))
-                        }
-                        disabled={!draft.category || availableSubcategories.length === 0}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select subcategory (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {availableSubcategories.map((sub) => (
-                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5 min-w-0">
-                      <Label className="text-sm">Sub-Subcategory (optional)</Label>
-                      <Select
-                        value={draft.subSubCategory || '__none__'}
-                        onValueChange={(v) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            subSubCategory: v === '__none__' ? '' : v,
-                          }))
-                        }
-                        disabled={!draft.subcategory || availableSubSubcategories.length === 0}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select sub-subcategory (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {availableSubSubcategories.map((leaf) => (
-                            <SelectItem key={leaf} value={leaf}>{leaf}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
-                  <h3 className="text-base font-semibold">Pricing & availability</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1.5 min-w-0">
-                      <Label htmlFor="dp-price" className="text-sm">
-                        Base price (USD) <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="dp-price"
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        value={draft.price}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, price: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-1.5 min-w-0">
-                      <Label htmlFor="dp-min-order" className="text-sm">
-                        Minimum order <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="dp-min-order"
-                        type="number"
-                        step="1"
-                        min={1}
-                        value={draft.minimumOrder}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, minimumOrder: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-1.5 min-w-0">
-                      <Label className="text-sm">In stock</Label>
-                      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
-                        <p className="text-sm text-muted-foreground">Available to buyers</p>
-                        <Switch
-                          checked={draft.inStock}
-                          onCheckedChange={(v) => setDraft((prev) => ({ ...prev, inStock: v }))}
-                        />
+                    {fields.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No specifications yet.</p>
+                    )}
+                    {fields.map((field, index) => (
+                      <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-start">
+                        <FormField control={form.control} name={`specifications.${index}.key`} render={({ field: itemField }) => (
+                          <FormItem>
+                            <FormControl><Input {...itemField} placeholder="Key (e.g. Origin)" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`specifications.${index}.value`} render={({ field: itemField }) => (
+                          <FormItem>
+                            <FormControl><Input {...itemField} placeholder="Value (e.g. Kenya)" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <Button type="button" variant="ghost" size="icon" className="md:mt-0" onClick={() => remove(index)} aria-label="Remove specification">
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="border-t border-border bg-background/95 backdrop-blur px-6 py-3">
-              <div className="max-w-5xl mx-auto w-full flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button onClick={saveDraft} disabled={saving} className="min-w-32">
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving…
-                    </>
-                  ) : mode === 'create' ? (
-                    'Create Product'
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
+              <div className="border-t border-border bg-background/95 backdrop-blur px-6 py-3">
+                <div className="max-w-5xl mx-auto w-full flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting} className="min-w-32">
+                    {submitting ? (
+                      <>
+                        {uploadUi.status === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin text-emerald-600" />
+                        )}
+                        {uploadUi.status === 'uploading'
+                          ? `Uploading ${uploadUi.progress}%`
+                          : uploadUi.status === 'success'
+                            ? 'Success'
+                            : mode === 'create'
+                              ? 'Creating...'
+                              : 'Saving...'}
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        {mode === 'create' ? 'Create Product' : 'Save Changes'}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>

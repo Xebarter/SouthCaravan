@@ -279,24 +279,79 @@ export async function PATCH(req: NextRequest) {
   const auth = await getAuthedVendorId();
   if (!auth.ok) return auth.response;
 
-  const body = await req.json().catch(() => null);
-  const id = (body?.id as string | undefined)?.trim();
-  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
-
+  const contentType = req.headers.get('content-type') ?? '';
   const patchData: Record<string, unknown> = {};
-  if (typeof body.name === 'string') patchData.name = body.name;
-  if (typeof body.description === 'string') patchData.description = body.description;
-  if (typeof body.category === 'string') patchData.category = body.category;
-  if (typeof body.subcategory === 'string') patchData.subcategory = body.subcategory;
-  if (typeof body.subSubCategory === 'string') patchData.sub_subcategory = body.subSubCategory;
-  if (typeof body.price === 'number') patchData.price = body.price;
-  if (typeof body.minimumOrder === 'number') patchData.minimum_order = body.minimumOrder;
-  if (typeof body.unit === 'string') patchData.unit = body.unit;
-  if (typeof body.inStock === 'boolean') patchData.in_stock = body.inStock;
-  if (body.specifications && typeof body.specifications === 'object') patchData.specifications = body.specifications;
-  if (Array.isArray(body.images)) patchData.images = body.images;
+  let id: string;
+  let newImageFiles: File[] = [];
+  let keptImages: string[] | null = null;
 
-  // Vendors can't set featured/vendor_id via this endpoint.
+  if (contentType.includes('multipart/form-data')) {
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 });
+    }
+
+    id = ((formData.get('id') as string | null)?.trim()) ?? '';
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
+    const name = (formData.get('name') as string | null)?.trim();
+    if (name != null) patchData.name = name;
+    const description = formData.get('description') as string | null;
+    if (description != null) patchData.description = description;
+    const category = (formData.get('category') as string | null)?.trim();
+    if (category != null) patchData.category = category;
+    const subcategory = (formData.get('subcategory') as string | null)?.trim();
+    if (subcategory != null) patchData.subcategory = subcategory;
+    const subSubCategory = (
+      (formData.get('subSubCategory') as string | null) ??
+      (formData.get('subSubcategory') as string | null)
+    )?.trim();
+    if (subSubCategory != null) patchData.sub_subcategory = subSubCategory;
+    const price = formData.get('price') as string | null;
+    if (price != null) patchData.price = parseFloat(price);
+    const minimumOrder = formData.get('minimumOrder') as string | null;
+    if (minimumOrder != null) patchData.minimum_order = parseInt(minimumOrder, 10);
+    const unit = formData.get('unit') as string | null;
+    if (unit != null) patchData.unit = unit;
+    const inStockRaw = formData.get('inStock');
+    if (inStockRaw != null) patchData.in_stock = parseBoolean(inStockRaw, true);
+    const specificationsRaw = formData.get('specifications') as string | null;
+    if (specificationsRaw != null) {
+      try {
+        patchData.specifications = JSON.parse(specificationsRaw);
+      } catch {
+        return NextResponse.json({ error: 'specifications must be valid JSON' }, { status: 422 });
+      }
+    }
+    const existingImagesRaw = formData.get('existingImages') as string | null;
+    if (existingImagesRaw != null) {
+      try {
+        keptImages = JSON.parse(existingImagesRaw);
+      } catch {
+        keptImages = [];
+      }
+    }
+    newImageFiles = (formData.getAll('images') as File[]).filter((f) => f.size > 0);
+  } else {
+    const body = await req.json().catch(() => null);
+    id = (body?.id as string | undefined)?.trim() ?? '';
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
+    if (typeof body.name === 'string') patchData.name = body.name;
+    if (typeof body.description === 'string') patchData.description = body.description;
+    if (typeof body.category === 'string') patchData.category = body.category;
+    if (typeof body.subcategory === 'string') patchData.subcategory = body.subcategory;
+    if (typeof body.subSubCategory === 'string') patchData.sub_subcategory = body.subSubCategory;
+    if (typeof body.price === 'number') patchData.price = body.price;
+    if (typeof body.minimumOrder === 'number') patchData.minimum_order = body.minimumOrder;
+    if (typeof body.unit === 'string') patchData.unit = body.unit;
+    if (typeof body.inStock === 'boolean') patchData.in_stock = body.inStock;
+    if (body.specifications && typeof body.specifications === 'object') patchData.specifications = body.specifications;
+    if (Array.isArray(body.images)) patchData.images = body.images;
+  }
+
   delete (patchData as any).vendor_id;
   delete (patchData as any).is_featured;
 
@@ -311,6 +366,31 @@ export async function PATCH(req: NextRequest) {
       patchData.sub_subcategory,
     );
     if (taxonomyError) return NextResponse.json({ error: taxonomyError }, { status: 422 });
+  }
+
+  if (keptImages !== null || newImageFiles.length > 0) {
+    const { data: current } = await supabaseAdmin
+      .from('products')
+      .select('images')
+      .eq('id', id)
+      .eq('vendor_id', auth.vendorId)
+      .maybeSingle();
+
+    const currentImages: string[] = Array.isArray(current?.images) ? current.images : [];
+    const kept = keptImages ?? currentImages;
+    const removed = currentImages.filter((url) => !kept.includes(url));
+    if (removed.length > 0) {
+      await deleteStorageObjectsFromUrls(removed);
+    }
+
+    await ensureBucket();
+    const uploadedUrls: string[] = [];
+    for (const file of newImageFiles) {
+      const result = await uploadImage(file);
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 422 });
+      uploadedUrls.push(result.url);
+    }
+    patchData.images = [...kept, ...uploadedUrls];
   }
 
   const { data: product, error } = await supabaseAdmin
