@@ -29,23 +29,30 @@ function parsePositiveInt(value: string | null, fallback: number, max: number) {
 }
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const page = Math.max(0, Number.parseInt(searchParams.get('page') ?? '0', 10) || 0);
-  const pageSize = parsePositiveInt(searchParams.get('pageSize'), 3, MAX_PAGE_SIZE);
-  const perCategory = parsePositiveInt(searchParams.get('perCategory'), 4, MAX_PER_CATEGORY);
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const page = Math.max(0, Number.parseInt(searchParams.get('page') ?? '0', 10) || 0);
+    const pageSize = parsePositiveInt(searchParams.get('pageSize'), 3, MAX_PAGE_SIZE);
+    const perCategory = parsePositiveInt(searchParams.get('perCategory'), 4, MAX_PER_CATEGORY);
 
-  const { sections, hasMore } = await getLandingCategoryFeedSections({ page, pageSize, perCategory });
+    const { sections, hasMore } = await getLandingCategoryFeedSections({ page, pageSize, perCategory });
 
-  return NextResponse.json(
-    {
-      sections: sections as LandingFeedProduct[],
-      hasMore,
-      page,
-    },
-    {
-      headers: {
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+    return NextResponse.json(
+      {
+        sections: sections as LandingFeedProduct[],
+        hasMore,
+        page,
       },
-    },
-  );
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+        },
+      },
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'Failed to load landing feed' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 }

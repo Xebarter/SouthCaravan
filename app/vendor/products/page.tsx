@@ -127,6 +127,11 @@ export default function VendorProductsPage() {
     [taxonomyTree, draft.category, draft.subcategory],
   );
 
+  const taxonomyPath = useMemo(() => {
+    const parts = [draft.category, draft.subcategory, draft.subSubCategory].map((v) => (v ?? '').trim()).filter(Boolean);
+    return parts.join(' / ');
+  }, [draft.category, draft.subcategory, draft.subSubCategory]);
+
   useEffect(() => {
     if (draft.subcategory && !availableSubcategories.includes(draft.subcategory)) {
       setDraft((prev) => ({ ...prev, subcategory: '', subSubCategory: '' }));
@@ -457,194 +462,210 @@ export default function VendorProductsPage() {
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!saving) setDialogOpen(open); }}>
-        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
-            <DialogDescription>
-              {mode === 'create'
-                ? 'Fill in the details below to add a new product to your catalog.'
-                : 'Update the product details below.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5 mt-1">
-            {/* Name + Description */}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="dp-name" className="text-sm">
-                  Product name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="dp-name"
-                  value={draft.name}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Stainless Steel Ball Bearings"
-                />
+        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl lg:max-w-3xl h-[88dvh] p-0 gap-0 overflow-hidden rounded-2xl border shadow-xl">
+          <div className="h-full min-h-0 flex flex-col">
+            <DialogHeader className="border-b border-border px-6 py-4 bg-background/95 backdrop-blur">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <DialogTitle className="text-xl">{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
+                  <DialogDescription className="mt-1">
+                    {mode === 'create'
+                      ? 'Create a new product listing with pricing and taxonomy.'
+                      : 'Update this product’s details and availability.'}
+                  </DialogDescription>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="dp-desc" className="text-sm">
-                  Description
-                </Label>
-                <Input
-                  id="dp-desc"
-                  value={draft.description}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Brief description shown in listings"
-                />
+            </DialogHeader>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                  <h3 className="text-base font-semibold">Product information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5 min-w-0">
+                      <Label htmlFor="dp-name" className="text-sm">
+                        Product name <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="dp-name"
+                        value={draft.name}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. Stainless Steel Ball Bearings"
+                      />
+                    </div>
+                    <div className="space-y-1.5 min-w-0">
+                      <Label htmlFor="dp-unit" className="text-sm">Unit</Label>
+                      <Input
+                        id="dp-unit"
+                        value={draft.unit}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, unit: e.target.value }))}
+                        placeholder="piece"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 min-w-0">
+                    <Label htmlFor="dp-desc" className="text-sm">
+                      Description
+                    </Label>
+                    <Input
+                      id="dp-desc"
+                      value={draft.description}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Brief description shown in listings"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                    <h3 className="text-base font-semibold">Category</h3>
+                    <Badge variant="outline" className="w-full sm:w-auto sm:max-w-[60%] truncate">
+                      {taxonomyPath || 'Select category path'}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1.5 min-w-0">
+                      <Label className="text-sm">
+                        Category <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={draft.category || '__none__'}
+                        onValueChange={(v) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            category: v === '__none__' ? '' : v,
+                            subcategory: '',
+                            subSubCategory: '',
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Select…</SelectItem>
+                          {categoryOptions.map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 min-w-0">
+                      <Label className="text-sm">Subcategory (optional)</Label>
+                      <Select
+                        value={draft.subcategory || '__none__'}
+                        onValueChange={(v) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            subcategory: v === '__none__' ? '' : v,
+                            subSubCategory: '',
+                          }))
+                        }
+                        disabled={!draft.category || availableSubcategories.length === 0}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select subcategory (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {availableSubcategories.map((sub) => (
+                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5 min-w-0">
+                      <Label className="text-sm">Sub-Subcategory (optional)</Label>
+                      <Select
+                        value={draft.subSubCategory || '__none__'}
+                        onValueChange={(v) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            subSubCategory: v === '__none__' ? '' : v,
+                          }))
+                        }
+                        disabled={!draft.subcategory || availableSubSubcategories.length === 0}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select sub-subcategory (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {availableSubSubcategories.map((leaf) => (
+                            <SelectItem key={leaf} value={leaf}>{leaf}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                  <h3 className="text-base font-semibold">Pricing & availability</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1.5 min-w-0">
+                      <Label htmlFor="dp-price" className="text-sm">
+                        Base price (USD) <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="dp-price"
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={draft.price}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, price: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5 min-w-0">
+                      <Label htmlFor="dp-min-order" className="text-sm">
+                        Minimum order <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="dp-min-order"
+                        type="number"
+                        step="1"
+                        min={1}
+                        value={draft.minimumOrder}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, minimumOrder: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5 min-w-0">
+                      <Label className="text-sm">In stock</Label>
+                      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
+                        <p className="text-sm text-muted-foreground">Available to buyers</p>
+                        <Switch
+                          checked={draft.inStock}
+                          onCheckedChange={(v) => setDraft((prev) => ({ ...prev, inStock: v }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Category selectors */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">
-                Category <span className="text-destructive">*</span>
-              </Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Select
-                  value={draft.category || '__none__'}
-                  onValueChange={(v) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      category: v === '__none__' ? '' : v,
-                      subcategory: '',
-                      subSubCategory: '',
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Select…</SelectItem>
-                    {categoryOptions.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={draft.subcategory || '__none__'}
-                  onValueChange={(v) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      subcategory: v === '__none__' ? '' : v,
-                      subSubCategory: '',
-                    }))
-                  }
-                  disabled={!draft.category || availableSubcategories.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Subcategory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {availableSubcategories.map((sub) => (
-                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={draft.subSubCategory || '__none__'}
-                  onValueChange={(v) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      subSubCategory: v === '__none__' ? '' : v,
-                    }))
-                  }
-                  disabled={!draft.subcategory || availableSubSubcategories.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sub-category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {availableSubSubcategories.map((leaf) => (
-                      <SelectItem key={leaf} value={leaf}>{leaf}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="border-t border-border bg-background/95 backdrop-blur px-6 py-3">
+              <div className="max-w-5xl mx-auto w-full flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button onClick={saveDraft} disabled={saving} className="min-w-32">
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving…
+                    </>
+                  ) : mode === 'create' ? (
+                    'Create Product'
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
               </div>
-            </div>
-
-            <Separator />
-
-            {/* Pricing + ordering */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="dp-price" className="text-sm">
-                  Price (USD) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="dp-price"
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={draft.price}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, price: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="dp-min-order" className="text-sm">
-                  Min. order <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="dp-min-order"
-                  type="number"
-                  step="1"
-                  min={1}
-                  value={draft.minimumOrder}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, minimumOrder: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="dp-unit" className="text-sm">Unit</Label>
-                <Input
-                  id="dp-unit"
-                  value={draft.unit}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, unit: e.target.value }))}
-                  placeholder="piece"
-                />
-              </div>
-            </div>
-
-            {/* In stock toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">In stock</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Mark as available to buyers
-                </p>
-              </div>
-              <Switch
-                checked={draft.inStock}
-                onCheckedChange={(v) => setDraft((prev) => ({ ...prev, inStock: v }))}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button onClick={saveDraft} disabled={saving} className="min-w-28">
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving…
-                  </>
-                ) : mode === 'create' ? (
-                  'Create product'
-                ) : (
-                  'Save changes'
-                )}
-              </Button>
             </div>
           </div>
         </DialogContent>

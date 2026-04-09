@@ -952,30 +952,38 @@ export default function ProductManagementClient() {
         setDialogOpen(open);
         if (!open) resetDialogState();
       }}>
-        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl lg:max-w-3xl h-[88dvh] p-0 gap-0 overflow-hidden border-0">
+        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl lg:max-w-3xl h-[88dvh] p-0 gap-0 overflow-hidden rounded-2xl border shadow-xl">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="h-full min-h-0 flex flex-col">
-              <DialogHeader className="border-b border-border px-6 py-4">
-                <DialogTitle>{mode === 'create' ? 'Create Product' : 'Edit Product'}</DialogTitle>
-                <DialogDescription>
-                  Fill the fields below to {mode === 'create' ? 'add a new product' : 'update this product'}.
-                </DialogDescription>
+              <DialogHeader className="border-b border-border px-6 py-4 bg-background/95 backdrop-blur">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <DialogTitle className="text-xl">{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
+                    <DialogDescription className="mt-1">
+                      {mode === 'create'
+                        ? 'Create a new product listing with pricing, images, and specs.'
+                        : 'Update this product’s details, pricing, images, and specs.'}
+                    </DialogDescription>
+                  </div>
+                </div>
               </DialogHeader>
 
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 <div className="mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-base font-semibold">Product Information</h3>
-                    <div className="grid md:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold">Product information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <FormField control={form.control} name="name" render={({ field }) => (
-                        <FormItem data-field="name">
+                        <FormItem data-field="name" className="min-w-0">
                           <FormLabel>Product Name *</FormLabel>
                           <FormControl><Input {...field} placeholder="e.g. Organic Arabica Coffee Beans" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="vendorId" render={({ field }) => (
-                        <FormItem data-field="vendorId">
+                        <FormItem data-field="vendorId" className="min-w-0">
                           <FormLabel>Vendor ID (optional)</FormLabel>
                           <FormControl><Input {...field} placeholder="Leave blank for admin-created products" /></FormControl>
                           <FormMessage />
@@ -983,7 +991,7 @@ export default function ProductManagementClient() {
                       )} />
                     </div>
                     <FormField control={form.control} name="description" render={({ field }) => (
-                      <FormItem data-field="description">
+                      <FormItem data-field="description" className="min-w-0">
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <ProductDescriptionEditor
@@ -999,27 +1007,37 @@ export default function ProductManagementClient() {
                     )} />
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                       <h3 className="text-base font-semibold">Category</h3>
-                      <Badge variant="outline" className="max-w-[60%] truncate">{taxonomyPath || 'Select category path'}</Badge>
+                      <Badge variant="outline" className="w-full sm:w-auto sm:max-w-[60%] truncate">
+                        {taxonomyPath || 'Select category path'}
+                      </Badge>
                     </div>
-                    <div className="grid md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <FormField control={form.control} name="category" render={({ field }) => (
-                        <FormItem data-field="category">
+                        <FormItem data-field="category" className="min-w-0">
                           <FormLabel>Category *</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger></FormControl>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>{categoryOptions.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="subcategory" render={({ field }) => (
-                        <FormItem data-field="subcategory">
+                        <FormItem data-field="subcategory" className="min-w-0">
                           <FormLabel>Subcategory (optional)</FormLabel>
                           <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select subcategory (optional)" /></SelectTrigger></FormControl>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select subcategory (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>
                               <SelectItem value="__none__">None</SelectItem>
                               {availableSubcategories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
@@ -1029,10 +1047,14 @@ export default function ProductManagementClient() {
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="subSubCategory" render={({ field }) => (
-                        <FormItem data-field="subSubCategory">
+                        <FormItem data-field="subSubCategory" className="min-w-0">
                           <FormLabel>Sub-Subcategory (optional)</FormLabel>
                           <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select sub-subcategory (optional)" /></SelectTrigger></FormControl>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select sub-subcategory (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>
                               <SelectItem value="__none__">None</SelectItem>
                               {availableSubSubcategories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
@@ -1044,28 +1066,32 @@ export default function ProductManagementClient() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="text-base font-semibold">Pricing & Availability</h3>
-                    <div className="grid md:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+                    <h3 className="text-base font-semibold">Pricing & availability</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <FormField control={form.control} name="price" render={({ field }) => (
-                        <FormItem data-field="price">
+                        <FormItem data-field="price" className="min-w-0">
                           <FormLabel>Base Price (USD) *</FormLabel>
                           <FormControl><Input {...field} type="number" step="0.01" min={0} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="minimumOrder" render={({ field }) => (
-                        <FormItem data-field="minimumOrder">
+                        <FormItem data-field="minimumOrder" className="min-w-0">
                           <FormLabel>Minimum Order *</FormLabel>
                           <FormControl><Input {...field} type="number" step="1" min={1} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="unit" render={({ field }) => (
-                        <FormItem data-field="unit">
+                        <FormItem data-field="unit" className="min-w-0">
                           <FormLabel>Unit *</FormLabel>
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger></FormControl>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>{UNITS.map((unit) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
                           </Select>
                           <FormMessage />
@@ -1089,7 +1115,7 @@ export default function ProductManagementClient() {
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-semibold">Images</h3>
                       <Badge variant="outline">{existingImages.length + newImages.length} image(s)</Badge>
@@ -1103,7 +1129,7 @@ export default function ProductManagementClient() {
                     />
                   </div>
 
-                  <div className="space-y-3 pb-4">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 pb-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-semibold">Specifications</h3>
                       <Button type="button" variant="outline" size="sm" onClick={() => append({ key: '', value: '' })}>

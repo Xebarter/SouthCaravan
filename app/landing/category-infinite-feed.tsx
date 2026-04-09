@@ -41,8 +41,23 @@ export default function CategoryInfiniteFeed({
     setError(null);
     try {
       const response = await fetch(`/api/landing/products?page=${nextPage}&pageSize=3&perCategory=4`);
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? 'Failed to load products');
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text().catch(() => '');
+        throw new Error(
+          response.ok
+            ? 'Unexpected response from server.'
+            : `Failed to load products (HTTP ${response.status}). ${text ? 'Please try again.' : ''}`.trim(),
+        );
+      }
+
+      let payload: any = null;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new Error(`Failed to load products (invalid JSON, HTTP ${response.status}).`);
+      }
+      if (!response.ok) throw new Error(payload?.error ?? `Failed to load products (HTTP ${response.status}).`);
 
       const nextSections = (payload.sections ?? []) as FeedSection[];
       setSections((prev) => {

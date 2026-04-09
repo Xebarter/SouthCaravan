@@ -124,13 +124,17 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   }, [products, trimmedQuery]);
 
   useEffect(() => {
-    function onClickOutside(event: MouseEvent) {
+    function onOutside(event: MouseEvent | TouchEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     }
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('touchstart', onOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('touchstart', onOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -181,153 +185,210 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   }, [query]);
 
   return (
-    <div ref={rootRef} className="relative flex-1">
-      <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-      <Input
-        type="search"
-        placeholder={mobile ? 'Search products...' : 'Search products, vendors, categories...'}
-        className={mobile ? 'pl-9 bg-secondary h-9' : 'pl-9 bg-secondary'}
-        value={query}
-        onFocus={() => {
-          setOpen(true);
-          if (!products.length && !categories.length) {
-            setQuery('');
-          }
-        }}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setOpen(true);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && query.trim()) {
-            router.push(`/catalog?query=${encodeURIComponent(query.trim())}`);
-            setOpen(false);
-          }
-        }}
-      />
-
-      {showDropdown && (
+    <>
+      {/* Backdrop — dims the page when the mobile dropdown is open */}
+      {mobile && showDropdown && (
         <div
-          className={
-            mobile
-              ? 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] border-y border-border bg-background shadow-lg rounded-none max-h-[calc(100vh-10rem)] overflow-y-auto overscroll-contain'
-              : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
-          }
-        >
-          <div className={mobile ? 'p-3 text-xs text-muted-foreground' : 'text-xs text-muted-foreground'}>
-            {loading
-              ? 'Loading suggestions...'
-              : trimmedQuery
-                ? `Results for "${trimmedQuery}"`
-                : 'Popular products and categories'}
-          </div>
+          className="fixed inset-0 z-[69] bg-black/30 md:hidden"
+          aria-hidden
+          onMouseDown={() => setOpen(false)}
+          onTouchStart={() => setOpen(false)}
+        />
+      )}
 
-          {safeCategories.length > 0 && (
-            <div className={mobile ? 'px-3 pb-3 space-y-1' : 'space-y-1'}>
-              <p className="text-xs font-medium text-muted-foreground">Related Categories</p>
-              <div className="space-y-2">
-                {safeCategories.map((s, idx) => {
-                  const params = new URLSearchParams();
-                  if (trimmedQuery) params.set('query', trimmedQuery);
-                  if (s.type === 'category') {
-                    params.set('category', s.value);
-                  } else if (s.type === 'subcategory') {
-                    if (s.parentCategory) params.set('category', s.parentCategory);
-                    params.set('subcategory', s.value);
-                  } else {
-                    if (s.parentCategory) params.set('category', s.parentCategory);
-                    if (s.parentSubcategory) params.set('subcategory', s.parentSubcategory);
-                    params.set('subSubcategory', s.value);
-                  }
+      <div ref={rootRef} className="relative flex-1">
+        <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+        <Input
+          type="search"
+          placeholder={mobile ? 'Search products...' : 'Search products, vendors, categories...'}
+          className={mobile ? 'pl-9 bg-secondary h-9' : 'pl-9 bg-secondary'}
+          value={query}
+          onFocus={() => {
+            setOpen(true);
+            if (!products.length && !categories.length) {
+              setQuery('');
+            }
+          }}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && query.trim()) {
+              router.push(`/catalog?query=${encodeURIComponent(query.trim())}`);
+              setOpen(false);
+            }
+          }}
+        />
 
-                  return (
+        {showDropdown && (
+          <div
+            className={
+              mobile
+                ? [
+                    // Fixed panel that spans the full viewport width, sitting just below the sticky nav (h-14 = 3.5rem).
+                    'fixed top-14 left-0 right-0 z-[70]',
+                    'bg-background border-t border-border shadow-2xl',
+                    // Use dynamic viewport height so the panel respects the on-screen keyboard.
+                    'max-h-[calc(100dvh-3.5rem)]',
+                    'overflow-y-auto overscroll-contain',
+                    // Smooth momentum scrolling on iOS.
+                    '[scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]',
+                  ].join(' ')
+                : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
+            }
+          >
+            {/* Status / header row */}
+            <div
+              className={
+                mobile
+                  ? 'flex items-center justify-between px-4 py-3 border-b border-border/60 sticky top-0 bg-background z-10'
+                  : 'text-xs text-muted-foreground'
+              }
+            >
+              <span className="text-xs text-muted-foreground">
+                {loading
+                  ? 'Loading suggestions…'
+                  : trimmedQuery
+                    ? `Results for "${trimmedQuery}"`
+                    : 'Popular products and categories'}
+              </span>
+              {mobile && (
+                <button
+                  type="button"
+                  aria-label="Close search results"
+                  onClick={() => setOpen(false)}
+                  className="ml-3 shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-secondary active:bg-secondary/80 transition-colors"
+                >
+                  {/* ✕ icon */}
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Related categories */}
+            {safeCategories.length > 0 && (
+              <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">
+                  Related Categories
+                </p>
+                <div className="space-y-2">
+                  {safeCategories.map((s, idx) => {
+                    const params = new URLSearchParams();
+                    if (trimmedQuery) params.set('query', trimmedQuery);
+                    if (s.type === 'category') {
+                      params.set('category', s.value);
+                    } else if (s.type === 'subcategory') {
+                      if (s.parentCategory) params.set('category', s.parentCategory);
+                      params.set('subcategory', s.value);
+                    } else {
+                      if (s.parentCategory) params.set('category', s.parentCategory);
+                      if (s.parentSubcategory) params.set('subcategory', s.parentSubcategory);
+                      params.set('subSubcategory', s.value);
+                    }
+
+                    return (
+                      <Link
+                        key={`${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
+                        href={`/catalog?${params.toString()}`}
+                        onClick={() => setOpen(false)}
+                        className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                          mobile ? 'p-3 min-h-[3.25rem]' : 'p-2'
+                        }`}
+                      >
+                        <div
+                          className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
+                        >
+                          {s.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {s.context ? `in ${s.context}` : 'Category'}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Tag className="h-3 w-3" />
+                          {s.type === 'subSubcategory'
+                            ? 'Subcategory'
+                            : s.type === 'subcategory'
+                              ? 'Category'
+                              : 'Category'}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Product matches */}
+            <div className={mobile ? 'px-4 pb-4 space-y-2' : 'space-y-1'}>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Top matches</p>
+              {rankedProducts.length > 0 ? (
+                <div className="space-y-2">
+                  {rankedProducts.map((product) => (
                     <Link
-                      key={`${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
-                      href={`/catalog?${params.toString()}`}
+                      key={product.id}
+                      href={categoryBrowseHrefForProduct(product)}
                       onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 rounded-md border border-border hover:bg-secondary/60 transition-colors ${
-                        mobile ? 'p-3' : 'p-2'
+                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                        mobile ? 'p-3 min-h-[4rem]' : 'p-2'
                       }`}
                     >
                       <div
-                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-12 w-12' : 'h-10 w-10'}`}
+                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-14 w-14' : 'h-14 w-14'}`}
                       >
-                        {s.image ? (
+                        {product.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
+                          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
                         ) : null}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
+                        <p className="text-sm font-medium leading-5 line-clamp-1">{product.name}</p>
                         <p className="text-xs text-muted-foreground line-clamp-1">
-                          {s.context ? `in ${s.context}` : 'Category'}
+                          {product.subcategory || product.category}
+                          {product.subSubcategory ? ` • ${product.subSubcategory}` : ''}
                         </p>
-                      </div>
-
-                      <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Tag className="h-3 w-3" />
-                        {s.type === 'subSubcategory'
-                          ? 'Subcategory'
-                          : s.type === 'subcategory'
-                            ? 'Category'
-                            : 'Category'}
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <Badge variant={product.inStock ? 'default' : 'outline'} className="text-[10px]">
+                            {product.inStock ? 'In Stock' : 'Out'}
+                          </Badge>
+                          {product.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
+                        </div>
                       </div>
                     </Link>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : !loading ? (
+                <p className="text-xs text-muted-foreground py-2">No matching products.</p>
+              ) : null}
             </div>
-          )}
 
-          <div className={mobile ? 'px-3 pb-3 space-y-1' : 'space-y-1'}>
-            <p className="text-xs font-medium text-muted-foreground">Top matches</p>
-            {rankedProducts.length > 0 ? (
-              <div className="space-y-2">
-                {rankedProducts.map((product) => (
-                  <Link
-                    key={product.id}
-                    href={categoryBrowseHrefForProduct(product)}
-                    onClick={() => setOpen(false)}
-                    className={`flex items-center gap-3 rounded-md border border-border hover:bg-secondary/60 transition-colors ${
-                      mobile ? 'p-3' : 'p-2'
-                    }`}
-                  >
-                    <div
-                      className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-16 w-16' : 'h-14 w-14'}`}
-                    >
-                      {product.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-5 line-clamp-1">{product.name}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {product.subcategory || product.category}
-                        {product.subSubcategory ? ` • ${product.subSubcategory}` : ''}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <Badge variant={product.inStock ? 'default' : 'outline'} className="text-[10px]">
-                          {product.inStock ? 'In Stock' : 'Out'}
-                        </Badge>
-                        {product.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+            {/* "View all" footer — only on mobile when there's a query */}
+            {mobile && trimmedQuery && (
+              <div className="sticky bottom-0 bg-background border-t border-border/60 px-4 py-3">
+                <Link
+                  href={`/catalog?query=${encodeURIComponent(trimmedQuery)}`}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground text-sm font-medium py-3 hover:bg-primary/90 active:bg-primary/80 transition-colors"
+                >
+                  <Search className="h-4 w-4" />
+                  View all results for &ldquo;{trimmedQuery}&rdquo;
+                </Link>
               </div>
-            ) : !loading ? (
-              <p className="text-xs text-muted-foreground">No matching products.</p>
-            ) : null}
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

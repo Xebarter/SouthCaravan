@@ -1,1 +1,0 @@
-refactorthe global shell/header so less JS ships on / (right now Header + AppShell are client components)
