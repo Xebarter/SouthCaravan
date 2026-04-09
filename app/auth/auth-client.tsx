@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -11,6 +12,7 @@ import {
   authFieldClassName,
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
+  authTextButtonClassName,
 } from '@/components/auth-chrome'
 import { getBrowserSupabaseClient } from '@/lib/supabase/client'
 
@@ -376,21 +378,20 @@ export default function AuthClient() {
       <div className={authCardClassName}>
         <AuthBrandBanner />
 
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {mode === 'forgot' ? 'Reset your password' : 'Continue to SouthCaravan'}
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {mode === 'forgot' ? 'Reset password' : 'Sign in'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {mode === 'forgot' ? 'We’ll email you a reset link.' : 'Use your SouthCaravan account'}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Portal: <span className="font-medium text-foreground">{role}</span>
             </p>
           </div>
           {mode === 'forgot' ? (
-            <button
-              type="button"
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setMode('signin')}
-            >
+            <button type="button" className={authTextButtonClassName} onClick={() => setMode('signin')}>
               Back
             </button>
           ) : null}
@@ -456,14 +457,17 @@ export default function AuthClient() {
             <input
               className={authFieldClassName}
               type="email"
+              autoComplete="email"
               placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
             />
-            <button className={authPrimaryButtonClassName} disabled={busy} onClick={handleForgot} type="button">
-              {busy ? 'Sending…' : 'Send reset link'}
-            </button>
+            <div className="flex items-center justify-end">
+              <button className={authPrimaryButtonClassName} disabled={busy} onClick={handleForgot} type="button">
+                {busy ? 'Sending…' : 'Send'}
+              </button>
+            </div>
           </div>
         ) : (
           <form className="space-y-3" onSubmit={handleSignInOrUp}>
@@ -497,20 +501,28 @@ export default function AuthClient() {
               </button>
             </div>
 
-            <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
-              {busy ? 'Working…' : 'Continue'}
-            </button>
-
-            <button
-              type="button"
-              className={authSecondaryButtonClassName}
-              disabled={busy}
-              onClick={() => setMode('forgot')}
-            >
-              Forgot password
-            </button>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button type="button" className={authTextButtonClassName} disabled={busy} onClick={() => setMode('forgot')}>
+                Forgot password?
+              </button>
+              <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
+                {busy ? 'Working…' : 'Next'}
+              </button>
+            </div>
           </form>
         )}
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground hover:underline underline-offset-4">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground hover:underline underline-offset-4">
+            Terms
+          </Link>
+          <Link href="/help" className="hover:text-foreground hover:underline underline-offset-4">
+            Help
+          </Link>
+        </div>
       </div>
     </AuthPageBackground>
   )
