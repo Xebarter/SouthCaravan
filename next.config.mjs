@@ -8,6 +8,8 @@ try {
 }
 
 const nextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
   async redirects() {
     return [
       { source: '/landing', destination: '/', permanent: true },
@@ -17,7 +19,9 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Keep Next image optimization enabled for fast, professional loads.
+    unoptimized: false,
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: supabaseHostname
       ? [
           {

@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Package,
 } from 'lucide-react';
-import CategoryInfiniteFeed from './landing/category-infinite-feed';
 import ProductAdBannerSection from './landing/product-ad-banner-section';
 import PopularCategories from './landing/popular-categories';
 import {
@@ -18,6 +17,7 @@ import {
 } from '@/lib/landing-data';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
+import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-feed-client';
 
 export default async function HomePage() {
   const products = await getLandingProducts();
@@ -27,25 +27,11 @@ export default async function HomePage() {
   const menuSections = await getMarketplaceMenuSections();
   const popularCategories = menuSections.map((s) => s.title).filter(Boolean);
 
-  const criticalPreloadUrls = Array.from(
-    new Set(
-      [
-        heroProducts[0]?.images?.[0],
-        ...heroProducts.slice(1).map((p) => p.images?.[0]).filter(Boolean),
-        ...sponsoredItems.map((i) => i.banner_image_url).filter(Boolean),
-      ] as string[],
-    ),
-  ).filter(Boolean);
-
   const initialSections = initialCategoryFeed.sections;
   const initialHasMore = initialCategoryFeed.hasMore;
 
   return (
     <div className="bg-[#f3f5f7]">
-      {criticalPreloadUrls.map((url) => (
-        <link key={url} rel="preload" as="image" href={url} />
-      ))}
-
       <ProductAdBannerSection items={sponsoredItems} />
       <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10">
         <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">
@@ -64,6 +50,7 @@ export default async function HomePage() {
                           alt={heroProducts[0].name}
                           fill
                           priority
+                          fetchPriority="high"
                           sizes="(min-width: 1024px) 50vw, 100vw"
                           className="object-cover"
                         />
@@ -104,7 +91,7 @@ export default async function HomePage() {
                               src={product.images[0]}
                               alt={product.name}
                               fill
-                              priority
+                              // Only the hero image should be priority on the homepage.
                               sizes="(min-width: 640px) 25vw, 100vw"
                               className="object-cover"
                             />
@@ -153,7 +140,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <CategoryInfiniteFeed initialSections={initialSections} initialHasMore={initialHasMore} />
+      <CategoryInfiniteFeedClient initialSections={initialSections} initialHasMore={initialHasMore} />
     </div>
   );
 }

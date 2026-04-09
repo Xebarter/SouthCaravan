@@ -1,11 +1,18 @@
 import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
+import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { AppShellWithMenu } from '@/components/app-shell-with-menu'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://southcaravan.com'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans-next',
+})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -64,7 +71,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased bg-background text-foreground flex flex-col min-h-screen">
+      <body
+        className={[
+          inter.variable,
+          'font-sans antialiased bg-background text-foreground flex flex-col min-h-screen',
+        ].join(' ')}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

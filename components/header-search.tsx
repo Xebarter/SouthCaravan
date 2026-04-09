@@ -207,8 +207,14 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       />
 
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] rounded-lg border border-border bg-background shadow-lg p-3 space-y-3">
-          <div className="text-xs text-muted-foreground">
+        <div
+          className={
+            mobile
+              ? 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] border-y border-border bg-background shadow-lg rounded-none max-h-[calc(100vh-10rem)] overflow-y-auto overscroll-contain'
+              : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
+          }
+        >
+          <div className={mobile ? 'p-3 text-xs text-muted-foreground' : 'text-xs text-muted-foreground'}>
             {loading
               ? 'Loading suggestions...'
               : trimmedQuery
@@ -217,7 +223,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
           </div>
 
           {safeCategories.length > 0 && (
-            <div className="space-y-1">
+            <div className={mobile ? 'px-3 pb-3 space-y-1' : 'space-y-1'}>
               <p className="text-xs font-medium text-muted-foreground">Related Categories</p>
               <div className="space-y-2">
                 {safeCategories.map((s, idx) => {
@@ -239,9 +245,13 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                       key={`${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
                       href={`/catalog?${params.toString()}`}
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 rounded-md border border-border p-2 hover:bg-secondary/60 transition-colors"
+                      className={`flex items-center gap-3 rounded-md border border-border hover:bg-secondary/60 transition-colors ${
+                        mobile ? 'p-3' : 'p-2'
+                      }`}
                     >
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-secondary">
+                      <div
+                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-12 w-12' : 'h-10 w-10'}`}
+                      >
                         {s.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
@@ -270,7 +280,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
             </div>
           )}
 
-          <div className="space-y-1">
+          <div className={mobile ? 'px-3 pb-3 space-y-1' : 'space-y-1'}>
             <p className="text-xs font-medium text-muted-foreground">Top matches</p>
             {rankedProducts.length > 0 ? (
               <div className="space-y-2">
@@ -279,9 +289,13 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                     key={product.id}
                     href={categoryBrowseHrefForProduct(product)}
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-3 rounded-md border border-border p-2 hover:bg-secondary/60 transition-colors"
+                    className={`flex items-center gap-3 rounded-md border border-border hover:bg-secondary/60 transition-colors ${
+                      mobile ? 'p-3' : 'p-2'
+                    }`}
                   >
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded bg-secondary">
+                    <div
+                      className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-16 w-16' : 'h-14 w-14'}`}
+                    >
                       {product.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img

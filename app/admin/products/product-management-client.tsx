@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,12 +43,21 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { ProductDescriptionEditor } from '@/components/product-description-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { Money } from '@/components/money';
+
+const ProductDescriptionEditor = dynamic(
+  () => import('@/components/product-description-editor').then((m) => m.ProductDescriptionEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[220px] rounded-md border border-input bg-muted/40 animate-pulse" aria-hidden />
+    ),
+  },
+);
 
 const UNITS = ['piece', 'kg', 'g', 'tonne', 'litre', 'ml', 'metre', 'sqm', 'box', 'pack', 'dozen', 'set'] as const;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

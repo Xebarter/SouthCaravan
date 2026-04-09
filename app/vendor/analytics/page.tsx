@@ -56,7 +56,7 @@ export default function VendorAnalyticsPage() {
 
   return (
     <main className="flex-1 overflow-auto">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
