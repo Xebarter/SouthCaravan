@@ -59,9 +59,10 @@ export function AppShell({
     [pathname],
   );
   const vendorConsolePage = useMemo(() => isVendorConsolePath(pathname), [pathname]);
+  const buyerConsolePage = useMemo(() => pathname === '/buyer' || pathname.startsWith('/buyer/'), [pathname]);
 
   if (!publicPage) {
-    if (adminPage || vendorConsolePage) {
+    if (adminPage || vendorConsolePage || buyerConsolePage) {
       if (vendorConsolePage) {
         return (
           <main data-vendor-console className="flex-1 min-h-screen">

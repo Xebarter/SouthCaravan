@@ -18,12 +18,16 @@ export async function POST(req: Request) {
     }
 
     const admin = createAdminClient()
-    const { data, error } = await admin.auth.admin.getUserByEmail(email)
+    const { data, error } = await admin.rpc('auth_portal_signup_blocked', {
+      check_email: email,
+      portal,
+    })
     if (error) {
+      // Fail open: allow UI to attempt signup if the check is unavailable.
       return NextResponse.json({ registered: false }, { status: 200 })
     }
 
-    return NextResponse.json({ registered: Boolean(data?.user) })
+    return NextResponse.json({ registered: Boolean(data) })
   } catch {
     return NextResponse.json({ registered: false }, { status: 200 })
   }

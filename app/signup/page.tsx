@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 export default function SignupPage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/auth');
+    router.replace('/auth?mode=signup');
   }, [router]);
 
   return null;

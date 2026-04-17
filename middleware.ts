@@ -27,6 +27,13 @@ function hasAdminAccess(user: any) {
   return roles.includes('admin')
 }
 
+function hasVendorAccess(user: any) {
+  const meta = user?.app_metadata ?? {}
+  if (meta.role === 'vendor') return true
+  const roles = Array.isArray(meta.roles) ? meta.roles : []
+  return roles.includes('vendor')
+}
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
@@ -40,7 +47,17 @@ export async function middleware(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // In local/dev without env, don't hard-block routing.
+    // If Supabase env is missing, we still enforce that protected routes cannot be
+    // accessed anonymously (production should always have these env vars).
+    if (isProtectedPath(pathname)) {
+      const role = inferRoleFromPath(pathname)
+      const authUrl = request.nextUrl.clone()
+      authUrl.pathname = '/auth'
+      authUrl.searchParams.set('role', role)
+      authUrl.searchParams.set('next', `${pathname}${search}`)
+      authUrl.searchParams.set('error', 'auth_unavailable')
+      return NextResponse.redirect(authUrl)
+    }
     return response
   }
 
@@ -77,6 +94,7 @@ export async function middleware(request: NextRequest) {
 
   const isAdminPath = pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
   const isProtected = isProtectedPath(pathname)
+  const isVendorPath = pathname === '/vendor' || pathname.startsWith('/vendor/')
 
   if (!user && isProtected) {
     const role = inferRoleFromPath(pathname)
@@ -84,6 +102,15 @@ export async function middleware(request: NextRequest) {
     authUrl.pathname = '/auth'
     authUrl.searchParams.set('role', role)
     authUrl.searchParams.set('next', `${pathname}${search}`)
+    return NextResponse.redirect(authUrl)
+  }
+
+  if (user && isVendorPath && !hasVendorAccess(user)) {
+    const authUrl = request.nextUrl.clone()
+    authUrl.pathname = '/auth'
+    authUrl.searchParams.set('role', 'vendor')
+    authUrl.searchParams.set('next', '/vendor')
+    authUrl.searchParams.set('error', 'vendor_required')
     return NextResponse.redirect(authUrl)
   }
 

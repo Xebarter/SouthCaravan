@@ -1,31 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import { AlertCircle, CheckCircle, Clock, XCircle, ArrowRight, Plus } from 'lucide-react';
-import { mockQuotes, mockVendors, mockOrders } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
+
+function parseQuote(row: any) {
+  return {
+    id: row.id,
+    vendorId: row.vendor_user_id,
+    buyerId: row.buyer_id,
+    items: [],
+    totalAmount: Number(row.total_amount ?? 0),
+    validUntil: row.valid_until ? new Date(row.valid_until) : new Date(),
+    status: row.status,
+    createdAt: new Date(row.created_at),
+  };
+}
 
 export default function BuyerQuotesPage() {
   const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const buyerId = user?.id ?? 'user-1';
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const buyerQuotes = mockQuotes.filter(q => q.buyerId === buyerId);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/buyer/quotes?status=${encodeURIComponent(statusFilter)}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const rows = Array.isArray(json?.quotes) ? json.quotes : [];
+        setQuotes(rows.map(parseQuote));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [statusFilter, user]);
 
-  const filteredQuotes = statusFilter === 'all'
-    ? buyerQuotes
-    : buyerQuotes.filter(q => q.status === statusFilter);
+  const filteredQuotes = useMemo(() => quotes.filter((q) => q.buyerId === buyerId), [quotes, buyerId]);
 
   const stats = {
-    total: buyerQuotes.length,
-    pending: buyerQuotes.filter(q => q.status === 'pending').length,
-    accepted: buyerQuotes.filter(q => q.status === 'accepted').length,
-    rejected: buyerQuotes.filter(q => q.status === 'rejected').length,
+    total: filteredQuotes.length,
+    pending: filteredQuotes.filter(q => q.status === 'pending').length,
+    accepted: filteredQuotes.filter(q => q.status === 'accepted').length,
+    rejected: filteredQuotes.filter(q => q.status === 'rejected').length,
   };
 
   const getStatusIcon = (status: string) => {
@@ -110,9 +140,12 @@ export default function BuyerQuotesPage() {
 
         {/* Quotes List */}
         <div className="space-y-4">
-          {filteredQuotes.length > 0 ? (
+          {loading ? (
+            <Card className="border-border/50">
+              <CardContent className="py-12 text-center text-muted-foreground">Loading quotes…</CardContent>
+            </Card>
+          ) : filteredQuotes.length > 0 ? (
             filteredQuotes.map(quote => {
-              const vendor = mockVendors.find(v => v.id === quote.vendorId);
               const daysUntilExpiry = Math.ceil((quote.validUntil.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
               const isExpired = daysUntilExpiry < 0;
 
@@ -123,7 +156,7 @@ export default function BuyerQuotesPage() {
                       {/* Quote Info */}
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold">{vendor?.companyName || 'Unknown Vendor'}</h3>
+                          <h3 className="font-semibold">{`Vendor ${quote.vendorId.slice(-6)}`}</h3>
                           <Badge className={statusColors[quote.status]}>
                             <span className="mr-1">{getStatusIcon(quote.status)}</span>
                             {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
@@ -141,7 +174,7 @@ export default function BuyerQuotesPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Items</p>
-                            <p className="font-medium">{quote.items.length}</p>
+                            <p className="font-medium">—</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Amount</p>
@@ -162,17 +195,7 @@ export default function BuyerQuotesPage() {
 
                         {/* Item Preview */}
                         <div className="mt-3 p-2 bg-secondary/50 rounded text-sm space-y-1 max-h-24 overflow-y-auto">
-                          {quote.items.slice(0, 3).map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Qty: {item.quantity}</span>
-                              <span className="font-medium">
-                                <Money amountUSD={item.subtotal} />
-                              </span>
-                            </div>
-                          ))}
-                          {quote.items.length > 3 && (
-                            <p className="text-xs text-muted-foreground">+{quote.items.length - 3} more items</p>
-                          )}
+                          <p className="text-xs text-muted-foreground">Open quote details to view items.</p>
                         </div>
                       </div>
 
@@ -180,10 +203,39 @@ export default function BuyerQuotesPage() {
                       <div className="flex gap-2 md:flex-col md:gap-3">
                         {quote.status === 'pending' && (
                           <>
-                            <Button size="sm" className="flex-1 md:flex-none md:w-24">
+                            <Button
+                              size="sm"
+                              className="flex-1 md:flex-none md:w-24"
+                              onClick={async () => {
+                                await fetch(`/api/buyer/quotes/${quote.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ status: 'accepted' }),
+                                });
+                                const res = await fetch(`/api/buyer/quotes?status=${encodeURIComponent(statusFilter)}`);
+                                const json = await res.json().catch(() => null);
+                                const rows = Array.isArray(json?.quotes) ? json.quotes : [];
+                                setQuotes(rows.map(parseQuote));
+                              }}
+                            >
                               Accept
                             </Button>
-                            <Button variant="outline" size="sm" className="flex-1 md:flex-none md:w-24">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 md:flex-none md:w-24"
+                              onClick={async () => {
+                                await fetch(`/api/buyer/quotes/${quote.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ status: 'rejected' }),
+                                });
+                                const res = await fetch(`/api/buyer/quotes?status=${encodeURIComponent(statusFilter)}`);
+                                const json = await res.json().catch(() => null);
+                                const rows = Array.isArray(json?.quotes) ? json.quotes : [];
+                                setQuotes(rows.map(parseQuote));
+                              }}
+                            >
                               Decline
                             </Button>
                           </>

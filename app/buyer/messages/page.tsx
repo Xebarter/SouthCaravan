@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Search, Plus } from 'lucide-react';
-import { mockConversations, mockMessages, mockUsers, mockVendors } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
+
+function toDate(v: any) {
+  return v ? new Date(v) : new Date();
+}
 
 export default function BuyerMessagesPage() {
   const { user } = useAuth();
@@ -18,22 +21,75 @@ export default function BuyerMessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const userConversations = mockConversations.filter(c => c.participants.includes(buyerId));
-  const filteredConversations = userConversations.filter(c => {
-    const otherParticipant = c.participants.find(p => p !== buyerId);
-    const otherUser = mockUsers.find(u => u.id === otherParticipant);
-    return !searchQuery || otherUser?.name.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  const selectedConv = selectedConvId ? userConversations.find(c => c.id === selectedConvId) : null;
-  const convMessages = selectedConv
-    ? mockMessages.filter(m => m.conversationId === selectedConv.id).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    : [];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) return;
+      setLoadingConversations(true);
+      try {
+        const res = await fetch('/api/buyer/conversations');
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const rows = Array.isArray(json?.conversations) ? json.conversations : [];
+        setConversations(rows);
+        if (!selectedConvId && rows.length > 0) setSelectedConvId(rows[0].id);
+      } finally {
+        if (!cancelled) setLoadingConversations(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, selectedConvId]);
 
-  const handleSendMessage = () => {
-    if (!messageText.trim()) return;
-    console.log('[v0] Message sent:', messageText);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user || !selectedConvId) return;
+      setLoadingMessages(true);
+      try {
+        const res = await fetch(`/api/buyer/conversations/${encodeURIComponent(selectedConvId)}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const rows = Array.isArray(json?.messages) ? json.messages : [];
+        setMessages(rows);
+      } finally {
+        if (!cancelled) setLoadingMessages(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedConvId, user]);
+
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((c) => {
+      const other = c.vendor_user_id ?? '';
+      return !searchQuery || other.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+  }, [conversations, searchQuery]);
+
+  const selectedConv = selectedConvId ? conversations.find((c) => c.id === selectedConvId) : null;
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !selectedConvId) return;
+    const content = messageText.trim();
     setMessageText('');
+    const res = await fetch(`/api/buyer/conversations/${encodeURIComponent(selectedConvId)}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      const msg = json?.message;
+      if (msg) setMessages((prev) => [...prev, msg]);
+    }
   };
 
   return (
@@ -62,10 +118,10 @@ export default function BuyerMessagesPage() {
             <CardContent className="flex-1 p-0 overflow-hidden">
               <ScrollArea className="h-full">
                 <div className="space-y-1 p-4">
+                  {loadingConversations && (
+                    <div className="text-sm text-muted-foreground">Loading…</div>
+                  )}
                   {filteredConversations.map(conv => {
-                    const otherParticipant = conv.participants.find(p => p !== buyerId);
-                    const otherUser = mockUsers.find(u => u.id === otherParticipant);
-                    const lastMsg = convMessages.find(m => m.conversationId === conv.id);
                     const isSelected = selectedConvId === conv.id;
 
                     return (
@@ -78,12 +134,12 @@ export default function BuyerMessagesPage() {
                             : 'hover:bg-secondary/50'
                         }`}
                       >
-                        <div className="font-medium text-sm">{otherUser?.name}</div>
+                        <div className="font-medium text-sm">{`Vendor ${String(conv.vendor_user_id).slice(-6)}`}</div>
                         <p className={`text-xs line-clamp-1 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {lastMsg?.content || 'No messages yet'}
+                          {isSelected && messages.length > 0 ? messages[messages.length - 1]?.content : 'Open to view messages'}
                         </p>
                         <p className={`text-xs mt-1 ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                          {conv.updatedAt.toLocaleDateString()}
+                          {toDate(conv.updated_at).toLocaleDateString()}
                         </p>
                       </button>
                     );
@@ -102,7 +158,7 @@ export default function BuyerMessagesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        {mockUsers.find(u => u.id === selectedConv.participants.find(p => p !== buyerId))?.name}
+                        {`Vendor ${String(selectedConv.vendor_user_id).slice(-6)}`}
                       </CardTitle>
                     </div>
                     <Button variant="outline" size="sm">View Profile</Button>
@@ -111,21 +167,24 @@ export default function BuyerMessagesPage() {
 
                 {/* Messages */}
                 <CardContent className="flex-1 p-4 overflow-y-auto space-y-4">
-                  {convMessages.map(msg => (
+                  {loadingMessages && (
+                    <div className="text-sm text-muted-foreground">Loading messages…</div>
+                  )}
+                  {messages.map(msg => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.senderId === buyerId ? 'justify-end' : 'justify-start'}`}
+                      className={`flex ${String(msg.sender_id) === buyerId ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
                         className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          msg.senderId === buyerId
+                          String(msg.sender_id) === buyerId
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-secondary text-foreground'
                         }`}
                       >
                         <p className="text-sm">{msg.content}</p>
-                        <p className={`text-xs mt-1 ${msg.senderId === buyerId ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                          {msg.createdAt.toLocaleTimeString()}
+                        <p className={`text-xs mt-1 ${String(msg.sender_id) === buyerId ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                          {toDate(msg.created_at).toLocaleTimeString()}
                         </p>
                       </div>
                     </div>

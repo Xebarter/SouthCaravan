@@ -37,15 +37,52 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
+function VendorIdentity({
+  name,
+  email,
+  variant = 'header',
+}: {
+  name: string;
+  email: string;
+  variant?: 'header' | 'sidebar';
+}) {
+  const showEmail = email.trim().length > 0;
+  const containerClass =
+    variant === 'header'
+      ? 'hidden sm:flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-secondary/60 transition-colors'
+      : 'flex items-center gap-3 rounded-lg px-3 py-2';
+
+  const avatarClass =
+    variant === 'header'
+      ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold'
+      : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold';
+
+  return (
+    <div className={containerClass} aria-label="Signed-in vendor">
+      <div className={avatarClass}>{getInitials(name || 'Vendor')}</div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium leading-tight">{name || 'Vendor'}</p>
+        {showEmail ? (
+          <p className="truncate text-[11px] text-muted-foreground leading-tight">{email}</p>
+        ) : (
+          <p className="truncate text-[11px] text-muted-foreground leading-tight">Signed in</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VendorSidebar({
   pathname,
   storefrontHref,
+  vendorName,
   companyName,
   email,
   onNavigate,
 }: {
   pathname: string;
   storefrontHref: string;
+  vendorName: string;
   companyName: string;
   email: string;
   onNavigate?: () => void;
@@ -55,11 +92,13 @@ function VendorSidebar({
       {/* Brand */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-          {getInitials(companyName)}
+          {getInitials(vendorName || companyName)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">{companyName}</p>
-          <p className="truncate text-[11px] text-muted-foreground">Vendor Hub</p>
+          <p className="truncate text-sm font-semibold leading-tight">{vendorName || companyName}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {email || companyName || 'Vendor Hub'}
+          </p>
         </div>
       </div>
 
@@ -98,6 +137,9 @@ function VendorSidebar({
 
       {/* Footer: storefront link */}
       <div className="border-t border-border p-3">
+        <div className="mb-2">
+          <VendorIdentity name={vendorName || companyName} email={email} variant="sidebar" />
+        </div>
         <Link
           href={storefrontHref}
           onClick={onNavigate}
@@ -122,6 +164,8 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
   const vendorProfile = getVendorProfileForConsole(user);
   const companyName = vendorProfile?.companyName ?? 'Vendor Hub';
   const storefrontHref = vendorProfile ? `/vendor/${vendorProfile.id}` : '/catalog';
+  const vendorName = user?.name ?? companyName;
+  const vendorEmail = user?.email?.trim() || vendorProfile?.email?.trim() || '';
 
   const handleLogout = () => {
     logout();
@@ -154,6 +198,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex text-xs">
             <Link href="/">View site</Link>
           </Button>
+          <VendorIdentity name={vendorName} email={vendorEmail} />
           {user ? (
             <Button
               variant="ghost"
@@ -179,8 +224,9 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
             <VendorSidebar
               pathname={pathname}
               storefrontHref={storefrontHref}
+              vendorName={vendorName}
               companyName={companyName}
-              email={user?.email ?? ''}
+              email={vendorEmail}
             />
           </div>
         </div>
@@ -202,7 +248,14 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
           />
           <div className="absolute left-0 top-0 flex h-full w-[76vw] max-w-xs flex-col bg-background shadow-2xl">
             <div className="flex h-16 items-center justify-between border-b border-border px-5">
-              <span className="text-sm font-semibold">{companyName}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{vendorName}</p>
+                {vendorEmail ? (
+                  <p className="text-[11px] text-muted-foreground truncate">{vendorEmail}</p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground truncate">{companyName}</p>
+                )}
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -216,8 +269,9 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
               <VendorSidebar
                 pathname={pathname}
                 storefrontHref={storefrontHref}
+                vendorName={vendorName}
                 companyName={companyName}
-                email={user?.email ?? ''}
+                email={vendorEmail}
                 onNavigate={() => setMenuOpen(false)}
               />
             </div>

@@ -1,31 +1,85 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
-import { mockProducts, mockQuotes, mockVendors } from '@/lib/mock-data';
-import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import { Download, Printer } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import type { OrderItem } from '@/lib/types';
 
 export default function BuyerQuoteDetailPage({ params }: { params: { id: string } }) {
   const { user } = useAuth();
   const buyerId = user?.id ?? 'user-1';
 
-  const quote = mockQuotes.find((q) => q.id === params.id && q.buyerId === buyerId) ?? null;
-  const vendor = quote ? mockVendors.find((v) => v.id === quote.vendorId) ?? null : null;
+  const [loading, setLoading] = useState(false);
+  const [quote, setQuote] = useState<any | null>(null);
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [productsById, setProductsById] = useState<Record<string, any>>({});
+  const vendorId = quote?.vendorId ?? '';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/buyer/quotes/${encodeURIComponent(params.id)}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const row = json?.quote ?? null;
+        const rows = Array.isArray(json?.items) ? json.items : [];
+        const products = Array.isArray(json?.products) ? json.products : [];
+        setQuote(
+          row
+            ? {
+                id: row.id,
+                vendorId: row.vendor_user_id,
+                buyerId: row.buyer_id,
+                totalAmount: Number(row.total_amount ?? 0),
+                validUntil: row.valid_until ? new Date(row.valid_until) : new Date(),
+                status: row.status,
+                createdAt: new Date(row.created_at),
+              }
+            : null,
+        );
+        setItems(
+          rows.map((it: any) => ({
+            productId: it.product_id,
+            quantity: Number(it.quantity ?? 1),
+            unitPrice: Number(it.unit_price ?? 0),
+            subtotal: Number(it.subtotal ?? 0),
+          })),
+        );
+        const map: Record<string, any> = {};
+        for (const p of products) {
+          if (p?.id) map[String(p.id)] = p;
+        }
+        setProductsById(map);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, user]);
+
+  if (!quote && loading) {
+    return (
+      <div className="space-y-8 pb-12">
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!quote) {
     return (
       <div className="space-y-8 pb-12">
-        <Breadcrumbs
-          items={[
-            { label: 'Quotes', href: '/buyer/services' },
-            { label: `Quote #${params.id.slice(-6)}` },
-          ]}
-        />
         <Card className="border-border/50">
           <CardContent className="py-12 text-center text-muted-foreground">Quote not found.</CardContent>
         </Card>
@@ -44,18 +98,11 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="space-y-8 pb-12">
-      <Breadcrumbs
-        items={[
-          { label: 'Quotes', href: '/buyer/services' },
-          { label: `Quote #${quote.id.slice(-6)}` },
-        ]}
-      />
-
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Quote #{quote.id.slice(-6)}</h1>
           <p className="text-muted-foreground mt-2">
-            From {vendor?.companyName || 'Unknown Vendor'} • Valid until {quote.validUntil.toLocaleDateString()}
+            From {vendorId ? `Vendor ${vendorId.slice(-6)}` : 'Vendor'} • Valid until {quote.validUntil.toLocaleDateString()}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
@@ -95,18 +142,20 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Items</span>
-                <span>{quote.items.length}</span>
+                <span>{items.length}</span>
               </div>
 
               <div className="pt-4 border-t border-border">
                 <p className="text-sm font-medium mb-3">Line Items</p>
                 <div className="space-y-3">
-                  {quote.items.map((line) => {
-                    const product = mockProducts.find((p) => p.id === line.productId);
+                  {items.map((line) => {
+                    const product = line.productId ? productsById[String(line.productId)] : null;
                     return (
                       <div key={`${quote.id}-${line.productId}`} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-secondary/50">
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{product?.name ?? line.productId}</p>
+                          <p className="font-medium truncate">
+                            {product?.name ?? (line.productId ? String(line.productId) : 'Custom item')}
+                          </p>
                           <p className="text-sm text-muted-foreground mt-1">Qty: {line.quantity}</p>
                         </div>
                         <div className="text-right">
@@ -134,8 +183,7 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
             </CardHeader>
             <CardContent className="space-y-3 text-muted-foreground">
               <div>
-                <p className="font-semibold text-foreground">{vendor?.companyName}</p>
-                <p className="text-sm mt-1">{vendor?.description}</p>
+                <p className="font-semibold text-foreground">{vendorId ? `Vendor ${vendorId.slice(-6)}` : 'Vendor'}</p>
               </div>
               <div className="pt-3 border-t border-border">
                 <p className="text-sm">
@@ -157,10 +205,37 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
             <CardContent className="space-y-2">
               {canRespond ? (
                 <>
-                  <Button size="sm" className="w-full">
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={async () => {
+                      const res = await fetch(`/api/buyer/quotes/${quote.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'accepted' }),
+                      });
+                      if (res.ok) {
+                        setQuote({ ...quote, status: 'accepted' });
+                      }
+                    }}
+                  >
                     Accept Quote
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={async () => {
+                      const res = await fetch(`/api/buyer/quotes/${quote.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'rejected' }),
+                      });
+                      if (res.ok) {
+                        setQuote({ ...quote, status: 'rejected' });
+                      }
+                    }}
+                  >
                     Decline
                   </Button>
                 </>

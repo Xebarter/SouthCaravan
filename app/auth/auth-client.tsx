@@ -17,7 +17,7 @@ import {
 import { getBrowserSupabaseClient } from '@/lib/supabase/client'
 
 type PortalRole = 'buyer' | 'vendor' | 'services' | 'admin'
-type Mode = 'signin' | 'forgot'
+type Mode = 'signin' | 'signup' | 'forgot'
 type PortalMatch = PortalRole | 'unknown'
 
 function getDefaultNext(role: PortalRole) {
@@ -70,7 +70,13 @@ async function persistSessionProfile(role: PortalRole, email: string) {
   const emailPrefix = email.split('@')[0] || 'user'
 
   if (role === 'vendor') {
-    localStorage.setItem('currentVendorId', 'self')
+    try {
+      const supabase = getBrowserSupabaseClient()
+      const { data } = await supabase.auth.getUser()
+      if (data.user?.id) localStorage.setItem('currentVendorId', data.user.id)
+    } catch {
+      localStorage.setItem('currentVendorId', 'self')
+    }
     localStorage.setItem('currentVendorName', `${emailPrefix} (vendor)`)
     try {
       await fetch('/api/vendor/bootstrap', { method: 'POST' })
@@ -80,7 +86,13 @@ async function persistSessionProfile(role: PortalRole, email: string) {
 
   if (role === 'services') {
     localStorage.setItem('currentServiceProviderName', `${emailPrefix} (service provider)`)
-    localStorage.setItem('currentVendorId', 'self')
+    try {
+      const supabase = getBrowserSupabaseClient()
+      const { data } = await supabase.auth.getUser()
+      if (data.user?.id) localStorage.setItem('currentVendorId', data.user.id)
+    } catch {
+      localStorage.setItem('currentVendorId', 'self')
+    }
     localStorage.setItem('currentVendorName', `${emailPrefix} (service provider)`)
     try {
       await fetch('/api/vendor/bootstrap', { method: 'POST' })
@@ -124,6 +136,7 @@ export default function AuthClient() {
   const role = (searchParams.get('role') as PortalRole) || 'buyer'
   const next = searchParams.get('next') || getDefaultNext(role)
   const errorParam = searchParams.get('error') || ''
+  const requestedMode = (searchParams.get('mode') as Mode) || 'signin'
 
   const [mode, setMode] = React.useState<Mode>('signin')
   const [email, setEmail] = React.useState('')
@@ -154,6 +167,17 @@ export default function AuthClient() {
       setError('Admin access required. Please sign in with an admin account.')
     }
   }, [errorParam])
+
+  React.useEffect(() => {
+    // Allow deep links like /auth?mode=signup, but admin is always sign-in only.
+    if (role === 'admin') {
+      setMode('signin')
+      return
+    }
+    if (requestedMode === 'signup' || requestedMode === 'forgot' || requestedMode === 'signin') {
+      setMode(requestedMode)
+    }
+  }, [requestedMode, role])
 
   React.useEffect(() => {
     let cancelled = false
@@ -218,7 +242,154 @@ export default function AuthClient() {
     }
   }
 
-  const handleSignInOrUp = async (e: React.FormEvent) => {
+  const handleSignIn = async () => {
+    const supabase = getBrowserSupabaseClient()
+    const signIn = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    })
+
+    if (!signIn.error) {
+      const user = (await supabase.auth.getUser()).data.user
+      if (role === 'admin' && !hasAdminAccess(user)) {
+        await supabase.auth.signOut()
+        setError('Admin access denied. This account is not an admin.')
+        return { ok: false as const }
+      }
+
+      if (role === 'buyer') {
+        const gate = await gateBuyerPhoneIfNeeded(email.trim())
+        if (gate.needsPhone) {
+          setBuyerCustomer(gate.customer ?? null)
+          setNeedsBuyerPhone(true)
+          return { ok: false as const }
+        }
+      }
+
+      await persistSessionProfile(role, email.trim())
+      router.replace(next)
+      return { ok: true as const }
+    }
+
+    const msg = (signIn.error.message || '').toLowerCase()
+    if (msg.includes('email') && msg.includes('confirm')) {
+      setError('Email not confirmed. Please verify your email and try again.')
+      return { ok: false as const }
+    }
+
+    if (role === 'admin') {
+      setError('Invalid admin credentials.')
+      return { ok: false as const }
+    }
+
+    if (!msg.includes('invalid login credentials')) {
+      setError(signIn.error.message)
+      return { ok: false as const }
+    }
+
+    // In sign-in mode, we keep the “sign-in first, then maybe sign-up” behavior.
+    const registeredRes = await fetch('/api/auth/check-email-registered', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), portal: role }),
+    })
+    const registeredJson = await registeredRes.json().catch(() => ({}))
+    const registered = Boolean(registeredJson?.registered)
+    if (registered) {
+      setError('An account with this email already exists. Please check your password or use “Forgot password”.')
+      return { ok: false as const }
+    }
+
+    const origin = window.location.origin
+    const signUp = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      ...(role === 'buyer'
+        ? {
+            options: {
+              emailRedirectTo: `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`,
+              data: { role },
+            },
+          }
+        : { options: { data: { role } } }),
+    })
+
+    if (signUp.error) throw signUp.error
+
+    if (!signUp.data.session) {
+      setMessage('Account created. Please verify your email before signing in.')
+      return { ok: false as const }
+    }
+
+    if (role === 'buyer') {
+      const gate = await gateBuyerPhoneIfNeeded(email.trim())
+      if (gate.needsPhone) {
+        setBuyerCustomer(gate.customer ?? null)
+        setNeedsBuyerPhone(true)
+        return { ok: false as const }
+      }
+    }
+
+    await persistSessionProfile(role, email.trim())
+    router.replace(next)
+    return { ok: true as const }
+  }
+
+  const handleSignUp = async () => {
+    if (role === 'admin') {
+      setError('Admin accounts cannot be created here.')
+      return { ok: false as const }
+    }
+
+    const registeredRes = await fetch('/api/auth/check-email-registered', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), portal: role }),
+    })
+    const registeredJson = await registeredRes.json().catch(() => ({}))
+    const registered = Boolean(registeredJson?.registered)
+    if (registered) {
+      setError('An account with this email already exists. Please sign in instead.')
+      return { ok: false as const }
+    }
+
+    const supabase = getBrowserSupabaseClient()
+    const origin = window.location.origin
+    const signUp = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      ...(role === 'buyer'
+        ? {
+            options: {
+              emailRedirectTo: `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`,
+              data: { role },
+            },
+          }
+        : { options: { data: { role } } }),
+    })
+
+    if (signUp.error) throw signUp.error
+
+    if (!signUp.data.session) {
+      setMessage('Account created. Please verify your email before signing in.')
+      return { ok: false as const }
+    }
+
+    if (role === 'buyer') {
+      const gate = await gateBuyerPhoneIfNeeded(email.trim())
+      if (gate.needsPhone) {
+        setBuyerCustomer(gate.customer ?? null)
+        setNeedsBuyerPhone(true)
+        return { ok: false as const }
+      }
+    }
+
+    await persistSessionProfile(role, email.trim())
+    router.replace(next)
+    return { ok: true as const }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setMessage('')
@@ -228,96 +399,13 @@ export default function AuthClient() {
       return
     }
 
-    const supabase = getBrowserSupabaseClient()
     setBusy(true)
     try {
-      const signIn = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      })
-
-      if (!signIn.error) {
-        const user = (await supabase.auth.getUser()).data.user
-        if (role === 'admin' && !hasAdminAccess(user)) {
-          await supabase.auth.signOut()
-          setError('Admin access denied. This account is not an admin.')
-          return
-        }
-
-        if (role === 'buyer') {
-          const gate = await gateBuyerPhoneIfNeeded(email.trim())
-          if (gate.needsPhone) {
-            setBuyerCustomer(gate.customer ?? null)
-            setNeedsBuyerPhone(true)
-            return
-          }
-        }
-
-        await persistSessionProfile(role, email.trim())
-        router.replace(next)
-        return
+      if (mode === 'signup') {
+        await handleSignUp()
+      } else {
+        await handleSignIn()
       }
-
-      const msg = (signIn.error.message || '').toLowerCase()
-      if (msg.includes('email') && msg.includes('confirm')) {
-        setError('Email not confirmed. Please verify your email and try again.')
-        return
-      }
-
-      if (role === 'admin') {
-        setError('Invalid admin credentials.')
-        return
-      }
-
-      if (!msg.includes('invalid login credentials')) {
-        setError(signIn.error.message)
-        return
-      }
-
-      const registeredRes = await fetch('/api/auth/check-email-registered', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), portal: role }),
-      })
-      const registeredJson = await registeredRes.json().catch(() => ({}))
-      const registered = Boolean(registeredJson?.registered)
-      if (registered) {
-        setError('An account with this email already exists. Please check your password or use “Forgot password”.')
-        return
-      }
-
-      const origin = window.location.origin
-      const signUp = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        ...(role === 'buyer'
-          ? {
-              options: {
-                emailRedirectTo: `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`,
-                data: { role },
-              },
-            }
-          : { options: { data: { role } } }),
-      })
-
-      if (signUp.error) throw signUp.error
-
-      if (!signUp.data.session) {
-        setMessage('Account created. Please verify your email before signing in.')
-        return
-      }
-
-      if (role === 'buyer') {
-        const gate = await gateBuyerPhoneIfNeeded(email.trim())
-        if (gate.needsPhone) {
-          setBuyerCustomer(gate.customer ?? null)
-          setNeedsBuyerPhone(true)
-          return
-        }
-      }
-
-      await persistSessionProfile(role, email.trim())
-      router.replace(next)
     } catch (e: any) {
       setError(e?.message || 'Authentication failed.')
     } finally {
@@ -381,10 +469,14 @@ export default function AuthClient() {
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {mode === 'forgot' ? 'Reset password' : 'Sign in'}
+              {mode === 'forgot' ? 'Reset password' : mode === 'signup' ? 'Create account' : 'Sign in'}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {mode === 'forgot' ? 'We’ll email you a reset link.' : 'Use your SouthCaravan account'}
+              {mode === 'forgot'
+                ? 'We’ll email you a reset link.'
+                : mode === 'signup'
+                  ? 'Create a SouthCaravan account in seconds.'
+                  : 'Use your SouthCaravan account'}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Portal: <span className="font-medium text-foreground">{role}</span>
@@ -396,6 +488,27 @@ export default function AuthClient() {
             </button>
           ) : null}
         </div>
+
+        {role !== 'admin' && !sessionConflict && !needsBuyerPhone && mode !== 'forgot' ? (
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMode('signin')}
+              className={mode === 'signin' ? authPrimaryButtonClassName : authSecondaryButtonClassName}
+              disabled={busy}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('signup')}
+              className={mode === 'signup' ? authPrimaryButtonClassName : authSecondaryButtonClassName}
+              disabled={busy}
+            >
+              Sign up
+            </button>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -470,7 +583,7 @@ export default function AuthClient() {
             </div>
           </div>
         ) : (
-          <form className="space-y-3" onSubmit={handleSignInOrUp}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <input
               className={authFieldClassName}
               type="email"
@@ -484,7 +597,7 @@ export default function AuthClient() {
               <input
                 className={`${authFieldClassName} pr-10`}
                 type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -506,7 +619,7 @@ export default function AuthClient() {
                 Forgot password?
               </button>
               <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
-                {busy ? 'Working…' : 'Next'}
+                {busy ? 'Working…' : mode === 'signup' ? 'Create account' : 'Next'}
               </button>
             </div>
           </form>

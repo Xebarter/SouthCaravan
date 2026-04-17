@@ -1,30 +1,88 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { mockOrders, mockProducts, mockVendors } from '@/lib/mock-data';
-import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import { Download, MessageCircle, Printer } from 'lucide-react';
+import type { Order, OrderItem } from '@/lib/types';
 
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
   const { user } = useAuth();
   const buyerId = user?.id ?? 'user-1';
 
-  const order = mockOrders.find((o) => o.id === params.id && o.buyerId === buyerId) ?? null;
-  const vendor = order ? mockVendors.find((v) => v.id === order.vendorId) ?? null : null;
+  const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [productsById, setProductsById] = useState<Record<string, any>>({});
+  const vendorId = order?.vendorId ?? '';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/buyer/orders/${encodeURIComponent(params.id)}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const row = json?.order;
+        const rows = Array.isArray(json?.items) ? json.items : [];
+        const products = Array.isArray(json?.products) ? json.products : [];
+        setOrder(
+          row
+            ? {
+                id: row.id,
+                buyerId: row.buyer_id,
+                vendorId: row.vendor_user_id,
+                items: [],
+                status: row.status,
+                totalAmount: Number(row.total_amount ?? 0),
+                shippingAddress: row.shipping_address ?? '',
+                notes: row.notes ?? undefined,
+                createdAt: new Date(row.created_at),
+                updatedAt: new Date(row.updated_at),
+                estimatedDelivery: row.estimated_delivery ? new Date(row.estimated_delivery) : undefined,
+              }
+            : null,
+        );
+        setItems(
+          rows.map((it: any) => ({
+            productId: it.product_id,
+            quantity: Number(it.quantity ?? 1),
+            unitPrice: Number(it.unit_price ?? 0),
+            subtotal: Number(it.subtotal ?? 0),
+          })),
+        );
+        const map: Record<string, any> = {};
+        for (const p of products) {
+          if (p?.id) map[String(p.id)] = p;
+        }
+        setProductsById(map);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, user]);
+
+  if (!order && loading) {
+    return (
+      <div className="space-y-8 pb-12">
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
       <div className="space-y-8 pb-12">
-        <Breadcrumbs
-          items={[
-            { label: 'Orders', href: '/buyer/orders' },
-            { label: `Order #${params.id.slice(-6)}` },
-          ]}
-        />
         <Card className="border-border/50">
           <CardContent className="py-12 text-center text-muted-foreground">
             Order not found.
@@ -49,13 +107,6 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="space-y-8 pb-12">
-      <Breadcrumbs
-        items={[
-          { label: 'Orders', href: '/buyer/orders' },
-          { label: `Order #${orderId.slice(-6)}` },
-        ]}
-      />
-
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Order #{orderId.slice(-6)}</h1>
@@ -145,17 +196,19 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <CardTitle>Order Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {order.items.map((line) => {
-                const product = mockProducts.find((p) => p.id === line.productId);
+              {items.map((line) => {
+                const product = line.productId ? productsById[String(line.productId)] : null;
                 const lineTotal = line.subtotal;
                 return (
                   <div key={line.productId} className="flex gap-4 p-4 bg-secondary rounded-lg">
-                    <div className="w-20 h-20 bg-background rounded flex items-center justify-center flex-shrink-0">
+                    <div className="w-20 h-20 bg-background rounded flex items-center justify-center shrink-0">
                       <span className="text-xs text-muted-foreground">Image</span>
                     </div>
                     <div className="flex-1 space-y-1 min-w-0">
-                      <h4 className="font-semibold text-foreground truncate">{product?.name ?? line.productId}</h4>
-                      <p className="text-sm text-muted-foreground truncate">{vendor?.companyName || 'Unknown Vendor'}</p>
+                      <h4 className="font-semibold text-foreground truncate">
+                        {product?.name ?? (line.productId ? String(line.productId) : 'Custom item')}
+                      </h4>
+                      <p className="text-sm text-muted-foreground truncate">{vendorId ? `Vendor ${vendorId.slice(-6)}` : 'Vendor'}</p>
                       <p className="text-sm text-muted-foreground">Qty: {line.quantity}</p>
                     </div>
                     <div className="text-right">

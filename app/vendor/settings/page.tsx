@@ -29,10 +29,10 @@ import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 type NotifKey = 'orders' | 'quotes' | 'messages' | 'marketing';
 
 const NOTIF_CONFIG: { key: NotifKey; label: string; sub: string }[] = [
-  { key: 'orders',    label: 'New orders',       sub: 'Email when a buyer places an order with you' },
-  { key: 'quotes',    label: 'Quote requests',    sub: 'Email when a buyer submits a quote request' },
-  { key: 'messages',  label: 'New messages',      sub: 'Email when a buyer sends you a message' },
-  { key: 'marketing', label: 'Platform updates',  sub: 'Newsletters and product announcements from SouthCaravan' },
+  { key: 'orders', label: 'New orders', sub: 'Email when a buyer places an order with you' },
+  { key: 'quotes', label: 'Quote requests', sub: 'Email when a buyer submits a quote request' },
+  { key: 'messages', label: 'New messages', sub: 'Email when a buyer sends you a message' },
+  { key: 'marketing', label: 'Platform updates', sub: 'Newsletters and product announcements from SouthCaravan' },
 ];
 
 function getInitials(name: string) {
@@ -44,9 +44,9 @@ export default function VendorSettingsPage() {
   const vendor = getVendorProfileForConsole(user);
   const [saving, setSaving] = useState(false);
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
-    orders:    true,
-    quotes:    true,
-    messages:  true,
+    orders: true,
+    quotes: true,
+    messages: true,
     marketing: false,
   });
 

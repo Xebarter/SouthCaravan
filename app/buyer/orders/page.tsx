@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,20 +14,53 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import { Download, Eye, Filter } from 'lucide-react';
-import { mockOrders, mockVendors, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 import { Order } from '@/lib/types';
+
+function parseOrder(row: any): Order {
+  return {
+    id: row.id,
+    buyerId: row.buyer_id,
+    vendorId: row.vendor_user_id,
+    items: [],
+    status: row.status,
+    totalAmount: Number(row.total_amount ?? 0),
+    shippingAddress: row.shipping_address ?? '',
+    notes: row.notes ?? undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    estimatedDelivery: row.estimated_delivery ? new Date(row.estimated_delivery) : undefined,
+  };
+}
 
 export default function BuyerOrdersPage() {
   const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const buyerId = user?.id ?? 'user-1';
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const buyerOrders = mockOrders.filter(o => o.buyerId === buyerId);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/buyer/orders?status=${encodeURIComponent(statusFilter)}`);
+        const json = await res.json().catch(() => null);
+        if (!res.ok || cancelled) return;
+        const rows = Array.isArray(json?.orders) ? json.orders : [];
+        setOrders(rows.map(parseOrder));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [statusFilter, user]);
 
-  const filteredOrders = statusFilter === 'all'
-    ? buyerOrders
-    : buyerOrders.filter(o => o.status === statusFilter);
+  const filteredOrders = useMemo(() => orders.filter((o) => o.buyerId === buyerId), [orders, buyerId]);
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/10 text-yellow-400',
@@ -38,10 +71,10 @@ export default function BuyerOrdersPage() {
   };
 
   const stats = {
-    total: buyerOrders.length,
-    pending: buyerOrders.filter(o => o.status === 'pending').length,
-    shipped: buyerOrders.filter(o => o.status === 'shipped').length,
-    delivered: buyerOrders.filter(o => o.status === 'delivered').length,
+    total: filteredOrders.length,
+    pending: filteredOrders.filter(o => o.status === 'pending').length,
+    shipped: filteredOrders.filter(o => o.status === 'shipped').length,
+    delivered: filteredOrders.filter(o => o.status === 'delivered').length,
   };
 
   return (
@@ -101,11 +134,12 @@ export default function BuyerOrdersPage() {
 
         {/* Orders List */}
         <div className="space-y-4">
-          {filteredOrders.length > 0 ? (
+          {loading ? (
+            <Card className="border-border/50">
+              <CardContent className="py-12 text-center text-muted-foreground">Loading orders…</CardContent>
+            </Card>
+          ) : filteredOrders.length > 0 ? (
             filteredOrders.map(order => {
-              const vendor = mockVendors.find(v => v.id === order.vendorId);
-              const totalValue = order.items.reduce((sum, item) => sum + item.subtotal, 0);
-
               return (
                 <Card key={order.id} className="border-border/50 hover:border-primary/30 transition-colors">
                   <CardContent className="pt-6">
@@ -113,7 +147,7 @@ export default function BuyerOrdersPage() {
                       {/* Order Info */}
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold">{vendor?.companyName || 'Unknown Vendor'}</h3>
+                          <h3 className="font-semibold">{`Vendor ${order.vendorId.slice(-6)}`}</h3>
                           <Badge className={statusColors[order.status]}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </Badge>
@@ -129,7 +163,7 @@ export default function BuyerOrdersPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Items</p>
-                            <p className="font-medium">{order.items.length}</p>
+                            <p className="font-medium">—</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Total</p>

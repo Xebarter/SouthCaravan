@@ -8,8 +8,10 @@ import {
   ShoppingCart,
   FileText,
   MessageSquare,
-  User,
+  Heart,
+  ClipboardList,
   Menu,
+  User,
   CircleHelp,
   ArrowLeft,
   LogOut,
@@ -17,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -24,8 +27,9 @@ import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 const navItems = [
   { href: '/buyer', label: 'Dashboard', icon: LayoutGrid },
   { href: '/buyer/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/buyer/services', label: 'Services', icon: FileText },
-  { href: '/buyer/wishlist', label: 'Wishlist', icon: MessageSquare },
+  { href: '/buyer/quotes', label: 'Quotes', icon: FileText },
+  { href: '/buyer/rfqs', label: 'My RFQs', icon: ClipboardList },
+  { href: '/buyer/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/buyer/addresses', label: 'Addresses', icon: MapPin },
   { href: '/buyer/profile', label: 'Profile', icon: User },
   { href: '/buyer/support', label: 'Support', icon: CircleHelp },
@@ -38,11 +42,23 @@ export default function BuyerConsoleLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isLoading, logout } = useAuth();
 
   const [buyerName, setBuyerName] = useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!user) {
+      const next = pathname || '/buyer';
+      router.replace(`/auth?role=buyer&next=${encodeURIComponent(next)}`);
+      return;
+    }
+
+    if (user.role === 'vendor') router.replace('/vendor');
+    if (user.role === 'admin') router.replace('/dashboard');
+  }, [isLoading, user, router, pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +91,7 @@ export default function BuyerConsoleLayout({
           setBuyerEmail(email);
           try {
             localStorage.setItem('currentBuyerEmail', email);
-          } catch {}
+          } catch { }
 
           // If buyerName wasn’t set yet, derive it from the email prefix.
           if (!initialName) {
@@ -83,7 +99,7 @@ export default function BuyerConsoleLayout({
             setBuyerName(derivedName);
             try {
               localStorage.setItem('currentBuyerName', derivedName);
-            } catch {}
+            } catch { }
           }
         }
       } catch {
@@ -100,36 +116,89 @@ export default function BuyerConsoleLayout({
     // Auth context clears the expected buyer portal keys and signs out via Supabase.
     logout();
     router.replace('/auth?role=buyer&next=/buyer');
-    setMobileMenuOpen(false);
   };
 
   return (
-    <div className="flex flex-1 min-h-0 bg-muted/20">
-      {/* Mobile backdrop (drawer close) */}
-      {mobileMenuOpen ? (
-        <button
-          type="button"
-          aria-label="Close buyer menu"
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      ) : null}
+    <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-linear-to-b from-background via-background to-muted/30">
+      {/* Mobile header + hamburger */}
+      <div className="md:hidden sticky top-0 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur">
+        <div className="h-14 px-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground truncate">Buyer</p>
+            <p className="text-sm font-semibold text-foreground truncate">{buyerName ?? 'Account'}</p>
+          </div>
 
-      {/* Sidebar (fixed off-canvas on mobile, static on desktop) */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0" aria-label="Open menu">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <div className="h-full flex flex-col">
+                <div className="px-5 py-4 border-b border-border/70 bg-linear-to-b from-card/60 to-transparent">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground">Menu</p>
+                  <p className="mt-1 text-base font-semibold text-foreground truncate">{buyerName ?? '—'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{buyerEmail ?? '—'}</p>
+                </div>
+
+                <nav className="p-2 space-y-1 overflow-auto">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          'group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/10'
+                            : 'text-foreground/90 hover:bg-accent/60 hover:text-foreground'
+                        )}
+                      >
+                        <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+
+                <div className="mt-auto p-3 border-t border-border/70 space-y-2">
+                  <Link
+                    href="/"
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-foreground hover:bg-accent/70 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Back to Shop</span>
+                  </Link>
+
+                  <Button
+                    type="button"
+                    onClick={handleLogout}
+                    variant="outline"
+                    className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm border-border/70 hover:bg-muted/20"
+                  >
+                    <LogOut className="w-4 h-4 shrink-0" />
+                    Sign out
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      {/* Desktop sidebar */}
       <aside
         className={cn(
-          // Keep the sidebar persistent on larger screens (below the sticky MainNav).
-          'fixed inset-y-0 left-0 z-40 w-72 max-w-[86vw] p-4 bg-muted/20 md:static md:z-auto md:w-80 md:max-w-none lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100dvh-4rem)]',
-          'transition-transform duration-200',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:translate-x-0'
+          'hidden md:block w-72 p-4 bg-muted/20 shrink-0 md:w-80 lg:sticky lg:top-4 lg:bottom-auto lg:h-[calc(100dvh-2rem)]'
         )}
-        aria-hidden={!mobileMenuOpen}
       >
-        <div className="w-full bg-card/80 backdrop-blur border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
+        <div className="w-full bg-card/70 backdrop-blur border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
           {/* Desktop workspace header (hidden on mobile; mobile uses sticky header) */}
-          <div className="hidden md:block px-5 py-4 border-b border-border/70">
-            <p className="text-xs font-medium text-muted-foreground">Workspace</p>
+          <div className="hidden md:block px-5 py-4 border-b border-border/70 bg-linear-to-b from-card/70 to-transparent">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground">Workspace</p>
             <h2 className="mt-1 font-semibold text-foreground">MyGarage Buyer</h2>
             <p className="text-sm text-muted-foreground truncate mt-2">{buyerName ?? '—'}</p>
             <p className="text-xs text-muted-foreground truncate">{buyerEmail ?? '—'}</p>
@@ -144,10 +213,11 @@ export default function BuyerConsoleLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    'relative flex items-center gap-3 rounded-2xl px-4 py-2 text-sm transition-colors',
-                    isActive ? 'bg-primary/95 text-primary-foreground shadow-sm' : 'text-foreground hover:bg-accent/70'
+                    'group relative flex items-center gap-3 rounded-2xl px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/10'
+                      : 'text-foreground/90 hover:bg-accent/60 hover:text-foreground'
                   )}
                 >
                   <span
@@ -157,7 +227,7 @@ export default function BuyerConsoleLayout({
                       isActive ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  <Icon className="w-4 h-4 shrink-0" />
+                  <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
                   <span className="truncate">{item.label}</span>
                 </Link>
               );
@@ -167,7 +237,6 @@ export default function BuyerConsoleLayout({
           <div className="mt-auto p-2 border-t border-border/70 space-y-2">
             <Link
               href="/"
-              onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 rounded-2xl px-4 py-2 text-sm text-foreground hover:bg-accent/70 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 shrink-0" />
@@ -189,25 +258,6 @@ export default function BuyerConsoleLayout({
 
       {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col md:pl-4">
-        {/* Mobile sticky header + drawer trigger */}
-        <div className="md:hidden sticky top-0 z-50 px-4 py-3 bg-muted/20 backdrop-blur border-b border-border/70">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-muted-foreground">MyGarage Buyer</p>
-              <p className="text-sm font-semibold text-foreground truncate">{buyerName ?? '—'}</p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Open buyer menu"
-              onClick={() => setMobileMenuOpen((v) => !v)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-
         <main className="flex flex-1 overflow-auto min-h-0 flex-col">{children}</main>
       </div>
     </div>
