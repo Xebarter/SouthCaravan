@@ -9,11 +9,7 @@ import { ProductRichText } from '@/components/product-rich-text';
 import { ProductPurchaseActions } from '@/components/product-purchase-actions';
 import { Money } from '@/components/money';
 import { getProductById, getRelatedProducts } from '@/lib/product-data';
-
-function getVendorDisplayName(vendorId: string | null) {
-  if (!vendorId) return 'SouthCaravan Verified Supplier';
-  return `Supplier ${vendorId.slice(0, 8).toUpperCase()}`;
-}
+import { getVendorDisplayName } from '@/lib/vendor-display';
 
 function normalizeSpecs(specs: Record<string, unknown> | null) {
   if (!specs) return [];

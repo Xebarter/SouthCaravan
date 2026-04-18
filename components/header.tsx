@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Menu, MessagesSquare, UserCircle2, ShoppingCart } from 'lucide-react';
+import { ChevronDown, Menu, MessagesSquare, UserCircle2 } from 'lucide-react';
+import { CartNavButton } from '@/components/cart-nav-button';
 import { Button } from '@/components/ui/button';
 import { HeaderSearch } from '@/components/header-search';
 import { AddItemsSidebar } from '@/components/additems-sidebar';
@@ -158,11 +159,7 @@ export function Header() {
                 <MessagesSquare className="w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Shopping cart" asChild>
-              <Link href="/cart">
-                <ShoppingCart className="w-5 h-5" />
-              </Link>
-            </Button>
+            <CartNavButton />
             <div
               ref={desktopProfileMenuRef}
               className="relative"
@@ -299,11 +296,7 @@ export function Header() {
             <HeaderSearch mobile />
           </div>
 
-          <Button variant="ghost" size="icon" aria-label="Shopping cart" asChild className="shrink-0">
-            <Link href="/cart">
-              <ShoppingCart className="h-5 w-5" />
-            </Link>
-          </Button>
+          <CartNavButton mobile className="shrink-0" />
 
           <div
             ref={mobileProfileMenuRef}

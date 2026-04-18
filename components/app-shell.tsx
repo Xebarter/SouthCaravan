@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { MainNav } from '@/components/main-nav';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
+import { Toaster } from '@/components/ui/sonner';
 import {
   DEFAULT_MARKETPLACE_TAXONOMY,
   type DefaultMarketplaceSection,
@@ -92,6 +93,7 @@ export function AppShell({
           <Footer />
         </div>
       </div>
+      <Toaster richColors closeButton position="top-center" />
     </>
   );
 }
