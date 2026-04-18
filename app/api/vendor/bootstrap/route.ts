@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server'
 import { getServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-export async function POST() {
+const GRANTABLE_PORTALS = ['vendor', 'services'] as const
+type VendorPortal = (typeof GRANTABLE_PORTALS)[number]
+
+function coerceVendorPortal(value: unknown): VendorPortal {
+  return value === 'services' ? 'services' : 'vendor'
+}
+
+export async function POST(request: Request) {
   try {
     const supabase = await getServerSupabaseClient()
     const { data, error } = await supabase.auth.getUser()
@@ -14,6 +21,31 @@ export async function POST() {
     const email = user.email
     const emailPrefix = email.split('@')[0] || 'Vendor'
     const company = typeof user.user_metadata?.company === 'string' ? user.user_metadata.company : ''
+
+    // The caller must already be registered for the requested portal role.
+    // We do NOT auto-grant roles here — that happens only through
+    // /api/auth/portal-access which requires a deliberate user action.
+    let requestedPortal: VendorPortal = 'vendor'
+    try {
+      const body = await request.json()
+      requestedPortal = coerceVendorPortal(body?.portal)
+    } catch {
+      requestedPortal = 'vendor'
+    }
+
+    const { data: hasRole, error: roleErr } = await supabaseAdmin.rpc('user_has_portal_role', {
+      p_user_id: user.id,
+      p_portal: requestedPortal,
+    })
+    if (roleErr) {
+      return NextResponse.json({ error: roleErr.message }, { status: 500 })
+    }
+    if (!hasRole) {
+      return NextResponse.json(
+        { error: `No ${requestedPortal} access for this account.` },
+        { status: 403 }
+      )
+    }
 
     const { data: existing, error: selectError } = await supabaseAdmin
       .from('vendors')

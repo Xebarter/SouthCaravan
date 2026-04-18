@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, MailCheck } from 'lucide-react'
+import { Eye, EyeOff, MailCheck, UserPlus } from 'lucide-react'
 
 import {
   AuthBrandBanner,
@@ -33,6 +33,73 @@ function hasAdminAccess(user: any) {
   if (meta.role === 'admin') return true
   const roles = Array.isArray(meta.roles) ? meta.roles : []
   return roles.includes('admin')
+}
+
+function portalLabel(role: PortalRole): string {
+  if (role === 'services') return 'service provider'
+  return role
+}
+
+function portalTitleCase(role: PortalRole): string {
+  const label = portalLabel(role)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+async function fetchHasPortalAccess(role: PortalRole): Promise<boolean> {
+  if (role === 'admin') return true
+  try {
+    const res = await fetch(`/api/auth/portal-access?portal=${encodeURIComponent(role)}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+    if (!res.ok) return false
+    const json = await res.json().catch(() => ({}))
+    return Boolean(json?.has)
+  } catch {
+    return false
+  }
+}
+
+async function fetchEmailStatus(
+  email: string,
+  role: PortalRole
+): Promise<{ registered: boolean; authExists: boolean }> {
+  try {
+    const res = await fetch('/api/auth/check-email-registered', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, portal: role }),
+    })
+    const json = await res.json().catch(() => ({}))
+    return {
+      registered: Boolean(json?.registered),
+      authExists: Boolean(json?.authExists),
+    }
+  } catch {
+    return { registered: false, authExists: false }
+  }
+}
+
+async function grantPortalAccess(
+  role: PortalRole
+): Promise<{ ok: boolean; error?: string }> {
+  if (role === 'admin') {
+    return { ok: false, error: 'Admin access cannot be granted through this flow.' }
+  }
+  try {
+    const res = await fetch('/api/auth/portal-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portal: role }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json?.ok) {
+      return { ok: false, error: json?.error || 'Failed to add portal access.' }
+    }
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Failed to add portal access.' }
+  }
 }
 
 function inferPortalFromLocalStorage(): PortalMatch {
@@ -79,7 +146,11 @@ async function persistSessionProfile(role: PortalRole, email: string) {
     }
     localStorage.setItem('currentVendorName', `${emailPrefix} (vendor)`)
     try {
-      await fetch('/api/vendor/bootstrap', { method: 'POST' })
+      await fetch('/api/vendor/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portal: 'vendor' }),
+      })
     } catch {}
     return
   }
@@ -95,7 +166,11 @@ async function persistSessionProfile(role: PortalRole, email: string) {
     }
     localStorage.setItem('currentVendorName', `${emailPrefix} (service provider)`)
     try {
-      await fetch('/api/vendor/bootstrap', { method: 'POST' })
+      await fetch('/api/vendor/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portal: 'services' }),
+      })
     } catch {}
     return
   }
@@ -149,6 +224,10 @@ export default function AuthClient() {
   const [buyerPhone, setBuyerPhone] = React.useState('')
   const [buyerCustomer, setBuyerCustomer] = React.useState<any>(null)
   const [accountCreated, setAccountCreated] = React.useState(false)
+  const [needsRoleUpgrade, setNeedsRoleUpgrade] = React.useState<{
+    email: string
+    portal: PortalRole
+  } | null>(null)
   const [sessionConflict, setSessionConflict] = React.useState<{
     activePortal: PortalMatch
     requestedPortal: PortalRole
@@ -162,6 +241,7 @@ export default function AuthClient() {
     setBuyerCustomer(null)
     setSessionConflict(null)
     setAccountCreated(false)
+    setNeedsRoleUpgrade(null)
   }, [mode])
 
   React.useEffect(() => {
@@ -191,12 +271,27 @@ export default function AuthClient() {
         const user = data.user
         if (!user) return
 
-        const activePortal: PortalMatch = hasAdminAccess(user) ? 'admin' : inferPortalFromLocalStorage()
-        if (activePortal === role) {
+        // Admin uses auth metadata; everyone else uses user_roles.
+        if (role === 'admin') {
+          if (hasAdminAccess(user)) {
+            router.replace(next)
+            return
+          }
+          const active = inferPortalFromLocalStorage()
+          setSessionConflict({ activePortal: active, requestedPortal: role })
+          return
+        }
+
+        const hasAccess = await fetchHasPortalAccess(role)
+        if (cancelled) return
+        if (hasAccess) {
           router.replace(next)
           return
         }
-        setSessionConflict({ activePortal, requestedPortal: role })
+
+        // Signed in but no role for this portal: offer to add it. This is
+        // the same path used after a fresh password sign-in.
+        setNeedsRoleUpgrade({ email: user.email ?? '', portal: role })
       } catch {
         // Ignore (treat as not signed in)
       }
@@ -245,22 +340,37 @@ export default function AuthClient() {
   }
 
   const handleSignIn = async () => {
+    const trimmedEmail = email.trim()
     const supabase = getBrowserSupabaseClient()
     const signIn = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
     })
 
     if (!signIn.error) {
       const user = (await supabase.auth.getUser()).data.user
-      if (role === 'admin' && !hasAdminAccess(user)) {
-        await supabase.auth.signOut()
-        setError('Admin access denied. This account is not an admin.')
-        return { ok: false as const }
+
+      // Admin uses auth.users.app_metadata, not user_roles.
+      if (role === 'admin') {
+        if (!hasAdminAccess(user)) {
+          await supabase.auth.signOut()
+          setError('Admin access denied. This account is not an admin.')
+          return { ok: false as const }
+        }
+      } else {
+        // Role-membership gate: signing in with valid credentials is NOT
+        // enough. The user must have been granted this portal role.
+        const hasAccess = await fetchHasPortalAccess(role)
+        if (!hasAccess) {
+          // Keep the session alive only for the grant action; the UI now
+          // asks the user to confirm creating a portal account with this email.
+          setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
+          return { ok: false as const }
+        }
       }
 
       if (role === 'buyer') {
-        const gate = await gateBuyerPhoneIfNeeded(email.trim())
+        const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
         if (gate.needsPhone) {
           setBuyerCustomer(gate.customer ?? null)
           setNeedsBuyerPhone(true)
@@ -268,7 +378,7 @@ export default function AuthClient() {
         }
       }
 
-      await persistSessionProfile(role, email.trim())
+      await persistSessionProfile(role, trimmedEmail)
       router.replace(next)
       return { ok: true as const }
     }
@@ -289,31 +399,36 @@ export default function AuthClient() {
       return { ok: false as const }
     }
 
-    // In sign-in mode, we keep the “sign-in first, then maybe sign-up” behavior.
-    const registeredRes = await fetch('/api/auth/check-email-registered', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), portal: role }),
-    })
-    const registeredJson = await registeredRes.json().catch(() => ({}))
-    const registered = Boolean(registeredJson?.registered)
-    if (registered) {
-      setError('An account with this email already exists. Please check your password or use “Forgot password”.')
+    // Invalid credentials. Use richer status to decide the next step.
+    const status = await fetchEmailStatus(trimmedEmail, role)
+    if (status.registered) {
+      setError('Check your password or use “Forgot password”.')
+      return { ok: false as const }
+    }
+    if (status.authExists) {
+      // Email owns a SouthCaravan account that does NOT include this portal.
+      // We must not silently sign them up — that would create a duplicate
+      // auth record (impossible) or a fake confirmation (misleading). Tell
+      // the user to sign in with their real password; the role-upgrade flow
+      // will then kick in automatically.
+      setError(
+        `This email already has a SouthCaravan account. Sign in with your correct password to add ${portalLabel(role)} access.`
+      )
       return { ok: false as const }
     }
 
+    // No auth user exists for this email — seamlessly create one.
     const origin = window.location.origin
     const signUp = await supabase.auth.signUp({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
-      ...(role === 'buyer'
-        ? {
-            options: {
-              emailRedirectTo: `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`,
-              data: { role },
-            },
-          }
-        : { options: { data: { role } } }),
+      options: {
+        emailRedirectTo:
+          role === 'buyer'
+            ? `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`
+            : undefined,
+        data: { role },
+      },
     })
 
     if (signUp.error) throw signUp.error
@@ -323,8 +438,15 @@ export default function AuthClient() {
       return { ok: false as const }
     }
 
+    // Session established: record the portal role before continuing.
+    const granted = await grantPortalAccess(role)
+    if (!granted.ok) {
+      setError(granted.error || 'Failed to add portal access.')
+      return { ok: false as const }
+    }
+
     if (role === 'buyer') {
-      const gate = await gateBuyerPhoneIfNeeded(email.trim())
+      const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
       if (gate.needsPhone) {
         setBuyerCustomer(gate.customer ?? null)
         setNeedsBuyerPhone(true)
@@ -332,9 +454,57 @@ export default function AuthClient() {
       }
     }
 
-    await persistSessionProfile(role, email.trim())
+    await persistSessionProfile(role, trimmedEmail)
     router.replace(next)
     return { ok: true as const }
+  }
+
+  const handleConfirmRoleUpgrade = async () => {
+    if (!needsRoleUpgrade) return
+    setError('')
+    setBusy(true)
+    try {
+      const granted = await grantPortalAccess(needsRoleUpgrade.portal)
+      if (!granted.ok) {
+        setError(granted.error || 'Failed to add portal access.')
+        return
+      }
+
+      const upgradedRole = needsRoleUpgrade.portal
+      const upgradedEmail = needsRoleUpgrade.email
+      setNeedsRoleUpgrade(null)
+
+      if (upgradedRole === 'buyer') {
+        const gate = await gateBuyerPhoneIfNeeded(upgradedEmail)
+        if (gate.needsPhone) {
+          setBuyerCustomer(gate.customer ?? null)
+          setNeedsBuyerPhone(true)
+          return
+        }
+      }
+
+      await persistSessionProfile(upgradedRole, upgradedEmail)
+      router.replace(next)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to add portal access.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleCancelRoleUpgrade = async () => {
+    setBusy(true)
+    try {
+      clearPortalHints()
+      const supabase = getBrowserSupabaseClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Best-effort sign-out.
+    } finally {
+      setNeedsRoleUpgrade(null)
+      setPassword('')
+      setBusy(false)
+    }
   }
 
   const handleSignUp = async () => {
@@ -343,31 +513,39 @@ export default function AuthClient() {
       return { ok: false as const }
     }
 
-    const registeredRes = await fetch('/api/auth/check-email-registered', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), portal: role }),
-    })
-    const registeredJson = await registeredRes.json().catch(() => ({}))
-    const registered = Boolean(registeredJson?.registered)
-    if (registered) {
-      setError('An account with this email already exists. Please sign in instead.')
+    const trimmedEmail = email.trim()
+    const status = await fetchEmailStatus(trimmedEmail, role)
+
+    if (status.registered) {
+      setError(`This email already has ${portalLabel(role)} access. Please sign in instead.`)
+      return { ok: false as const }
+    }
+
+    if (status.authExists) {
+      // Email has a SouthCaravan auth account, but not for this portal.
+      // We can't issue a second auth user for the same email, so flip to
+      // sign-in mode: once they authenticate, the role-upgrade card will
+      // invite them to add this portal to their existing account.
+      setMode('signin')
+      setPassword('')
+      setMessage(
+        `This email already has a SouthCaravan account. Sign in below to add ${portalLabel(role)} access.`
+      )
       return { ok: false as const }
     }
 
     const supabase = getBrowserSupabaseClient()
     const origin = window.location.origin
     const signUp = await supabase.auth.signUp({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
-      ...(role === 'buyer'
-        ? {
-            options: {
-              emailRedirectTo: `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`,
-              data: { role },
-            },
-          }
-        : { options: { data: { role } } }),
+      options: {
+        emailRedirectTo:
+          role === 'buyer'
+            ? `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`
+            : undefined,
+        data: { role },
+      },
     })
 
     if (signUp.error) throw signUp.error
@@ -377,8 +555,16 @@ export default function AuthClient() {
       return { ok: false as const }
     }
 
+    // Session established (email confirmations disabled, or already verified
+    // on re-use). Record the portal role before redirecting.
+    const granted = await grantPortalAccess(role)
+    if (!granted.ok) {
+      setError(granted.error || 'Failed to add portal access.')
+      return { ok: false as const }
+    }
+
     if (role === 'buyer') {
-      const gate = await gateBuyerPhoneIfNeeded(email.trim())
+      const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
       if (gate.needsPhone) {
         setBuyerCustomer(gate.customer ?? null)
         setNeedsBuyerPhone(true)
@@ -386,7 +572,7 @@ export default function AuthClient() {
       }
     }
 
-    await persistSessionProfile(role, email.trim())
+    await persistSessionProfile(role, trimmedEmail)
     router.replace(next)
     return { ok: true as const }
   }
@@ -518,7 +704,11 @@ export default function AuthClient() {
           ) : null}
         </div>
 
-        {role !== 'admin' && !sessionConflict && !needsBuyerPhone && mode !== 'forgot' ? (
+        {role !== 'admin' &&
+        !sessionConflict &&
+        !needsBuyerPhone &&
+        !needsRoleUpgrade &&
+        mode !== 'forgot' ? (
           <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -550,7 +740,51 @@ export default function AuthClient() {
           </div>
         ) : null}
 
-        {sessionConflict ? (
+        {needsRoleUpgrade ? (
+          <div className="space-y-4" role="group" aria-labelledby="role-upgrade-title">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-4 ring-primary/5">
+                <UserPlus className="h-5 w-5 text-primary" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2
+                  id="role-upgrade-title"
+                  className="text-[15px] font-semibold text-foreground"
+                >
+                  Create your {portalLabel(needsRoleUpgrade.portal)} account
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>{' '}
+                  is registered with SouthCaravan, but it doesn’t have{' '}
+                  {portalLabel(needsRoleUpgrade.portal)} access yet. A separate{' '}
+                  {portalLabel(needsRoleUpgrade.portal)} account is required — having one
+                  role doesn’t grant access to others.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                className={`${authPrimaryButtonClassName} w-full sm:flex-1`}
+                disabled={busy}
+                onClick={handleConfirmRoleUpgrade}
+              >
+                {busy
+                  ? 'Creating…'
+                  : `Create ${portalTitleCase(needsRoleUpgrade.portal)} account`}
+              </button>
+              <button
+                type="button"
+                className={`${authSecondaryButtonClassName} w-full sm:w-auto`}
+                disabled={busy}
+                onClick={handleCancelRoleUpgrade}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : sessionConflict ? (
           <div className="space-y-3">
             <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
               You’re already signed in{sessionConflict.activePortal !== 'unknown' ? (
