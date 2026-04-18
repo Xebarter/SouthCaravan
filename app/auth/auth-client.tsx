@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, MailCheck } from 'lucide-react'
 
 import {
   AuthBrandBanner,
@@ -148,6 +148,7 @@ export default function AuthClient() {
   const [needsBuyerPhone, setNeedsBuyerPhone] = React.useState(false)
   const [buyerPhone, setBuyerPhone] = React.useState('')
   const [buyerCustomer, setBuyerCustomer] = React.useState<any>(null)
+  const [accountCreated, setAccountCreated] = React.useState(false)
   const [sessionConflict, setSessionConflict] = React.useState<{
     activePortal: PortalMatch
     requestedPortal: PortalRole
@@ -160,6 +161,7 @@ export default function AuthClient() {
     setBuyerPhone('')
     setBuyerCustomer(null)
     setSessionConflict(null)
+    setAccountCreated(false)
   }, [mode])
 
   React.useEffect(() => {
@@ -317,7 +319,7 @@ export default function AuthClient() {
     if (signUp.error) throw signUp.error
 
     if (!signUp.data.session) {
-      setMessage('Account created. Please verify your email before signing in.')
+      setAccountCreated(true)
       return { ok: false as const }
     }
 
@@ -371,7 +373,7 @@ export default function AuthClient() {
     if (signUp.error) throw signUp.error
 
     if (!signUp.data.session) {
-      setMessage('Account created. Please verify your email before signing in.')
+      setAccountCreated(true)
       return { ok: false as const }
     }
 
@@ -459,6 +461,33 @@ export default function AuthClient() {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (accountCreated) {
+    return (
+      <AuthPageBackground>
+        <div
+          className={authCardClassName}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-8 ring-primary/5">
+              <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />
+            </div>
+            <p className="text-[17px] font-medium leading-relaxed text-foreground">
+              Account created. Please verify your email to proceed.
+            </p>
+            <Link
+              href="/"
+              className={`${authPrimaryButtonClassName} mt-8 w-full sm:w-auto sm:min-w-[220px]`}
+            >
+              Return to Shop
+            </Link>
+          </div>
+        </div>
+      </AuthPageBackground>
+    )
   }
 
   return (
