@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { HeaderSearch } from '@/components/header-search';
 import { AddItemsSidebar } from '@/components/additems-sidebar';
 import { SiteLogoMark } from '@/components/site-logo';
+import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 
 const HOVER_CLOSE_DELAY_MS = 150;
 
@@ -151,9 +152,7 @@ export function Header() {
 
           <div className="flex items-center gap-2 flex-1 max-w-3xl">
             <HeaderSearch />
-            <Button asChild>
-              <Link href="/auth?role=buyer&next=/buyer">Post My RFQ</Link>
-            </Button>
+            <PostMyRfqButton>Post My RFQ</PostMyRfqButton>
             <Button variant="ghost" size="icon" aria-label="Messages" asChild>
               <Link href="/auth?role=buyer&next=/buyer/messages">
                 <MessagesSquare className="w-5 h-5" />

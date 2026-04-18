@@ -9,7 +9,6 @@ import {
   FileText,
   MessageSquare,
   Heart,
-  ClipboardList,
   Menu,
   User,
   CircleHelp,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
@@ -28,12 +28,30 @@ const navItems = [
   { href: '/buyer', label: 'Dashboard', icon: LayoutGrid },
   { href: '/buyer/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/buyer/quotes', label: 'Quotes', icon: FileText },
-  { href: '/buyer/rfqs', label: 'My RFQs', icon: ClipboardList },
+  { href: '/buyer/messages', label: 'Messages', icon: MessageSquare },
   { href: '/buyer/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/buyer/addresses', label: 'Addresses', icon: MapPin },
   { href: '/buyer/profile', label: 'Profile', icon: User },
   { href: '/buyer/support', label: 'Support', icon: CircleHelp },
 ] as const;
+
+type ApiConversationRow = {
+  id: string;
+  buyer_id: string;
+  vendor_user_id: string;
+  updated_at: string;
+  created_at: string;
+};
+
+type ApiMessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+};
 
 export default function BuyerConsoleLayout({
   children,
@@ -46,6 +64,7 @@ export default function BuyerConsoleLayout({
 
   const [buyerName, setBuyerName] = useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
     if (isLoading) return;
@@ -59,6 +78,44 @@ export default function BuyerConsoleLayout({
     if (user.role === 'vendor') router.replace('/vendor');
     if (user.role === 'admin') router.replace('/dashboard');
   }, [isLoading, user, router, pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) return;
+
+    async function computeUnread() {
+      try {
+        const convRes = await fetch('/api/buyer/conversations', { method: 'GET' });
+        const convJson = await convRes.json().catch(() => null);
+        const conversations = Array.isArray(convJson?.conversations) ? (convJson.conversations as ApiConversationRow[]) : [];
+        if (!convRes.ok || cancelled) return;
+
+        const top = conversations.slice(0, 5);
+        const results = await Promise.allSettled(
+          top.map(async (c) => {
+            const res = await fetch(`/api/buyer/conversations/${encodeURIComponent(c.id)}`, { method: 'GET' });
+            if (!res.ok) return 0;
+            const json = await res.json().catch(() => null);
+            const messages = Array.isArray(json?.messages) ? (json.messages as ApiMessageRow[]) : [];
+            return messages.filter((m) => m.recipient_id === user.id && !m.read).length;
+          }),
+        );
+
+        if (cancelled) return;
+        const count = results.reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
+        setUnreadMessages(count);
+      } catch {
+        // non-fatal
+      }
+    }
+
+    computeUnread();
+    const t = window.setInterval(computeUnread, 20000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +216,11 @@ export default function BuyerConsoleLayout({
                       >
                         <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
                         <span className="truncate">{item.label}</span>
+                        {item.href === '/buyer/messages' && unreadMessages > 0 ? (
+                          <Badge className="ml-auto rounded-full bg-background/20 text-inherit border border-primary-foreground/20">
+                            {unreadMessages > 99 ? '99+' : unreadMessages}
+                          </Badge>
+                        ) : null}
                       </Link>
                     );
                   })}
@@ -229,6 +291,17 @@ export default function BuyerConsoleLayout({
                   />
                   <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
                   <span className="truncate">{item.label}</span>
+                  {item.href === '/buyer/messages' && unreadMessages > 0 ? (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        'ml-auto rounded-full px-2 py-0.5 text-xs',
+                        isActive ? 'bg-background/20 text-inherit' : 'bg-secondary text-foreground',
+                      )}
+                    >
+                      {unreadMessages > 99 ? '99+' : unreadMessages}
+                    </Badge>
+                  ) : null}
                 </Link>
               );
             })}

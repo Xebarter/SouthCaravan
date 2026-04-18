@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,10 +14,14 @@ import {
 import { Menu, MessageSquare, ShoppingCart, User } from 'lucide-react';
 import { HeaderSearch } from '@/components/header-search';
 import { SiteLogoMark } from '@/components/site-logo';
+import { PostMyRfqButton, resolvePostMyRfqPath } from '@/components/post-my-rfq-button';
+import { useAuth } from '@/lib/auth-context';
 
 /** Radix DropdownMenu IDs can mismatch SSR vs client; render menu only after mount. */
 function MobileProfileMenu() {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -38,8 +43,15 @@ function MobileProfileMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild>
-          <Link href="/login">Post My RFQ</Link>
+        <DropdownMenuItem
+          disabled={isLoading}
+          onSelect={(e) => {
+            e.preventDefault();
+            if (isLoading) return;
+            router.push(resolvePostMyRfqPath(user));
+          }}
+        >
+          Post My RFQ
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/login">Messages</Link>
@@ -113,9 +125,7 @@ export function PublicNav({
         {/* Search + Quick Actions */}
         <div className="hidden md:flex items-center gap-2 flex-1 max-w-3xl">
           <HeaderSearch />
-          <Button asChild>
-            <Link href="/login">Post My RFQ</Link>
-          </Button>
+          <PostMyRfqButton>Post My RFQ</PostMyRfqButton>
           <Button variant="ghost" size="icon" aria-label="Messages" asChild>
             <Link href="/login">
               <MessageSquare className="w-5 h-5" />

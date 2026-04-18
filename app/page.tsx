@@ -4,10 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
-import {
-  ArrowRight,
-  Package,
-} from 'lucide-react';
+import { Package } from 'lucide-react';
 import ProductAdBannerSection from './landing/product-ad-banner-section';
 import PopularCategories from './landing/popular-categories';
 import {
@@ -18,6 +15,7 @@ import {
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
 import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-feed-client';
+import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 
 export default async function HomePage() {
   const products = await getLandingProducts();
@@ -117,12 +115,7 @@ export default async function HomePage() {
           </div>
 
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            <Button size="lg" className="rounded-full px-5 sm:px-6" asChild>
-              <Link href="/login">
-                Post My RFQ
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
+            <PostMyRfqButton size="lg" className="rounded-full px-5 sm:px-6" showArrow />
             <Button size="lg" variant="outline" className="rounded-full px-5 sm:px-6 border-slate-300 bg-white" asChild>
               <Link href="/public/vendors">Explore Suppliers</Link>
             </Button>

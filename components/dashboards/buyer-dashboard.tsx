@@ -113,6 +113,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
   const [quotes, setQuotes] = useState<ApiQuoteRow[]>([]);
   const [conversations, setConversations] = useState<ApiConversationRow[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [conversationPreview, setConversationPreview] = useState<Record<string, { unread: number; last?: ApiMessageRow }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +169,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
     async function computeUnread() {
       if (conversations.length === 0) {
         setUnreadMessages(0);
+        setConversationPreview({});
         return;
       }
 
@@ -180,13 +182,22 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
           if (!res.ok) return 0;
           const json = await res.json().catch(() => null);
           const messages = Array.isArray(json?.messages) ? (json.messages as ApiMessageRow[]) : [];
-          return messages.filter((m) => m.recipient_id === buyerId && !m.read).length;
+          const unread = messages.filter((m) => m.recipient_id === buyerId && !m.read).length;
+          const last = messages.length > 0 ? messages[messages.length - 1] : undefined;
+          return { id: c.id, unread, last };
         }),
       );
 
       if (cancelled) return;
-      const count = results.reduce((sum, r) => sum + (r.status === 'fulfilled' ? r.value : 0), 0);
+      const fulfilled = results
+        .filter((r): r is PromiseFulfilledResult<{ id: string; unread: number; last?: ApiMessageRow }> => r.status === 'fulfilled')
+        .map((r) => r.value);
+
+      const count = fulfilled.reduce((sum, r) => sum + r.unread, 0);
       setUnreadMessages(count);
+      const next: Record<string, { unread: number; last?: ApiMessageRow }> = {};
+      for (const r of fulfilled) next[r.id] = { unread: r.unread, last: r.last };
+      setConversationPreview(next);
     }
 
     computeUnread();
@@ -496,9 +507,9 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <MessageSquare className="w-4 h-4 text-primary" />
-                      Conversations
+                      Messages
                     </CardTitle>
-                    <CardDescription>Recent vendor threads</CardDescription>
+                    <CardDescription>Recent vendor threads and notifications</CardDescription>
                   </div>
                   <Link href="/buyer/messages">
                     <Button variant="outline" size="sm" className="rounded-xl">
@@ -531,10 +542,17 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                               Vendor <span className="font-mono text-muted-foreground">{formatShortId(c.vendor_user_id)}</span>
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground truncate">
-                              Updated {new Date(c.updated_at).toLocaleDateString()}
+                              {conversationPreview[c.id]?.last?.content
+                                ? conversationPreview[c.id]?.last?.content
+                                : `Updated ${new Date(c.updated_at).toLocaleDateString()}`}
                             </p>
                           </div>
-                          <Eye className="w-4 h-4 text-muted-foreground" />
+                          <div className="flex items-center gap-2 shrink-0">
+                            {conversationPreview[c.id]?.unread ? (
+                              <Badge className="rounded-full">{conversationPreview[c.id]?.unread > 99 ? '99+' : conversationPreview[c.id]?.unread}</Badge>
+                            ) : null}
+                            <Eye className="w-4 h-4 text-muted-foreground" />
+                          </div>
                         </div>
                       </Link>
                     ))}
