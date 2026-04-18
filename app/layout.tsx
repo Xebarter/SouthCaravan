@@ -3,7 +3,6 @@ import { Analytics } from '@vercel/analytics/next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { AppShellWithMenu } from '@/components/app-shell-with-menu'
-import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://southcaravan.com'
@@ -70,23 +69,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="light" style={{ colorScheme: 'light' }}>
       <body
         className={[
           inter.variable,
           'font-sans antialiased bg-background text-foreground flex flex-col min-h-screen',
         ].join(' ')}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <AppShellWithMenu>{children}</AppShellWithMenu>
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <AppShellWithMenu>{children}</AppShellWithMenu>
+        </AuthProvider>
         <Analytics />
       </body>
     </html>
