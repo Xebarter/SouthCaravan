@@ -1,6 +1,6 @@
 export default function LoadingHome() {
   return (
-    <div className="bg-[#f3f5f7]">
+    <div className="bg-background">
       <section className="px-4 md:px-6 pt-4 pb-8 md:pt-6 md:pb-10">
         <div className="max-w-[1500px] mx-auto space-y-6">
           <div className="h-6 w-52 rounded-full bg-slate-200 animate-pulse" />
@@ -75,7 +75,7 @@ export default function LoadingHome() {
         </div>
       </section>
 
-      <section className="px-4 md:px-6 py-6 md:py-8 bg-[#f3f5f7]">
+      <section className="px-4 md:px-6 py-6 md:py-8 bg-background">
         <div className="max-w-[1500px] mx-auto space-y-5">
           {Array.from({ length: 2 }).map((_, sectionIdx) => (
             <div

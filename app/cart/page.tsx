@@ -522,7 +522,7 @@ export default function CartPage() {
   };
 
   const shell = (body: React.ReactNode) => (
-    <div className="min-h-[calc(100vh-8rem)] bg-[#f3f5f7]">
+    <div className="min-h-[calc(100vh-8rem)] bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-10">
         <Breadcrumbs items={[{ label: 'Cart' }]} />
         {body}

@@ -45,8 +45,8 @@ const MONTHLY_DATA = [
 
 const STATUS_COLORS: Record<string, string> = {
   pending:   '#f59e0b',
-  confirmed: '#3b82f6',
-  shipped:   '#8b5cf6',
+  confirmed: '#0f766e',
+  shipped:   '#7c3aed',
   delivered: '#10b981',
   cancelled: '#f43f5e',
 };
@@ -197,7 +197,7 @@ export default function VendorAnalyticsPage() {
           value={vendorOrders.length}
           sub={`${vendorOrders.filter((o) => o.status === 'pending').length} awaiting action`}
           icon={ShoppingBag}
-          iconBg="bg-blue-500"
+          iconBg="bg-primary"
           trend={8}
         />
         <StatCard

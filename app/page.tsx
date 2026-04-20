@@ -29,7 +29,7 @@ export default async function HomePage() {
   const initialHasMore = initialCategoryFeed.hasMore;
 
   return (
-    <div className="bg-[#f3f5f7]">
+    <div className="bg-background">
       <ProductAdBannerSection items={sponsoredItems} />
       <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10">
         <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">
@@ -133,7 +133,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <CategoryInfiniteFeedClient initialSections={initialSections} initialHasMore={initialHasMore} />
+      <CategoryInfiniteFeedClient
+        initialSections={initialSections}
+        initialHasMore={initialHasMore}
+        initialPage={1}
+      />
     </div>
   );
 }

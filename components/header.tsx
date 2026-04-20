@@ -130,7 +130,7 @@ export function Header() {
   return (
     <>
       {/* Desktop (md+): keep the existing header as-is. */}
-      <nav className="hidden md:block border-b border-border bg-background/95 backdrop-blur sticky top-0 z-50">
+      <nav className="hidden md:block border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
         <div className="flex h-16 items-center justify-between gap-4 px-6 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
             <button
@@ -170,7 +170,7 @@ export function Header() {
                 aria-label="Open profile menu"
                 aria-expanded={profileMenuOpen}
                 onClick={toggleProfileMenu}
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition"
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition"
                 type="button"
               >
                 <UserCircle2 className="h-5 w-5" />
@@ -252,7 +252,7 @@ export function Header() {
       </nav>
 
       {/* Mobile: top row (non-persistent). */}
-      <nav className="md:hidden border-b border-border bg-background/95 backdrop-blur">
+      <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
         <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
           <Link
             href="/"
@@ -278,7 +278,7 @@ export function Header() {
       </nav>
 
       {/* Mobile: lower row (persistent). */}
-      <nav className="md:hidden border-b border-border bg-background/95 backdrop-blur sticky top-0 z-50">
+      <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
         <div className="flex h-14 items-center gap-2 px-4 max-w-7xl mx-auto">
           <button
             aria-label="Open categories"

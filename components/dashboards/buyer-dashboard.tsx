@@ -81,7 +81,7 @@ function statusMeta(kind: 'order' | 'quote', status: string) {
       case 'pending':
         return { label: 'Pending', className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
       case 'confirmed':
-        return { label: 'Processing', className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
+        return { label: 'Processing', className: 'bg-primary/10 text-primary border-primary/20' };
       case 'shipped':
         return { label: 'In transit', className: 'bg-primary/10 text-primary border-primary/20' };
       case 'delivered':

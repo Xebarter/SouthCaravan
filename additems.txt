@@ -1,513 +1,523 @@
-# MyGarage Auth Implementation (Build-Spec / Reference)
+SouthCaravan Cookie Policy
 
-This document describes exactly how authentication is implemented for the MyGarage portals:
+Introduction / What Are Cookies?
 
-- `/admin`
-- `/vendor`
-- `/services`
-- `/buyer`
+SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
 
-It is written as an implementation spec so another AI agent can reproduce the same behavior.
+Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
 
----
+We use cookies for several important reasons on SouthCaravan:
+- To enable secure login and session management for registered business accounts
+- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
+- To analyze platform usage and improve our services
+- To remember your preferences and settings
 
-## Core auth provider + session model
+This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
 
-- **Auth provider**: Supabase Auth (email/password).
-- **Session storage**: Supabase session is persisted via **cookies** (SSR-friendly) using `@supabase/ssr`.
-- **Client Supabase**: `lib/supabase/client.ts` uses `createBrowserClient(url, anonKey)` and returns a singleton.
-- **Server Supabase (cookies)**: `lib/supabase/server.ts` uses `createServerClient(url, anonKey, { cookies: ... })`.
-- **Admin/service role Supabase**: `lib/supabase/admin.ts` uses `SUPABASE_SERVICE_ROLE_KEY` and `persistSession: false`, `autoRefreshToken: false`. Used only in trusted server routes.
+We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
 
-Key env vars (see `SUPABASE.md`):
+Types/Categories of Cookies Used
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (server only)
+SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
 
----
+1. Strictly Necessary (Essential) Cookies
+These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
+- Secure user authentication and login sessions
+- Maintaining your shopping/RFQ cart and procurement workflows
+- Security and fraud prevention
+- Basic navigation between pages
 
-## Route protection and portal selection (global middleware)
+These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
 
-File: `middleware.ts`
+2. Functional / Preference Cookies
+These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
+- Remembering your preferred language, currency (where applicable), or dashboard layout
+- Saving your filter preferences for vendor searches or product categories
+- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
 
-### Protected prefixes
+3. Performance / Analytics Cookies
+These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
+- Analyze platform usage, page views, and feature engagement
+- Identify popular procurement tools and areas for improvement
+- Measure the effectiveness of our B2B features and user journeys
+- Optimize performance and fix technical issues
 
-- Protected (requires Supabase user): `["/buyer", "/vendor", "/services"]`
-- Admin prefix (special-case): `"/admin"`
+We use this data in aggregated and anonymized form to enhance the overall experience for all users.
 
-### Public exception (buyer services flow)
+4. Marketing / Targeting Cookies (where applicable)
+These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
 
-`/buyer/services` and anything under `/buyer/services/...` is **explicitly public** so that a user can “book and pay for roadside/help services without signing in”.
+We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
 
-Implementation rule:
+Detailed Cookie Inventory / List
 
-- If `pathname === "/buyer/services"` OR `pathname.startsWith("/buyer/services/")` → treat as **not protected** even though it’s under `/buyer`.
+Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
 
-### OAuth/code exchange support
+Cookie Name | Provider | Type/Category | Purpose | Duration
+---|---|---|---|---
+session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
+sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
+sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
+sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
+_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
+_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
+sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
+sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
+hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
+__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
 
-If the request URL contains a `?code=` query param (Supabase auth code), middleware runs:
+Notes:
+- “Session” duration means the cookie is deleted when you close your browser.
+- Some cookies are only set for logged-in users or when specific features are used.
+- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
+- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
 
-- `supabase.auth.exchangeCodeForSession(code)`
-- If successful: redirects to the same URL **with `code` removed**, while **forwarding any Set-Cookie headers** to ensure the auth cookies are set on the redirect response.
+This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
 
-This is what makes email-verify redirects (and similar auth redirects) land with a real session cookie.
+Last updated: April 2026
 
-### Redirect behavior when not authenticated
+SouthCaravan Cookie Policy
 
-If there is **no Supabase user** and the path is protected:
+Introduction / What Are Cookies?
 
-- Redirect to `/auth`
-- Add `next` query param: `next=<original pathname + search>`
-- Add `role` query param based on requested portal:
-  - If path starts with `/vendor` → `role=vendor`
-  - Else if starts with `/services` → `role=services`
-  - Else (buyer protected pages) → `role=buyer`
+SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
 
-If there is **no Supabase user** and path is admin:
+Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
 
-- Redirect to `/auth?role=admin&next=<original>`
+We use cookies for several important reasons on SouthCaravan:
+- To enable secure login and session management for registered business accounts
+- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
+- To analyze platform usage and improve our services
+- To remember your preferences and settings
 
-### Admin authorization (authenticated but not an admin)
+This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
 
-If a Supabase user exists and the path is `/admin` (or under it), middleware enforces that the user has an admin role in Supabase `app_metadata`.
+We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
 
-Role detection:
+Types/Categories of Cookies Used
 
-- `app_metadata.role` (string) OR `app_metadata.roles` (array) is normalized to lowercase.
-- A user is treated as admin when either:
-  - `role === "admin"` OR
-  - `roles` includes `"admin"`
+SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
 
-If user is authenticated but **not admin** and tries to access `/admin...`:
+1. Strictly Necessary (Essential) Cookies
+These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
+- Secure user authentication and login sessions
+- Maintaining your shopping/RFQ cart and procurement workflows
+- Security and fraud prevention
+- Basic navigation between pages
 
-- Redirect to `/auth`
-- Force `role=admin`
-- Force `next=/admin`
-- Add `error=admin_required`
+These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
 
-This gives a consistent “you are not an admin” error message on the auth page.
+2. Functional / Preference Cookies
+These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
+- Remembering your preferred language, currency (where applicable), or dashboard layout
+- Saving your filter preferences for vendor searches or product categories
+- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
 
----
+3. Performance / Analytics Cookies
+These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
+- Analyze platform usage, page views, and feature engagement
+- Identify popular procurement tools and areas for improvement
+- Measure the effectiveness of our B2B features and user journeys
+- Optimize performance and fix technical issues
 
-## Portal entry points
+We use this data in aggregated and anonymized form to enhance the overall experience for all users.
 
-### `/auth` (shared login/sign-up dialog)
+4. Marketing / Targeting Cookies (where applicable)
+These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
 
-File: `app/auth/page.tsx`
+We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
 
-This is the **single unified** UI for all portals. The portal is chosen by query params.
+Detailed Cookie Inventory / List
 
-Query params:
+Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
 
-- `role`: `"buyer" | "vendor" | "services" | "admin"` (defaults to `"buyer"`)
-- `next`: path to redirect to after successful auth
-- `error`: e.g. `"admin_required"` (used for admin-only messaging)
+Cookie Name | Provider | Type/Category | Purpose | Duration
+---|---|---|---|---
+session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
+sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
+sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
+sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
+_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
+_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
+sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
+sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
+hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
+__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
 
-If `next` is missing, defaults depend on `role`:
+Notes:
+- “Session” duration means the cookie is deleted when you close your browser.
+- Some cookies are only set for logged-in users or when specific features are used.
+- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
+- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
 
-- vendor → `/vendor`
-- services → `/services/orders`
-- admin → `/admin`
-- buyer → `/buyer`
+This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
 
-### `/vendor-login` (compat shim)
+How Cookies Are Used on the Platform
 
-File: `app/vendor-login/page.tsx`
+On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
 
-This route simply redirects into the unified auth page:
+Specifically, cookies are used to:
+- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
+- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
+- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
+- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
+- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
+- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
 
-- `/vendor-login` → `/auth?role=vendor&next=/vendor`
+Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
 
-Note: `VENDOR_DASHBOARD_GUIDE.md` claims “no authentication required (demo mode)”; the current codebase enforces authentication for `/vendor` via middleware.
+Third-Party Cookies and Sharing
 
----
+SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
 
-## Auth UI behavior (signin + implicit signup + forgot password)
+Third-party services that may set cookies include:
+- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
+- Cloudflare – for security, content delivery, and protection against DDoS attacks.
+- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
+- Other potential providers for payment processing, email communications, or enterprise integrations.
 
-### High-level model
+We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
 
-The `/auth` page acts like a “Continue” form:
+Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
 
-- It first attempts **sign in** with email/password.
-- If sign in fails with “invalid login credentials”, it decides whether to:
-  - show an error (“email exists; reset password”), OR
-  - proceed to **sign up** using the same email/password.
+We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
 
-Admin is a special case:
+For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
 
-- Admin is **sign-in only** (no self-signup).
+Last updated: April 2026
 
-### Session conflict resolution (one Supabase session across portals)
+SouthCaravan Cookie Policy
 
-Because Supabase auth session is global per app, the UI checks if there is already an active session when opening `/auth`.
+Introduction / What Are Cookies?
 
-On load (and whenever `role` changes in the URL), it runs `supabase.auth.getUser()` and tries to infer the “active portal” for the session:
+SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
 
-- If the user is admin (from `app_metadata`), active role is `admin`.
-- Otherwise, it checks localStorage hints:
-  - If `currentVendorName` exists → active role `vendor`
-  - Else if `currentServiceProviderName` exists → active role `services`
-  - Else if `currentBuyerName` exists → active role `buyer`
-  - Else → active role `unknown`
+Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
 
-If the active role matches the requested `role`, the UI auto-redirects to `next`.
+We use cookies for several important reasons on SouthCaravan:
+- To enable secure login and session management for registered business accounts
+- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
+- To analyze platform usage and improve our services
+- To remember your preferences and settings
 
-If the active role does NOT match, the UI shows a **conflict prompt**:
+This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
 
-- “Already signed in as …”
-- Buttons:
-  - “Sign out & access <target portal>”
-  - “Stay in <current portal> dashboard” (only if current portal is known)
+We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
 
-Conflict sign-out clears these localStorage keys then calls `supabase.auth.signOut()`:
+Types/Categories of Cookies Used
 
-- `currentVendorId`
-- `currentVendorName`
-- `currentServiceProviderName`
-- `currentBuyerName`
-- `currentBuyerEmail`
-- `currentBuyerId`
-- `currentBuyerPhone`
-- `buyerProfile`
+SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
 
-### Sign in flow
+1. Strictly Necessary (Essential) Cookies
+These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
+- Secure user authentication and login sessions
+- Maintaining your shopping/RFQ cart and procurement workflows
+- Security and fraud prevention
+- Basic navigation between pages
 
-On submit, `/auth` runs:
+These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
 
-1. `supabase.auth.signInWithPassword({ email, password })`
-2. If success:
-   - If `role=admin`: run `hasAdminAccess()` (reads `app_metadata` again). If not admin:
-     - `supabase.auth.signOut()`
-     - show error: “Admin access denied…”
-     - do NOT redirect
-   - If `role=buyer`: enforce buyer phone gating (details below)
-   - Persist portal profile hints to localStorage (details below)
-   - `router.replace(nextPath)`
+2. Functional / Preference Cookies
+These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
+- Remembering your preferred language, currency (where applicable), or dashboard layout
+- Saving your filter preferences for vendor searches or product categories
+- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
 
-If sign-in error message includes “email not confirmed”:
+3. Performance / Analytics Cookies
+These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
+- Analyze platform usage, page views, and feature engagement
+- Identify popular procurement tools and areas for improvement
+- Measure the effectiveness of our B2B features and user journeys
+- Optimize performance and fix technical issues
 
-- Shows explicit message: the email exists but must be verified first.
+We use this data in aggregated and anonymized form to enhance the overall experience for all users.
 
-If sign-in error is NOT “invalid login credentials”:
+4. Marketing / Targeting Cookies (where applicable)
+These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
 
-- Shows the raw Supabase error message.
+We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
 
-If sign-in error is “invalid login credentials”:
+Detailed Cookie Inventory / List
 
-- Admin: shows “Invalid admin credentials. Admin accounts must be created and granted by the owner.” (no signup attempt)
-- Non-admin: the page runs a server-side check to decide whether it should attempt sign-up.
+Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
 
-### The sign-up decision (email/profile check)
+Cookie Name | Provider | Type/Category | Purpose | Duration
+---|---|---|---|---
+session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
+sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
+sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
+sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
+_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
+_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
+sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
+sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
+hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
+__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
 
-After “invalid login credentials” for non-admin portals, the page calls:
+Notes:
+- “Session” duration means the cookie is deleted when you close your browser.
+- Some cookies are only set for logged-in users or when specific features are used.
+- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
+- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
 
-- `POST /api/auth/check-email-registered`
-- Body: `{ email: trimmedEmail, portal: role }`
+This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
 
-If the API responds `{ registered: true }`:
+How Cookies Are Used on the Platform
 
-- The UI shows: “An account with this email already exists. Check your password or use Forgot password below.”
-- It does NOT sign up.
+On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
 
-If `{ registered: false }`:
+Specifically, cookies are used to:
+- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
+- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
+- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
+- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
+- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
+- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
 
-- The UI proceeds to sign up with `supabase.auth.signUp(...)`.
+Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
 
-Buyer sign-up uses a special redirect target:
+Third-Party Cookies and Sharing
 
-- `emailRedirectTo: <origin>/auth?role=buyer&next=<encoded nextPath>`
+SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
 
-Non-buyer sign-up uses default Supabase behavior (no explicit `emailRedirectTo` set).
+Third-party services that may set cookies include:
+- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
+- Cloudflare – for security, content delivery, and protection against DDoS attacks.
+- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
+- Other potential providers for payment processing, email communications, or enterprise integrations.
 
-Sign-up outcomes:
+We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
 
-- If Supabase returns an “already registered” style error → show “account exists” message.
-- If session is NOT returned (email confirmation required):
-  - Buyer message: created + verify email + mobile number will be asked next step.
-  - Other roles: created + verify email before signing in.
-- If session IS returned immediately:
-  - Buyer: ensure a `customers` record exists (details below), then enforce buyer phone gate
-  - Persist portal profile hints to localStorage
-  - Redirect to `nextPath`
+Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
 
-Also handled: “ghost signup” case where `session` is null and `user.identities` is empty (meaning the email already has a login):
+We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
 
-- Shows: “This email already has a login. Use the same password to sign in…”
+For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
 
-### Forgot password
+Legal Basis for Processing (if applicable)
 
-In `/auth`, “Forgot password?” switches the form and sends:
+SouthCaravan processes cookie data in accordance with applicable data protection laws. Our legal basis for using cookies depends on the category and purpose:
 
-- `supabase.auth.resetPasswordForEmail(email, { redirectTo: <origin>/auth/reset-password })`
+- Strictly Necessary Cookies: We rely on our legitimate interest in providing a functional and secure platform, as well as the necessity to perform our contractual obligations with business users. These cookies do not require prior consent.
 
-This requires Supabase Auth URL configuration to allow the app origin and redirect patterns.
+- Functional / Preference Cookies: Processing is based on our legitimate interest to deliver a personalized and user-friendly experience, or on your explicit consent where required by law.
 
-### Reset password page
+- Performance / Analytics Cookies: We process these based on legitimate interests to understand platform usage and improve our B2B services. Where applicable (for example, under GDPR or ePrivacy rules), we seek your consent before setting these cookies.
 
-File: `app/auth/reset-password/page.tsx`
+- Marketing / Targeting Cookies: These are used only with your prior consent. Given the B2B nature of our platform, such cookies are limited and focused on professional relevance.
 
-- Uses `supabase.auth.updateUser({ password })` to set the new password once the user lands with a valid recovery session.
-- If no session appears shortly after load, it shows a hint about expired links or missing redirect URL allowlist.
-- After success, redirects back to `/auth`.
+For users in the European Union or other jurisdictions with strict consent requirements, we provide a cookie consent management tool that allows you to accept or reject non-essential cookies. You can withdraw your consent at any time without affecting your ability to use the core functions of the platform.
 
----
+In Uganda and other jurisdictions, we ensure processing aligns with the principles of the Data Protection and Privacy Act, including lawfulness, fairness, and minimization of data.
 
-## Buyer portal (`/buyer*`) auth behavior
+Managing Cookies and Consent
 
-### What is protected?
+You have several options to manage cookies on SouthCaravan:
 
-- Everything under `/buyer` is protected by middleware **except**:
-  - `/buyer/services` and `/buyer/services/...` (public exception)
+1. Cookie Consent Banner
+   When you first visit our platform, you will see a cookie consent banner. You can accept all cookies, reject non-essential cookies, or customize your preferences by category.
 
-### Post-auth buyer profile: customers table + phone gating
+2. Cookie Settings Center
+   Registered users can access a dedicated cookie settings page in their account dashboard to review and update their preferences at any time.
 
-After a buyer signs in (or signs up and gets a session), the app enforces a “phone must exist” gate:
+3. Browser Settings
+   Most web browsers allow you to control cookies through their settings. You can:
+   - Block all cookies
+   - Block only third-party cookies
+   - Delete cookies already stored on your device
+   - Receive notifications when a cookie is set
 
-- It fetches customer by email: `GET /api/customers?email=<buyer email>`
-- Phone validity check: at least **9 digits** (digits only, non-digits stripped)
+   Please note that disabling strictly necessary cookies may prevent you from accessing certain parts of the platform or using core B2B features such as logging in, posting RFQs, or managing vendor relationships.
 
-If phone is missing/too short:
+4. Opt-Out Links
+   For specific third-party analytics tools (such as Google Analytics), you can use their respective opt-out mechanisms.
 
-- The `/auth` page switches into a **buyer step**: `"phone"`
-- It shows an “Add your mobile number” screen.
-- The user must save a valid phone before continuing.
+Disabling cookies may impact your experience on SouthCaravan. Some features, such as remembering your login or saving RFQ preferences, may not work as intended.
 
-Saving phone (`completeBuyerPhoneGate`):
+If you have questions about managing cookies or wish to exercise your data protection rights, please contact us using the details provided below.
 
-- Confirms phone has >= 9 digits.
-- Reads current Supabase user; requires a live session.
-- Calls `syncBuyerCustomerAfterAuth(...)`:
-  - If a customer record exists by email:
-    - `PUT /api/customers/<id>` with `{ phone }`
-  - Else (no customer yet):
-    - `POST /api/customers` to create a row using:
-      - `id = user.id`
-      - `name = email prefix`
-      - `email`, `phone`, plus other default fields
-- Then persists localStorage session profile and redirects to `nextPath`.
+Updates to This Policy
 
-Buyer sign-up also tries to ensure a customer row exists right away (even before phone is provided):
+We may update this Cookie Policy from time to time to reflect changes in our cookie practices, platform features, or applicable laws and regulations. Any material changes will be notified to you by:
+- Posting the updated policy on this page with a new “Last updated” date
+- Sending an email notification to registered business users (where appropriate)
+- Displaying a prominent notice on the platform when you next log in
 
-- `ensureBuyerCustomerRecord(...)`:
-  - If customer exists by email: stores `currentBuyerId`
-  - Else: `POST /api/customers` with empty phone
+We encourage you to review this policy periodically. Your continued use of SouthCaravan after any updates constitutes your acceptance of the revised Cookie Policy.
 
-### Buyer “session hints” stored in localStorage
+Last updated: April 2026
 
-On successful buyer sign-in/up, `persistSessionProfile()` sets:
+SouthCaravan Cookie Policy
 
-- `currentBuyerName` = `<emailPrefix> (buyer)`
-- `currentBuyerEmail` = `<user.email>`
-- Best-effort fetch `GET /api/customers?email=...`:
-  - sets `currentBuyerId`
-  - sets `currentBuyerPhone` when available
+Introduction / What Are Cookies?
 
-Buyer logout (sidebar):
+SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
 
-- Clears:
-  - `currentBuyerName`
-  - `currentBuyerEmail`
-  - `buyerProfile`
-- Calls `supabase.auth.signOut()`
-- Redirects to `/auth?role=buyer&next=/buyer`
+Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
 
----
+We use cookies for several important reasons on SouthCaravan:
+- To enable secure login and session management for registered business accounts
+- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
+- To analyze platform usage and improve our services
+- To remember your preferences and settings
 
-## Vendor portal (`/vendor*`) auth behavior
+This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
 
-### What is protected?
+We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
 
-- All `/vendor` routes are protected by middleware. Unauthenticated users are redirected to:
-  - `/auth?role=vendor&next=<requested>`
+Types/Categories of Cookies Used
 
-### Vendor “session hints” stored in localStorage
+SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
 
-On successful vendor sign-in/up, `persistSessionProfile()` sets:
+1. Strictly Necessary (Essential) Cookies
+These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
+- Secure user authentication and login sessions
+- Maintaining your shopping/RFQ cart and procurement workflows
+- Security and fraud prevention
+- Basic navigation between pages
 
-- `currentVendorId` = `<supabase user id>`
-- `currentVendorName` = `<emailPrefix> (vendor)`
+These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
 
-It also best-effort calls:
+2. Functional / Preference Cookies
+These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
+- Remembering your preferred language, currency (where applicable), or dashboard layout
+- Saving your filter preferences for vendor searches or product categories
+- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
 
-- `POST /api/vendor/bootstrap`
+3. Performance / Analytics Cookies
+These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
+- Analyze platform usage, page views, and feature engagement
+- Identify popular procurement tools and areas for improvement
+- Measure the effectiveness of our B2B features and user journeys
+- Optimize performance and fix technical issues
 
-This endpoint ensures a `vendors` table row exists for the authenticated user id.
+We use this data in aggregated and anonymized form to enhance the overall experience for all users.
 
-### Vendor bootstrap behavior
+4. Marketing / Targeting Cookies (where applicable)
+These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
 
-File: `app/api/vendor/bootstrap/route.ts`
+We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
 
-- Uses server cookie-auth (`lib/supabase/server.ts`) to get the current user.
-- Requires authenticated user and email.
-- Uses service-role client to check `vendors` by `id = user.id`.
-- If missing:
-  - Inserts a vendors row with:
-    - `id = user.id`
-    - `name = email prefix`
-    - `email`, plus defaults
-- Returns `201` when inserted, `200` when already existed.
+Detailed Cookie Inventory / List
 
-Vendor logout (sidebar):
+Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
 
-- Clears:
-  - `currentVendorId`
-  - `currentVendorName`
-- Calls `supabase.auth.signOut()`
-- Pushes to `/auth?role=vendor&next=/vendor`
+Cookie Name | Provider | Type/Category | Purpose | Duration
+---|---|---|---|---
+session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
+sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
+sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
+sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
+_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
+_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
+sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
+sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
+hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
+__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
 
----
+Notes:
+- “Session” duration means the cookie is deleted when you close your browser.
+- Some cookies are only set for logged-in users or when specific features are used.
+- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
+- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
 
-## Service Provider portal (`/services*`) auth behavior
+This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
 
-### What is protected?
+How Cookies Are Used on the Platform
 
-- All `/services` routes are protected by middleware. Unauthenticated users are redirected to:
-  - `/auth?role=services&next=<requested>`
+On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
 
-### Services portal profile/hints
+Specifically, cookies are used to:
+- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
+- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
+- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
+- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
+- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
+- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
 
-After auth, `persistSessionProfile()` treats services similarly to vendor:
+Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
 
-- `currentServiceProviderName` = `<emailPrefix> (service provider)`
-- Also sets vendor-like keys:
-  - `currentVendorId = user.id`
-  - `currentVendorName = <emailPrefix> (service provider)`
+Third-Party Cookies and Sharing
 
-And it best-effort calls:
+SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
 
-- `POST /api/vendor/bootstrap`
+Third-party services that may set cookies include:
+- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
+- Cloudflare – for security, content delivery, and protection against DDoS attacks.
+- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
+- Other potential providers for payment processing, email communications, or enterprise integrations.
 
-Rationale in code: it ensures a vendors row exists for dispatch/orders flows (it’s explicitly “best-effort”).
+We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
 
-Services logout (sidebar):
+Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
 
-- Clears:
-  - `currentServiceProviderName`
-  - `currentServiceProviderServices`
-  - `currentVendorId`
-  - `currentVendorName`
-- Calls `supabase.auth.signOut()`
-- Redirects to `/auth?role=services&next=/services/orders`
+We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
 
----
+For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
 
-## Admin portal (`/admin*`) auth behavior
+Legal Basis for Processing (if applicable)
 
-### What is protected?
+SouthCaravan processes cookie data in accordance with applicable data protection laws. Our legal basis for using cookies depends on the category and purpose:
 
-- All `/admin` routes are protected by middleware.
-- Additionally, middleware enforces admin authorization by Supabase `app_metadata` role(s).
+- Strictly Necessary Cookies: We rely on our legitimate interest in providing a functional and secure platform, as well as the necessity to perform our contractual obligations with business users. These cookies do not require prior consent.
 
-### Admin is sign-in only (no self-signup)
+- Functional / Preference Cookies: Processing is based on our legitimate interest to deliver a personalized and user-friendly experience, or on your explicit consent where required by law.
 
-In `/auth`:
+- Performance / Analytics Cookies: We process these based on legitimate interests to understand platform usage and improve our B2B services. Where applicable (for example, under GDPR or ePrivacy rules), we seek your consent before setting these cookies.
 
-- If `role=admin` and sign-in fails with invalid credentials → it shows an admin-only message and does not attempt sign-up.
-- If `role=admin` and sign-in succeeds, it calls `hasAdminAccess()`:
-  - If not admin: it signs out immediately and shows an “admin access denied” message.
+- Marketing / Targeting Cookies: These are used only with your prior consent. Given the B2B nature of our platform, such cookies are limited and focused on professional relevance.
 
-### Admin role assignment mechanism
+For users in the European Union or other jurisdictions with strict consent requirements, we provide a cookie consent management tool that allows you to accept or reject non-essential cookies. You can withdraw your consent at any time without affecting your ability to use the core functions of the platform.
 
-Documented in `SUPABASE.md`:
+In Uganda and other jurisdictions, we ensure processing aligns with the principles of the Data Protection and Privacy Act, including lawfulness, fairness, and minimization of data.
 
-- You grant admin by updating `auth.users.raw_app_meta_data` to include `{"role":"admin"}` for the user’s email.
-- Middleware also supports an array-style `roles` metadata that can include `"admin"`.
+Managing Cookies and Consent
 
-### Admin logout
+You have several options to manage cookies on SouthCaravan:
 
-Admin sidebar clears no custom localStorage keys; it simply:
+1. Cookie Consent Banner
+   When you first visit our platform, you will see a cookie consent banner. You can accept all cookies, reject non-essential cookies, or customize your preferences by category.
 
-- Calls `supabase.auth.signOut()`
-- Redirects to `/auth?role=admin&next=/admin`
+2. Cookie Settings Center
+   Registered users can access a dedicated cookie settings page in their account dashboard to review and update their preferences at any time.
 
----
+3. Browser Settings
+   Most web browsers allow you to control cookies through their settings. You can:
+   - Block all cookies
+   - Block only third-party cookies
+   - Delete cookies already stored on your device
+   - Receive notifications when a cookie is set
 
-## The “is this email already registered?” logic (server-side)
+   Please note that disabling strictly necessary cookies may prevent you from accessing certain parts of the platform or using core B2B features such as logging in, posting RFQs, or managing vendor relationships.
 
-Endpoint: `POST /api/auth/check-email-registered`
+4. Opt-Out Links
+   For specific third-party analytics tools (such as Google Analytics), you can use their respective opt-out mechanisms.
 
-- Uses service-role Supabase client.
-- Calls Postgres function `auth_portal_signup_blocked(check_email, portal)`.
-- Returns `{ registered: Boolean(data) }`.
+Disabling cookies may impact your experience on SouthCaravan. Some features, such as remembering your login or saving RFQ preferences, may not work as intended.
 
-The design goal:
+If you have questions about managing cookies or wish to exercise your data protection rights, please contact us using the details provided below.
 
-- Avoid blindly trying to sign-up when a user actually already exists (so the UI can guide them to password reset).
-- Make the decision **portal-aware**.
+Updates to This Policy
 
-### Portal-aware rule (SQL function)
+We may update this Cookie Policy from time to time to reflect changes in our cookie practices, platform features, or applicable laws and regulations. Any material changes will be notified to you by:
+- Posting the updated policy on this page with a new “Last updated” date
+- Sending an email notification to registered business users (where appropriate)
+- Displaying a prominent notice on the platform when you next log in
 
-Migration: `supabase/migrations/016_auth_portal_signup_blocked.sql`
+We encourage you to review this policy periodically. Your continued use of SouthCaravan after any updates constitutes your acceptance of the revised Cookie Policy.
 
-`auth_portal_signup_blocked(email, portal)` returns boolean:
+Contact Information
 
-- For `buyer`: returns true if there is already a row in `public.customers` with that email (case-insensitive).
-- For `vendor`: returns true if there is already a row in `public.vendors` with that email.
-- For `services`: always returns false (services portal never blocks in this function).
-- For unknown portals (including `admin`): strict check against `auth.users` by email.
+If you have any questions, concerns, or requests regarding this Cookie Policy, our use of cookies, or your data rights, please contact SouthCaravan’s Data Protection Officer or Privacy Team:
 
-Security:
+Email: privacy@southcaravan.com  
+Phone: +256 700 123 456 (Kampala, Uganda)  
+Address: SouthCaravan Ltd, Plot 45, Kampala Road, Kampala, Uganda  
 
-- Function is `security definer`.
-- Execute permission is granted only to `service_role`.
+We aim to respond to all inquiries within 30 days. For urgent matters related to data protection or cookie consent, please include “Cookie Policy Inquiry” in the subject line of your email.
 
-There is also a simpler helper function `auth_email_registered(check_email)` (migration `015_auth_email_registered.sql`) that checks `auth.users` directly, also restricted to `service_role`.
+You may also reach out through the “Contact Us” form available in your account dashboard or on our website.
 
----
+This Cookie Policy is effective as of its last update date. For the full Privacy Policy, please visit: https://www.southcaravan.com/privacy-policy
 
-## Practical “behavioral summary” per portal path
-
-### `/buyer`
-
-- **Unauthed**: redirected to `/auth?role=buyer&next=/buyer...` (except `/buyer/services...` is public).
-- **Authed**: allowed.
-- **Extra gate**: must have a valid phone number in `customers` (>= 9 digits). If not, auth UI forces a phone step.
-
-### `/buyer/services` (and children)
-
-- **Always public**, even if unauthenticated.
-
-### `/vendor`
-
-- **Unauthed**: redirected to `/auth?role=vendor&next=/vendor...`
-- **Authed**: allowed.
-- **On successful auth**: app stores vendor hints in localStorage and ensures a `vendors` row exists via `/api/vendor/bootstrap`.
-
-### `/services`
-
-- **Unauthed**: redirected to `/auth?role=services&next=/services...`
-- **Authed**: allowed.
-- **On successful auth**: stores service-provider hint and also vendor-like hints; bootstraps a vendor record best-effort.
-
-### `/admin`
-
-- **Unauthed**: redirected to `/auth?role=admin&next=/admin...`
-- **Authed but not admin**: redirected to `/auth?role=admin&next=/admin&error=admin_required`
-- **Admin**: allowed.
-- **No self-signup**: admin portal only supports sign-in after role is granted in Supabase metadata.
-
----
-
-## Implementation notes for recreating this auth design
-
-To build the same auth process in another app:
-
-- Implement **Next.js middleware** with:
-  - protected prefixes
-  - public exceptions
-  - Supabase SSR cookie client
-  - auth code exchange support
-  - role-based redirects to a unified `/auth` page
-  - admin role enforcement via `app_metadata`
-- Build a single `/auth` UI that:
-  - is parameterized by `role` + `next`
-  - does “sign-in first, else sign-up” for non-admin portals
-  - has a “forgot password” mode
-  - detects and resolves “already logged in (wrong portal)” conflicts
-  - persists a few portal hints into localStorage (used only for UX/session labeling)
-- Add a server endpoint to check whether a signup should be allowed, implemented with:
-  - service-role Supabase client
-  - a Postgres function restricted to service_role
-  - portal-aware checks (customers/vendors tables) rather than only `auth.users`
-- Add buyer-specific “profile completeness” gating (phone) immediately after auth.
+Last updated: April 2026

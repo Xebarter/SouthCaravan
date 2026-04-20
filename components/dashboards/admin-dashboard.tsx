@@ -117,7 +117,7 @@ export function AdminDashboard() {
                           <div className="flex items-center gap-3 mt-2">
                             <span className={`text-xs px-2 py-1 rounded-full ${
                               order.status === 'delivered' ? 'bg-green-500/10 text-green-400' :
-                              order.status === 'shipped' ? 'bg-blue-500/10 text-blue-400' :
+                              order.status === 'shipped' ? 'bg-violet-500/10 text-violet-600' :
                               order.status === 'confirmed' ? 'bg-yellow-500/10 text-yellow-400' :
                               'bg-gray-500/10 text-gray-400'
                             }`}>
@@ -176,7 +176,7 @@ export function AdminDashboard() {
                         <div className="text-right">
                           <span className={`text-xs px-2 py-1 rounded-full ${
                             user.role === 'admin' ? 'bg-purple-500/10 text-purple-400' :
-                            user.role === 'vendor' ? 'bg-blue-500/10 text-blue-400' :
+                            user.role === 'vendor' ? 'bg-primary/10 text-primary' :
                             'bg-green-500/10 text-green-400'
                           }`}>
                             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}

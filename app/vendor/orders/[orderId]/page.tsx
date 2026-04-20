@@ -29,7 +29,7 @@ const STATUS_META: Record<
   { label: string; cn: string; icon: React.ElementType }
 > = {
   pending:   { label: 'Pending',   cn: 'bg-amber-500/10 text-amber-600 border-amber-500/20',     icon: Clock },
-  confirmed: { label: 'Confirmed', cn: 'bg-blue-500/10 text-blue-600 border-blue-500/20',         icon: CheckCircle2 },
+  confirmed: { label: 'Confirmed', cn: 'bg-primary/10 text-primary border-primary/20',         icon: CheckCircle2 },
   shipped:   { label: 'Shipped',   cn: 'bg-violet-500/10 text-violet-600 border-violet-500/20',   icon: Truck },
   delivered: { label: 'Delivered', cn: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: PackageCheck },
   cancelled: { label: 'Cancelled', cn: 'bg-red-500/10 text-red-500 border-red-500/20',            icon: PackageX },

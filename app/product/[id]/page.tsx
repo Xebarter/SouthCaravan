@@ -35,7 +35,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   );
 
   return (
-    <div className="bg-[#f3f5f7] px-4 md:px-6 py-6 md:py-8">
+    <div className="bg-background px-4 md:px-6 py-6 md:py-8">
       {criticalPreloadUrls.map((url) => (
         <link key={url} rel="preload" as="image" href={url} />
       ))}

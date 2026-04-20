@@ -27,7 +27,7 @@ type Tab = typeof ALL_TABS[number];
 
 const STATUS_META: Record<OrderStatus, { label: string; badgeCn: string; icon: React.ElementType }> = {
   pending:   { label: 'Pending',   badgeCn: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400',     icon: Clock },
-  confirmed: { label: 'Confirmed', badgeCn: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400',         icon: CheckCircle2 },
+  confirmed: { label: 'Confirmed', badgeCn: 'bg-primary/10 text-primary border-primary/20 dark:text-primary',         icon: CheckCircle2 },
   shipped:   { label: 'Shipped',   badgeCn: 'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400', icon: Truck },
   delivered: { label: 'Delivered', badgeCn: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400', icon: PackageCheck },
   cancelled: { label: 'Cancelled', badgeCn: 'bg-red-500/10 text-red-500 border-red-500/20',                               icon: PackageX },
@@ -84,7 +84,7 @@ export default function VendorOrdersPage() {
               label: 'Total orders',
               value: vendorOrders.length,
               icon: ShoppingBag,
-              color: 'bg-blue-500',
+              color: 'bg-primary',
             },
             {
               label: 'Pending',

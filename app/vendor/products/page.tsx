@@ -753,7 +753,7 @@ export default function VendorProductsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {(
           [
-            { label: 'Total products', value: stats.total,    color: 'bg-blue-500',   icon: Package },
+            { label: 'Total products', value: stats.total,    color: 'bg-primary',   icon: Package },
             { label: 'In stock',       value: stats.inStock,  color: 'bg-emerald-500', icon: Package },
             { label: 'Out of stock',   value: stats.outOfStock, color: 'bg-red-500',   icon: Package },
             { label: 'Total value',    value: <Money amountUSD={stats.totalValue} notation="compact" />, color: 'bg-violet-500', icon: TrendingUp },

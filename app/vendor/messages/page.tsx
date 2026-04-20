@@ -20,13 +20,13 @@ function getInitials(name: string) {
 }
 
 const AVATAR_PALETTE = [
-  'bg-blue-500',
+  'bg-primary',
   'bg-violet-500',
   'bg-emerald-500',
   'bg-amber-500',
   'bg-rose-500',
-  'bg-indigo-500',
-  'bg-teal-500',
+  'bg-cyan-600',
+  'bg-teal-600',
 ];
 
 function avatarColor(id: string) {

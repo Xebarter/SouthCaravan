@@ -85,7 +85,8 @@ export default function CategoryInfiniteFeed({
           void loadNextPage();
         }
       },
-      { rootMargin: '600px 0px' },
+      // Prefetch well before the sentinel enters the viewport so new rows are ready when the user scrolls there.
+      { rootMargin: '1600px 0px' },
     );
 
     observer.observe(node);
@@ -95,7 +96,7 @@ export default function CategoryInfiniteFeed({
   const isEmpty = useMemo(() => sections.length === 0 && !loading, [sections.length, loading]);
 
   return (
-    <section className="px-2 sm:px-4 md:px-6 py-5 sm:py-6 md:py-8 bg-[#f3f5f7]">
+    <section className="px-2 sm:px-4 md:px-6 py-5 sm:py-6 md:py-8 bg-background">
       <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-5">
         {sections.map((section, sectionIndex) => {
           const isInitialSection = sectionIndex < initialSectionCount;

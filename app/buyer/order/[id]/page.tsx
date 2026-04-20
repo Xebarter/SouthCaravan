@@ -95,7 +95,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const orderId = order.id;
   const statusColorMap: Record<string, string> = {
     pending: 'bg-yellow-500/10 text-yellow-400',
-    confirmed: 'bg-blue-500/10 text-blue-400',
+    confirmed: 'bg-primary/10 text-primary',
     shipped: 'bg-primary/10 text-primary',
     delivered: 'bg-green-500/10 text-green-400',
     cancelled: 'bg-red-500/10 text-red-400',

@@ -32,7 +32,7 @@ export default function AdminUsersPage() {
       case 'admin':
         return 'bg-purple-500/10 text-purple-400';
       case 'vendor':
-        return 'bg-blue-500/10 text-blue-400';
+        return 'bg-primary/10 text-primary';
       case 'buyer':
         return 'bg-green-500/10 text-green-400';
       default:
