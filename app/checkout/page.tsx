@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -111,12 +113,22 @@ function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[nu
 }
 
 export default function CheckoutPage() {
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
+
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [lineItems, setLineItems] = useState<CheckoutLineItem[]>([]);
   const [sessionDiscount, setSessionDiscount] = useState(0);
+
+  // Redirect unauthenticated users to login, preserving the /checkout destination.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/auth?role=buyer&next=/checkout');
+    }
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     const session = getCheckoutSession();
@@ -203,11 +215,13 @@ export default function CheckoutPage() {
     </div>
   );
 
-  if (!hydrated) {
+  if (authLoading || !hydrated || (!authLoading && !user)) {
     return pageShell(
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-muted-foreground">
         <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
-        <p className="text-sm font-medium">Loading checkout…</p>
+        <p className="text-sm font-medium">
+          {authLoading ? 'Checking session…' : 'Loading checkout…'}
+        </p>
       </div>,
     );
   }
