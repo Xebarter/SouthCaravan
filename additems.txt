@@ -1,144 +1,107 @@
-SouthCaravan Compliance Page
+SouthCaravan About Page
 
-Compliance
+About SouthCaravan
 
-At SouthCaravan, compliance is a cornerstone of our operations. As a leading B2B vendor management and procurement platform headquartered in Kampala, Uganda, and serving businesses across Africa and global markets, we are fully committed to upholding the highest standards of legal, regulatory, ethical, and operational integrity.
+Who We Are
 
-We design our platform to facilitate transparent, secure, and efficient cross-border procurement while proactively managing risks associated with data protection, cybersecurity, trade compliance, anti-corruption, supplier due diligence, and sustainability. Our compliance program is built on principles of accountability, transparency, continuous improvement, and privacy-by-design.
+SouthCaravan is a leading B2B vendor management and procurement platform headquartered in Kampala, Uganda, designed to transform how businesses across Africa and the world connect, source, and trade with confidence.
 
-This comprehensive Compliance page outlines our approach, key regulatory frameworks we adhere to, internal policies, technical and organizational measures, certifications, and mechanisms for oversight and reporting. We regularly review and strengthen our compliance efforts in response to evolving laws, industry best practices, and the needs of our international business users.
+Founded with a vision to bridge the gap in African supply chains and empower businesses to access reliable suppliers globally, SouthCaravan provides a secure, transparent, and efficient digital marketplace where buyers and suppliers can discover opportunities, manage procurement processes, and build long-term business relationships.
 
-Our Commitment to Compliance
-SouthCaravan integrates compliance into every aspect of platform development, vendor onboarding, procurement workflows, and daily operations. We:
-- Embed automated controls for approval workflows, audit trails, and policy enforcement
-- Conduct regular risk assessments and third-party audits
-- Provide mandatory training to all employees, contractors, and relevant partners
-- Maintain clear accountability through a dedicated Compliance Officer reporting to senior leadership
-- Promote a culture of ethical conduct and zero tolerance for misconduct
+Our platform simplifies complex procurement workflows — from vendor discovery and RFQ management to contract lifecycle, performance tracking, and payment reconciliation — while embedding compliance, security, and sustainability at its core.
 
-Key Compliance Areas
+Mission
+To empower African and global businesses with a world-class B2B procurement platform that drives efficiency, transparency, and sustainable growth through technology and trusted connections.
 
-1. Data Protection and Privacy Compliance
-We prioritize the protection of personal and business data in line with global and regional standards:
-- Uganda Data Protection and Privacy Act, 2019 (DPPA) and associated Regulations – including mandatory registration with the Personal Data Protection Office (PDPO)
-- General Data Protection Regulation (GDPR) – for processing data of EU/EEA data subjects, with appropriate safeguards for international transfers (e.g., Standard Contractual Clauses)
-- Other African data protection laws, such as Kenya Data Protection Act, Nigeria Data Protection Act, Rwanda Law N° 058/2021, and similar frameworks in jurisdictions where we operate
-- Principles of lawfulness, fairness, purpose limitation, data minimization, accuracy, storage limitation, integrity, confidentiality, and accountability
+Vision
+To become the most trusted digital infrastructure for cross-border B2B trade in Africa and beyond — enabling seamless, compliant, and responsible procurement that accelerates economic development and creates value for all participants.
 
-Measures include:
-- Appointment of a Data Protection Officer (DPO)
-- Privacy Impact Assessments (PIAs) and Data Protection Impact Assessments (DPIAs) for new features or processing activities
-- Robust consent management, data subject rights fulfillment (access, rectification, erasure, etc.)
-- Data Processing Agreements (DPAs) with all vendors and subprocessors
-- Encryption of data in transit and at rest, strict access controls, and anonymization/pseudonymization where appropriate
+Our Story
 
-2. Information Security and Cybersecurity Compliance
-We maintain a robust security posture to protect the confidentiality, integrity, and availability of platform data:
-- Alignment with ISO 27001 information security management principles
-- SOC 2 Type II readiness (or equivalent independent attestation) focusing on security, availability, processing integrity, confidentiality, and privacy
-- Implementation of encryption, multi-factor authentication (MFA), role-based access control (RBAC), and secure development lifecycle (SDLC)
-- Regular penetration testing, vulnerability scanning, and security audits by independent experts
-- Incident response plan, business continuity, and disaster recovery procedures
-- Protection against DDoS, malware, and unauthorized access through services such as Cloudflare and advanced monitoring tools
+SouthCaravan was born in Kampala, Uganda, out of a deep understanding of the challenges faced by businesses operating in emerging markets: fragmented supplier networks, lengthy manual procurement processes, limited visibility into vendor reliability, currency and regulatory complexities, and the need for greater transparency in supply chains.
 
-All platform activities, including RFQ posting, bid management, contract handling, and supplier interactions, are logged in immutable audit trails for accountability.
+Recognizing these pain points, our founders — seasoned professionals with backgrounds in procurement, technology, logistics, and international trade — set out to build a platform that combines the best of global B2B technology with deep local market expertise.
 
-3. Anti-Bribery and Anti-Corruption (ABC) Compliance
-We maintain a zero-tolerance policy toward bribery, corruption, facilitation payments, and conflicts of interest:
-- Adherence to the Uganda Anti-Corruption Act
-- Alignment with UK Bribery Act 2010, U.S. Foreign Corrupt Practices Act (FCPA), and OECD Anti-Bribery Convention standards
-- Mandatory ABC training and annual certifications for all staff and relevant third parties
-- Due diligence procedures for high-risk transactions, gifts, hospitality, and third-party relationships
-- Clear whistleblower protections and confidential reporting channels
+Since our inception, SouthCaravan has grown rapidly, connecting thousands of buyers and suppliers across multiple African countries and international markets. We have facilitated millions of dollars in procurement transactions while maintaining an unwavering focus on data security, regulatory compliance, and ethical business practices.
 
-4. Trade Compliance, Sanctions, and Anti-Money Laundering (AML)
-As a platform facilitating international B2B trade:
-- Screening of users, suppliers, and transactions against global sanctions lists (UN, EU, US OFAC, UK, and others)
-- Compliance with export control regulations and restricted goods/prohibited items policies
-- Know Your Customer (KYC), Know Your Supplier (KYS), and enhanced due diligence for high-risk jurisdictions or entities
-- Anti-money laundering and counter-terrorism financing measures in line with Financial Action Task Force (FATF) recommendations and local laws
-- Support for users in meeting their own regulatory obligations through audit-ready documentation and compliance records
+What We Offer
 
-5. Contract and Procurement Compliance
-We help businesses achieve procurement excellence by enforcing:
-- Automated approval workflows and spending controls to prevent maverick spend
-- Contract lifecycle management with built-in compliance checks (terms, pricing, delivery, quality)
-- Supplier qualification, onboarding, and ongoing monitoring, including verification of certifications, insurance, and regulatory compliance
-- Immutable audit trails for all procurement actions (requisitions, POs, invoices, receipts)
-- Enforcement of internal purchasing policies, preferred supplier lists, and budget thresholds
+SouthCaravan delivers a comprehensive suite of tools tailored for modern B2B procurement and vendor management:
 
-6. Intellectual Property (IP) Rights and Platform Integrity
-- Respect for third-party trademarks, patents, copyrights, and trade secrets
-- Mechanisms for reporting and addressing IP infringements (notice-and-takedown processes)
-- Protection of SouthCaravan’s own IP assets
-- Policies prohibiting upload or distribution of infringing or counterfeit materials
+• Intelligent Vendor Discovery & Matching  
+  Advanced search, AI-powered recommendations, and detailed supplier profiles to help buyers find the right partners quickly.
 
-7. Environmental, Social, and Governance (ESG) and Sustainable Procurement
-We promote responsible sourcing and support users in meeting their ESG goals:
-- Encouragement of supplier disclosures on labor standards, human rights, environmental impact, and diversity
-- Features to track and report on sustainable procurement practices
-- Alignment with emerging regulations such as Corporate Sustainability Reporting Directive (CSRD) principles where relevant
-- Commitment to ethical labor practices and avoidance of forced labor, child labor, or unsafe working conditions in supply chains
+• Request for Quotation (RFQ) & Tender Management  
+  Streamlined creation, distribution, bidding, and evaluation of RFQs and tenders with automated workflows.
 
-8. Financial, Tax, and Payment Compliance
-- Compliance with VAT/GST, digital services taxes, and invoicing requirements across operating jurisdictions
-- Secure payment processing in line with PCI DSS standards (where payments are facilitated)
-- Adherence to financial reporting standards (e.g., IFRS where applicable)
-- Strong Customer Authentication (SCA) and fraud prevention measures
+• Supplier Onboarding & Qualification  
+  Robust due diligence tools, document verification, compliance screening, and performance rating systems.
 
-9. Accessibility and Digital Inclusivity
-- Commitment to Web Content Accessibility Guidelines (WCAG 2.1 Level AA or higher)
-- Ongoing efforts to ensure the platform is usable by individuals with disabilities, supporting diverse business users across regions
+• Contract Lifecycle Management  
+  Digital contract creation, negotiation, approval, storage, and renewal reminders.
 
-10. Industry-Specific and Additional Compliance
-Depending on user sectors (e.g., healthcare, finance, government procurement), we support compliance with additional frameworks such as HIPAA principles (where relevant) or public procurement rules. We do not process health data as a core function but maintain controls to prevent unintended collection.
+• Procurement Analytics & Insights  
+  Real-time dashboards, spend analysis, supplier performance metrics, and procurement trend reports.
 
-Compliance Governance and Oversight
-- Dedicated Compliance Officer with direct access to the Board
-- Compliance Committee for strategic oversight
-- Annual compliance risk assessments and program reviews
-- Third-party audits and certifications conducted by reputable firms
-- Integration of compliance into supplier and partner contracts
+• Secure Communication & Collaboration  
+  Built-in messaging, document sharing, and audit-ready interaction logs.
 
-Certifications and Audits
-SouthCaravan maintains or is progressing toward the following (status updated regularly):
-- Alignment with ISO 27001
-- SOC 2 Type II attestation (security, privacy, and confidentiality controls)
-- Regular independent penetration tests and vulnerability assessments
-- PDPO registration and GDPR compliance documentation
-- Annual staff training completion rates (target: 100%)
+• Compliance & Risk Management Tools  
+  Sanctions screening, KYC/KYS processes, audit trails, and regulatory reporting support.
 
-We provide summary compliance attestations upon request under appropriate confidentiality terms. Full reports may be shared with qualified enterprise customers via NDA.
+• Sustainable & ESG Procurement Features  
+  Tools to track supplier sustainability credentials and support responsible sourcing goals.
 
-Reporting Concerns and Whistleblower Protection
-We encourage transparent reporting of any suspected compliance issues, violations, or risks. Reports can be made confidentially and anonymously where permitted by law:
+Our platform is accessible via web and mobile interfaces, with enterprise-grade security and scalability to support both growing SMEs and large multinational organizations.
 
-Email: compliance@southcaravan.com  
-Phone: +256 700 123 456 (Kampala, Uganda)  
-Secure Whistleblower Portal: [Insert secure link when implemented]
+Why Choose SouthCaravan
 
-All reports are investigated promptly, fairly, and in accordance with applicable laws. Whistleblowers are protected from retaliation.
+• Headquartered in Uganda with pan-African expertise and a global outlook  
+• Designed specifically for the realities of African and emerging market procurement  
+• Strong focus on data protection, cybersecurity, and regulatory compliance  
+• Transparent pricing and flexible plans for businesses of all sizes  
+• Dedicated customer success and support teams  
+• Commitment to ethical business practices and sustainable development  
+• Continuous innovation driven by user feedback and market needs
 
-Updates to This Compliance Page
-This page is reviewed at least annually or upon significant regulatory changes. Material updates are communicated via the website, email notifications to registered users where appropriate, and platform announcements.
+Our Values
 
-Last updated: April 2026
+• Integrity – We operate with honesty, transparency, and accountability in everything we do.  
+• Innovation – We leverage technology to solve real business challenges and continuously improve our platform.  
+• Inclusion – We believe in empowering businesses of all sizes across diverse markets.  
+• Sustainability – We promote responsible procurement and support environmentally and socially conscious supply chains.  
+• Excellence – We strive for the highest standards in service, security, and user experience.  
+• Partnership – We view our users as long-term partners and work collaboratively to drive mutual success.
 
-Related Resources
-For more details, please refer to:
-- Privacy Policy
-- Cookie Policy
-- Terms of Service
-- Data Processing Agreement (available to business clients)
-- Code of Business Conduct and Ethics
+Our Team
 
-Contact Our Compliance Team
+SouthCaravan is powered by a diverse, talented, and passionate team of professionals based primarily in Uganda, with remote contributors across Africa and beyond. Our leadership combines deep local market knowledge with international experience in technology, procurement, finance, and legal compliance.
+
+We are united by a shared commitment to building infrastructure that supports Africa’s economic growth while meeting global standards.
+
+Leadership Team
+[Insert leadership names and short bios when available – e.g., CEO, CTO, Head of Compliance, etc.]
+
+Global Reach, Local Roots
+
+While proudly Ugandan at heart, SouthCaravan serves businesses throughout East Africa, West Africa, Southern Africa, and increasingly in Europe, Asia, and the Middle East. Our platform supports multiple languages, currencies, and regulatory environments to make cross-border trade smoother and more reliable.
+
+We actively partner with local chambers of commerce, industry associations, and government bodies to strengthen supply chain resilience and promote intra-African trade in line with the African Continental Free Trade Area (AfCFTA) objectives.
+
+Join the SouthCaravan Community
+
+Whether you are a buyer looking to optimize procurement, a supplier seeking new business opportunities, or an enterprise aiming to digitize your supply chain — SouthCaravan provides the tools, network, and trust you need to succeed.
+
+Ready to transform your procurement processes?  
+Sign up today or request a personalized demo.
+
+Contact Us
 SouthCaravan Ltd  
 Plot 45, Kampala Road, Kampala, Uganda  
-Email: compliance@southcaravan.com  
-Phone: +256 700 123 456  
+Email: info@southcaravan.com  
+Phone: +256 783 676 313  
+Website: www.southcaravan.com
 
-We welcome inquiries from current and prospective business partners. Our team is available to discuss specific compliance requirements, provide documentation, or support your due diligence processes.
+Follow us on social media for the latest updates, success stories, and industry insights.
 
-SouthCaravan – Building Trust Through Compliance
-By choosing SouthCaravan, businesses benefit from a platform engineered for regulatory resilience, operational transparency, and sustainable growth in international markets.
+Last updated: April 2026
