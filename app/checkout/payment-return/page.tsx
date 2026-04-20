@@ -27,6 +27,12 @@ export default function PaymentReturnPage() {
       searchParams.get('token') ??
       '';
 
+    // CompanyRef is the orderId we set when creating the DPO token.
+    const companyRef =
+      searchParams.get('CompanyRef') ??
+      searchParams.get('companyRef') ??
+      '';
+
     if (!transToken) {
       setState({ phase: 'error', message: 'Missing transaction token in redirect URL.' });
       return;
@@ -34,9 +40,9 @@ export default function PaymentReturnPage() {
 
     (async () => {
       try {
-        const res = await fetch(
-          `/api/payments/dpo/verify?token=${encodeURIComponent(transToken)}`,
-        );
+        const params = new URLSearchParams({ token: transToken });
+        if (companyRef) params.set('orderId', companyRef);
+        const res = await fetch(`/api/payments/dpo/verify?${params.toString()}`);
         const data = await res.json();
 
         if (!res.ok) {

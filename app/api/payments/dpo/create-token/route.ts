@@ -4,6 +4,34 @@ import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { dpoCreateToken, dpoBuildCheckoutUrl, getDpoConfig } from '@/lib/dpo';
 import { checkoutTotals, type CheckoutLineItem } from '@/lib/checkout-session';
 
+/** Return true if a string looks like a UUID. */
+function isUuid(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+/**
+ * Try to resolve a vendor_user_id for the order.
+ * products.vendor_id is stored as text; if it is a UUID it IS the vendor's auth.users id.
+ * Falls back to the buyer's own id so the NOT-NULL constraint is never violated.
+ */
+async function resolveVendorUserId(
+  items: CheckoutLineItem[],
+  fallback: string,
+): Promise<string> {
+  const productId = items[0]?.id;
+  if (productId) {
+    const { data } = await supabaseAdmin
+      .from('products')
+      .select('vendor_id')
+      .eq('id', productId)
+      .maybeSingle();
+    if (data?.vendor_id && isUuid(data.vendor_id)) {
+      return data.vendor_id;
+    }
+  }
+  return fallback;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await getAuthedBuyer();
   if (!auth.ok) return auth.response;
@@ -29,10 +57,8 @@ export async function POST(req: NextRequest) {
 
   const items = rawItems as CheckoutLineItem[];
   const discount = typeof b.discount === 'number' && b.discount > 0 ? b.discount : 0;
-  const { subtotal, shipping, tax, total } = checkoutTotals(items, discount);
-  void subtotal; // used in totals only
+  const { total } = checkoutTotals(items, discount);
 
-  // Shipping address
   const shippingAddress = typeof b.shippingAddress === 'string' ? b.shippingAddress.trim() : '';
   if (!shippingAddress) {
     return NextResponse.json({ error: 'shippingAddress is required' }, { status: 400 });
@@ -43,33 +69,72 @@ export async function POST(req: NextRequest) {
   const customerEmail =
     typeof b.customerEmail === 'string' ? b.customerEmail.trim() : auth.email;
 
-  void shipping;
-  void tax;
+  // ------------------------------------------------------------------
+  // 1. Resolve vendor_user_id (required NOT NULL in existing schema).
+  //    If the payments-dpo.sql migration has been run this column is
+  //    nullable and we can pass null instead. Either way we need a value.
+  // ------------------------------------------------------------------
+  const vendorUserId = await resolveVendorUserId(items, auth.buyerId);
 
   // ------------------------------------------------------------------
-  // 1. Create a pending order in the DB (payment_status = 'pending')
+  // 2. Create a pending order.
+  //    We attempt the insert with payment_status first (post-migration).
+  //    If that column doesn't exist yet we fall back to without it.
   // ------------------------------------------------------------------
-  const { data: order, error: orderError } = await supabaseAdmin
+  let orderId: string;
+
+  const baseInsert = {
+    buyer_id: auth.buyerId,
+    vendor_user_id: vendorUserId,
+    status: 'pending' as const,
+    shipping_address: shippingAddress,
+    total_amount: parseFloat(total.toFixed(2)),
+  };
+
+  // Try post-migration insert (includes payment_status column).
+  const { data: orderFull, error: errorFull } = await supabaseAdmin
     .from('orders')
-    .insert({
-      buyer_id: auth.buyerId,
-      vendor_user_id: null,
-      status: 'pending',
-      payment_status: 'pending',
-      shipping_address: shippingAddress,
-      total_amount: parseFloat(total.toFixed(2)),
-    })
+    .insert({ ...baseInsert, payment_status: 'pending' })
     .select('id')
     .single();
 
-  if (orderError || !order) {
-    console.error('[dpo/create-token] order insert error:', orderError);
+  if (errorFull) {
+    // "column does not exist" or "Could not find the 'payment_status' column" → retry without it.
+    const isColMissing =
+      errorFull.code === '42703' ||
+      errorFull.message?.toLowerCase().includes('payment_status');
+
+    if (isColMissing) {
+      const { data: orderBasic, error: errorBasic } = await supabaseAdmin
+        .from('orders')
+        .insert(baseInsert)
+        .select('id')
+        .single();
+
+      if (errorBasic || !orderBasic) {
+        console.error('[dpo/create-token] order insert (basic) error:', errorBasic);
+        return NextResponse.json(
+          { error: 'Failed to create order', detail: errorBasic?.message },
+          { status: 500 },
+        );
+      }
+      orderId = orderBasic.id as string;
+    } else {
+      console.error('[dpo/create-token] order insert error:', errorFull);
+      return NextResponse.json(
+        { error: 'Failed to create order', detail: errorFull.message },
+        { status: 500 },
+      );
+    }
+  } else if (!orderFull) {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+  } else {
+    orderId = orderFull.id as string;
   }
 
-  const orderId = order.id as string;
-
-  // Insert order items
+  // ------------------------------------------------------------------
+  // 3. Insert order items
+  // ------------------------------------------------------------------
   const orderItems = items.map((item) => ({
     order_id: orderId,
     product_id: item.id ?? null,
@@ -82,21 +147,27 @@ export async function POST(req: NextRequest) {
   if (itemsError) {
     console.error('[dpo/create-token] order_items insert error:', itemsError);
     await supabaseAdmin.from('orders').delete().eq('id', orderId);
-    return NextResponse.json({ error: 'Failed to save order items' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to save order items', detail: itemsError.message },
+      { status: 500 },
+    );
   }
 
   // ------------------------------------------------------------------
-  // 2. Call DPO createToken
+  // 4. Call DPO createToken
   // ------------------------------------------------------------------
   let dpoConfig: ReturnType<typeof getDpoConfig>;
   try {
     dpoConfig = getDpoConfig();
   } catch (e) {
     console.error('[dpo/create-token] config error:', e);
+    await supabaseAdmin.from('orders').delete().eq('id', orderId);
     return NextResponse.json({ error: 'Payment provider not configured' }, { status: 503 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? `https://${req.headers.get('host')}`;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ??
+    `https://${req.headers.get('host')}`;
   const redirectUrl = `${baseUrl}/checkout/payment-return`;
   const backUrl = `${baseUrl}/api/payments/dpo/callback`;
 
@@ -131,12 +202,20 @@ export async function POST(req: NextRequest) {
   }
 
   // ------------------------------------------------------------------
-  // 3. Persist DPO tokens on the order
+  // 5. Persist DPO tokens on the order (best-effort; new columns may
+  //    not exist yet if the migration hasn't been run).
   // ------------------------------------------------------------------
   await supabaseAdmin
     .from('orders')
     .update({ dpo_trans_token: transToken, dpo_trans_ref: transRef })
-    .eq('id', orderId);
+    .eq('id', orderId)
+    .then(({ error }) => {
+      if (error) {
+        // Silently skip if columns don't exist yet — token is still
+        // available in the JSON response for verification.
+        console.warn('[dpo/create-token] could not save DPO tokens (migration pending?):', error.message);
+      }
+    });
 
   return NextResponse.json({
     orderId,
