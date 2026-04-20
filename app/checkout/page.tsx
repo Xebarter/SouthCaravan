@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   checkoutTotals,
-  clearCheckoutLineItems,
   getCheckoutSession,
   type CheckoutLineItem,
 } from '@/lib/checkout-session';
@@ -20,22 +18,21 @@ import {
   AlertCircle,
   ArrowLeft,
   Check,
-  CheckCircle2,
-  CreditCard,
+  ExternalLink,
   Loader2,
   Lock,
   Package,
+  ShieldCheck,
   ShoppingBag,
   Truck,
 } from 'lucide-react';
 import { Money } from '@/components/money';
 
-const CHECKOUT_STEP_ORDER = ['shipping', 'payment', 'review'] as const;
+const CHECKOUT_STEP_ORDER = ['shipping', 'payment'] as const;
 
 const CHECKOUT_STEP_LABELS: Record<(typeof CHECKOUT_STEP_ORDER)[number], string> = {
   shipping: 'Shipping',
   payment: 'Payment',
-  review: 'Review',
 };
 
 function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[number] }) {
@@ -65,7 +62,7 @@ function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[nu
                 className={cn(
                   'h-full rounded-full transition-[width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
                   filled
-                    ? 'w-full bg-gradient-to-r from-primary via-primary to-primary/88 shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                    ? 'w-full bg-linear-to-r from-primary via-primary to-primary/88 shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
                     : 'w-0 opacity-0',
                 )}
               />
@@ -75,7 +72,7 @@ function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[nu
       </div>
 
       <div
-        className="mt-3.5 grid grid-cols-3 gap-1 text-[11px] font-medium leading-tight tracking-tight sm:gap-3 sm:text-[13px]"
+        className="mt-3.5 grid grid-cols-2 gap-1 text-[11px] font-medium leading-tight tracking-tight sm:gap-3 sm:text-[13px]"
         role="progressbar"
         aria-valuenow={stepIndex + 1}
         aria-valuemin={1}
@@ -114,11 +111,9 @@ function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[nu
 }
 
 export default function CheckoutPage() {
-  const router = useRouter();
-  const [step, setStep] = useState<'shipping' | 'payment' | 'review'>('shipping');
+  const [step, setStep] = useState<'shipping' | 'payment'>('shipping');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [lineItems, setLineItems] = useState<CheckoutLineItem[]>([]);
   const [sessionDiscount, setSessionDiscount] = useState(0);
@@ -145,14 +140,7 @@ export default function CheckoutPage() {
     city: '',
     state: '',
     zipCode: '',
-    country: 'United States',
-  });
-
-  const [paymentData, setPaymentData] = useState({
-    cardName: '',
-    cardNumber: '',
-    expiry: '',
-    cvc: '',
+    country: '',
   });
 
   const handleShippingSubmit = (e: React.FormEvent) => {
@@ -165,35 +153,49 @@ export default function CheckoutPage() {
     setStep('payment');
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paymentData.cardName || !paymentData.cardNumber || !paymentData.expiry || !paymentData.cvc) {
-      setError('Please complete payment details');
-      return;
-    }
-    setError('');
-    setStep('review');
-  };
-
-  const handleConfirmOrder = async () => {
+  const handlePayWithDpo = async () => {
     setLoading(true);
     setError('');
+
+    const shippingAddress = [
+      shippingData.address,
+      shippingData.city,
+      shippingData.state,
+      shippingData.zipCode,
+      shippingData.country,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      clearCheckoutLineItems();
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/buyer/orders');
-      }, 3000);
+      const res = await fetch('/api/payments/dpo/create-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: lineItems,
+          discount: sessionDiscount > 0 ? sessionDiscount : undefined,
+          shippingAddress,
+          customerFirstName: shippingData.firstName || undefined,
+          customerLastName: shippingData.lastName || undefined,
+          customerEmail: shippingData.email || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to initiate payment. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to DPO's hosted payment page
+      window.location.href = data.checkoutUrl;
     } catch {
-      setError('Payment failed. Please try again.');
-    } finally {
+      setError('Network error. Please check your connection and try again.');
       setLoading(false);
     }
   };
-
-  const cardLastFour = paymentData.cardNumber.replace(/\D/g, '').slice(-4);
-  const maskedCard = cardLastFour ? `•••• •••• •••• ${cardLastFour}` : '';
 
   const pageShell = (children: ReactNode) => (
     <div className="min-h-[calc(100vh-3.5rem)] bg-muted/30 md:min-h-[calc(100vh-4rem)]">
@@ -210,7 +212,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (lineItems.length === 0 && !success) {
+  if (lineItems.length === 0) {
     return pageShell(
       <div className="space-y-8">
         <Card className="mx-auto max-w-lg border-border/80 shadow-sm">
@@ -220,7 +222,8 @@ export default function CheckoutPage() {
             </div>
             <CardTitle className="text-xl">No items to check out</CardTitle>
             <CardDescription className="text-base">
-              Your checkout session is empty. Add products from the marketplace or open checkout from your cart.
+              Your checkout session is empty. Add products from the marketplace or open checkout from
+              your cart.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -236,40 +239,13 @@ export default function CheckoutPage() {
     );
   }
 
-  if (success) {
-    return pageShell(
-      <div className="flex min-h-[60vh] items-center justify-center py-8">
-        <Card className="w-full max-w-md border-border/80 shadow-md">
-          <CardContent className="pt-10 pb-8">
-            <div className="space-y-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <CheckCircle2 className="h-9 w-9 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-semibold tracking-tight text-foreground">Order confirmed</h2>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  Thank you. Your order has been placed. We are redirecting you to your orders.
-                </p>
-              </div>
-              <p className="font-mono text-xs text-muted-foreground">
-                Reference SC-{Date.now().toString().slice(-10)}
-              </p>
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/buyer/orders">Go to orders now</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>,
-    );
-  }
-
   return pageShell(
     <div className="space-y-8 lg:space-y-10">
       <CheckoutProgressStrip step={step} />
 
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-10 lg:items-start">
         <div className="lg:col-span-7 xl:col-span-8 space-y-6">
+          {/* ── Shipping step ── */}
           {step === 'shipping' && (
             <Card className="border-border/80 shadow-sm overflow-hidden">
               <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
@@ -317,7 +293,9 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">
+                      Email <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="email"
                       type="email"
@@ -330,7 +308,9 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="address">Street address</Label>
+                    <Label htmlFor="address">
+                      Street address <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="address"
                       required
@@ -342,7 +322,9 @@ export default function CheckoutPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="city">City</Label>
+                      <Label htmlFor="city">
+                        City <span className="text-destructive">*</span>
+                      </Label>
                       <Input
                         id="city"
                         required
@@ -364,7 +346,9 @@ export default function CheckoutPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="zipCode">ZIP / postal code</Label>
+                      <Label htmlFor="zipCode">
+                        ZIP / postal code <span className="text-destructive">*</span>
+                      </Label>
                       <Input
                         id="zipCode"
                         required
@@ -400,95 +384,21 @@ export default function CheckoutPage() {
             </Card>
           )}
 
+          {/* ── Payment step (DPO) ── */}
           {step === 'payment' && (
             <Card className="border-border/80 shadow-sm overflow-hidden">
               <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <CreditCard className="h-5 w-5" />
+                    <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Payment method</CardTitle>
-                    <CardDescription>Use any test values — this is a demonstration only.</CardDescription>
+                    <CardTitle className="text-lg">Secure payment</CardTitle>
+                    <CardDescription>
+                      You will be redirected to DPO Pay to complete your payment.
+                    </CardDescription>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <form onSubmit={handlePaymentSubmit} className="space-y-5">
-                  {error && (
-                    <div
-                      role="alert"
-                      className="flex gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                      <AlertCircle className="h-5 w-5 shrink-0" />
-                      {error}
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cardName">Name on card</Label>
-                    <Input
-                      id="cardName"
-                      autoComplete="cc-name"
-                      value={paymentData.cardName}
-                      onChange={(e) => setPaymentData({ ...paymentData, cardName: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cardNumber">Card number</Label>
-                    <Input
-                      id="cardNumber"
-                      inputMode="numeric"
-                      autoComplete="cc-number"
-                      value={paymentData.cardNumber}
-                      onChange={(e) => setPaymentData({ ...paymentData, cardNumber: e.target.value })}
-                      placeholder="4242 4242 4242 4242"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry">Expiry</Label>
-                      <Input
-                        id="expiry"
-                        autoComplete="cc-exp"
-                        value={paymentData.expiry}
-                        onChange={(e) => setPaymentData({ ...paymentData, expiry: e.target.value })}
-                        placeholder="MM / YY"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvc">CVC</Label>
-                      <Input
-                        id="cvc"
-                        autoComplete="cc-csc"
-                        value={paymentData.cvc}
-                        onChange={(e) => setPaymentData({ ...paymentData, cvc: e.target.value })}
-                        placeholder="123"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" onClick={() => { setError(''); setStep('shipping'); }} className="w-full sm:w-auto">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
-                    <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[200px]">
-                      Review order
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-
-          {step === 'review' && (
-            <Card className="border-border/80 shadow-sm overflow-hidden">
-              <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
-                <CardTitle className="text-lg">Review & place order</CardTitle>
-                <CardDescription>Confirm everything looks correct before you submit.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
                 {error && (
@@ -501,10 +411,20 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                {/* Shipping summary */}
                 <div className="rounded-xl border border-border/80 bg-muted/20 p-4 sm:p-5">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Truck className="h-4 w-4 text-primary" />
-                    Ship to
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Truck className="h-4 w-4 text-primary" />
+                      Ship to
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                      onClick={() => { setError(''); setStep('shipping'); }}
+                    >
+                      Edit
+                    </button>
                   </div>
                   <p className="mt-3 font-medium text-foreground">
                     {[shippingData.firstName, shippingData.lastName].filter(Boolean).join(' ') || '—'}
@@ -515,22 +435,11 @@ export default function CheckoutPage() {
                     <br />
                     {shippingData.city}
                     {shippingData.state ? `, ${shippingData.state}` : ''} {shippingData.zipCode}
-                    <br />
-                    {shippingData.country}
+                    {shippingData.country ? <><br />{shippingData.country}</> : null}
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-4 sm:p-5">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <CreditCard className="h-4 w-4 text-primary" />
-                    Payment
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">{paymentData.cardName}</p>
-                  <p className="font-mono text-sm font-medium text-foreground mt-1">{maskedCard}</p>
-                </div>
-
-                <Separator />
-
+                {/* Order totals */}
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Subtotal</dt>
@@ -547,7 +456,9 @@ export default function CheckoutPage() {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Shipping {shipping === 0 ? '(free)' : ''}</dt>
+                    <dt className="text-muted-foreground">
+                      Shipping {shipping === 0 ? '(free)' : ''}
+                    </dt>
                     <dd className="font-medium tabular-nums">
                       <Money amountUSD={shipping} />
                     </dd>
@@ -559,28 +470,49 @@ export default function CheckoutPage() {
                     </dd>
                   </div>
                   <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
-                    <dt>Total</dt>
+                    <dt>Total due</dt>
                     <dd className="text-primary tabular-nums">
                       <Money amountUSD={total} />
                     </dd>
                   </div>
                 </dl>
 
+                {/* DPO trust badge */}
+                <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>
+                    Your payment is processed securely by{' '}
+                    <span className="font-medium text-foreground">DPO Pay by Network</span>. Card
+                    details are never shared with SouthCaravan.
+                  </span>
+                </div>
+
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between sm:items-center">
-                  <Button type="button" variant="outline" onClick={() => { setError(''); setStep('payment'); }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setError(''); setStep('shipping'); }}
+                    disabled={loading}
+                  >
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Edit payment
+                    Edit shipping
                   </Button>
-                  <Button size="lg" className="w-full sm:w-auto min-w-[200px]" onClick={handleConfirmOrder} disabled={loading}>
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto min-w-[220px]"
+                    onClick={handlePayWithDpo}
+                    disabled={loading}
+                  >
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing…
+                        Redirecting to DPO…
                       </>
                     ) : (
                       <>
                         <Lock className="mr-2 h-4 w-4" />
-                        Place order
+                        Pay with DPO
+                        <ExternalLink className="ml-2 h-3.5 w-3.5 opacity-60" />
                       </>
                     )}
                   </Button>
@@ -590,6 +522,7 @@ export default function CheckoutPage() {
           )}
         </div>
 
+        {/* ── Order summary sidebar ── */}
         <aside className="lg:col-span-5 xl:col-span-4">
           <Card className="border-border/80 shadow-md lg:sticky lg:top-24">
             <CardHeader className="border-b border-border/60 pb-4">
@@ -610,7 +543,9 @@ export default function CheckoutPage() {
                       ) : (
                         <div className="flex h-full w-full items-center justify-center p-1 text-center">
                           {item.image ? (
-                            <span className="line-clamp-2 text-[10px] text-muted-foreground">{item.image}</span>
+                            <span className="line-clamp-2 text-[10px] text-muted-foreground">
+                              {item.image}
+                            </span>
                           ) : (
                             <Package className="h-6 w-6 text-muted-foreground/50" />
                           )}
@@ -621,7 +556,9 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium leading-snug text-foreground line-clamp-2">{item.name}</p>
+                      <p className="font-medium leading-snug text-foreground line-clamp-2">
+                        {item.name}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{item.vendor}</p>
                       <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                         {item.quantity} × <Money amountUSD={item.price} />
