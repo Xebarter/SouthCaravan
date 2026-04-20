@@ -1,523 +1,144 @@
-SouthCaravan Cookie Policy
+SouthCaravan Compliance Page
+
+Compliance
+
+At SouthCaravan, compliance is a cornerstone of our operations. As a leading B2B vendor management and procurement platform headquartered in Kampala, Uganda, and serving businesses across Africa and global markets, we are fully committed to upholding the highest standards of legal, regulatory, ethical, and operational integrity.
+
+We design our platform to facilitate transparent, secure, and efficient cross-border procurement while proactively managing risks associated with data protection, cybersecurity, trade compliance, anti-corruption, supplier due diligence, and sustainability. Our compliance program is built on principles of accountability, transparency, continuous improvement, and privacy-by-design.
+
+This comprehensive Compliance page outlines our approach, key regulatory frameworks we adhere to, internal policies, technical and organizational measures, certifications, and mechanisms for oversight and reporting. We regularly review and strengthen our compliance efforts in response to evolving laws, industry best practices, and the needs of our international business users.
+
+Our Commitment to Compliance
+SouthCaravan integrates compliance into every aspect of platform development, vendor onboarding, procurement workflows, and daily operations. We:
+- Embed automated controls for approval workflows, audit trails, and policy enforcement
+- Conduct regular risk assessments and third-party audits
+- Provide mandatory training to all employees, contractors, and relevant partners
+- Maintain clear accountability through a dedicated Compliance Officer reporting to senior leadership
+- Promote a culture of ethical conduct and zero tolerance for misconduct
+
+Key Compliance Areas
+
+1. Data Protection and Privacy Compliance
+We prioritize the protection of personal and business data in line with global and regional standards:
+- Uganda Data Protection and Privacy Act, 2019 (DPPA) and associated Regulations – including mandatory registration with the Personal Data Protection Office (PDPO)
+- General Data Protection Regulation (GDPR) – for processing data of EU/EEA data subjects, with appropriate safeguards for international transfers (e.g., Standard Contractual Clauses)
+- Other African data protection laws, such as Kenya Data Protection Act, Nigeria Data Protection Act, Rwanda Law N° 058/2021, and similar frameworks in jurisdictions where we operate
+- Principles of lawfulness, fairness, purpose limitation, data minimization, accuracy, storage limitation, integrity, confidentiality, and accountability
+
+Measures include:
+- Appointment of a Data Protection Officer (DPO)
+- Privacy Impact Assessments (PIAs) and Data Protection Impact Assessments (DPIAs) for new features or processing activities
+- Robust consent management, data subject rights fulfillment (access, rectification, erasure, etc.)
+- Data Processing Agreements (DPAs) with all vendors and subprocessors
+- Encryption of data in transit and at rest, strict access controls, and anonymization/pseudonymization where appropriate
+
+2. Information Security and Cybersecurity Compliance
+We maintain a robust security posture to protect the confidentiality, integrity, and availability of platform data:
+- Alignment with ISO 27001 information security management principles
+- SOC 2 Type II readiness (or equivalent independent attestation) focusing on security, availability, processing integrity, confidentiality, and privacy
+- Implementation of encryption, multi-factor authentication (MFA), role-based access control (RBAC), and secure development lifecycle (SDLC)
+- Regular penetration testing, vulnerability scanning, and security audits by independent experts
+- Incident response plan, business continuity, and disaster recovery procedures
+- Protection against DDoS, malware, and unauthorized access through services such as Cloudflare and advanced monitoring tools
+
+All platform activities, including RFQ posting, bid management, contract handling, and supplier interactions, are logged in immutable audit trails for accountability.
+
+3. Anti-Bribery and Anti-Corruption (ABC) Compliance
+We maintain a zero-tolerance policy toward bribery, corruption, facilitation payments, and conflicts of interest:
+- Adherence to the Uganda Anti-Corruption Act
+- Alignment with UK Bribery Act 2010, U.S. Foreign Corrupt Practices Act (FCPA), and OECD Anti-Bribery Convention standards
+- Mandatory ABC training and annual certifications for all staff and relevant third parties
+- Due diligence procedures for high-risk transactions, gifts, hospitality, and third-party relationships
+- Clear whistleblower protections and confidential reporting channels
+
+4. Trade Compliance, Sanctions, and Anti-Money Laundering (AML)
+As a platform facilitating international B2B trade:
+- Screening of users, suppliers, and transactions against global sanctions lists (UN, EU, US OFAC, UK, and others)
+- Compliance with export control regulations and restricted goods/prohibited items policies
+- Know Your Customer (KYC), Know Your Supplier (KYS), and enhanced due diligence for high-risk jurisdictions or entities
+- Anti-money laundering and counter-terrorism financing measures in line with Financial Action Task Force (FATF) recommendations and local laws
+- Support for users in meeting their own regulatory obligations through audit-ready documentation and compliance records
+
+5. Contract and Procurement Compliance
+We help businesses achieve procurement excellence by enforcing:
+- Automated approval workflows and spending controls to prevent maverick spend
+- Contract lifecycle management with built-in compliance checks (terms, pricing, delivery, quality)
+- Supplier qualification, onboarding, and ongoing monitoring, including verification of certifications, insurance, and regulatory compliance
+- Immutable audit trails for all procurement actions (requisitions, POs, invoices, receipts)
+- Enforcement of internal purchasing policies, preferred supplier lists, and budget thresholds
+
+6. Intellectual Property (IP) Rights and Platform Integrity
+- Respect for third-party trademarks, patents, copyrights, and trade secrets
+- Mechanisms for reporting and addressing IP infringements (notice-and-takedown processes)
+- Protection of SouthCaravan’s own IP assets
+- Policies prohibiting upload or distribution of infringing or counterfeit materials
+
+7. Environmental, Social, and Governance (ESG) and Sustainable Procurement
+We promote responsible sourcing and support users in meeting their ESG goals:
+- Encouragement of supplier disclosures on labor standards, human rights, environmental impact, and diversity
+- Features to track and report on sustainable procurement practices
+- Alignment with emerging regulations such as Corporate Sustainability Reporting Directive (CSRD) principles where relevant
+- Commitment to ethical labor practices and avoidance of forced labor, child labor, or unsafe working conditions in supply chains
+
+8. Financial, Tax, and Payment Compliance
+- Compliance with VAT/GST, digital services taxes, and invoicing requirements across operating jurisdictions
+- Secure payment processing in line with PCI DSS standards (where payments are facilitated)
+- Adherence to financial reporting standards (e.g., IFRS where applicable)
+- Strong Customer Authentication (SCA) and fraud prevention measures
+
+9. Accessibility and Digital Inclusivity
+- Commitment to Web Content Accessibility Guidelines (WCAG 2.1 Level AA or higher)
+- Ongoing efforts to ensure the platform is usable by individuals with disabilities, supporting diverse business users across regions
+
+10. Industry-Specific and Additional Compliance
+Depending on user sectors (e.g., healthcare, finance, government procurement), we support compliance with additional frameworks such as HIPAA principles (where relevant) or public procurement rules. We do not process health data as a core function but maintain controls to prevent unintended collection.
+
+Compliance Governance and Oversight
+- Dedicated Compliance Officer with direct access to the Board
+- Compliance Committee for strategic oversight
+- Annual compliance risk assessments and program reviews
+- Third-party audits and certifications conducted by reputable firms
+- Integration of compliance into supplier and partner contracts
 
-Introduction / What Are Cookies?
+Certifications and Audits
+SouthCaravan maintains or is progressing toward the following (status updated regularly):
+- Alignment with ISO 27001
+- SOC 2 Type II attestation (security, privacy, and confidentiality controls)
+- Regular independent penetration tests and vulnerability assessments
+- PDPO registration and GDPR compliance documentation
+- Annual staff training completion rates (target: 100%)
 
-SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
+We provide summary compliance attestations upon request under appropriate confidentiality terms. Full reports may be shared with qualified enterprise customers via NDA.
 
-Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
+Reporting Concerns and Whistleblower Protection
+We encourage transparent reporting of any suspected compliance issues, violations, or risks. Reports can be made confidentially and anonymously where permitted by law:
 
-We use cookies for several important reasons on SouthCaravan:
-- To enable secure login and session management for registered business accounts
-- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
-- To analyze platform usage and improve our services
-- To remember your preferences and settings
-
-This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
-
-We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
-
-Types/Categories of Cookies Used
-
-SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
-
-1. Strictly Necessary (Essential) Cookies
-These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
-- Secure user authentication and login sessions
-- Maintaining your shopping/RFQ cart and procurement workflows
-- Security and fraud prevention
-- Basic navigation between pages
-
-These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
-
-2. Functional / Preference Cookies
-These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
-- Remembering your preferred language, currency (where applicable), or dashboard layout
-- Saving your filter preferences for vendor searches or product categories
-- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
-
-3. Performance / Analytics Cookies
-These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
-- Analyze platform usage, page views, and feature engagement
-- Identify popular procurement tools and areas for improvement
-- Measure the effectiveness of our B2B features and user journeys
-- Optimize performance and fix technical issues
-
-We use this data in aggregated and anonymized form to enhance the overall experience for all users.
-
-4. Marketing / Targeting Cookies (where applicable)
-These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
-
-We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
-
-Detailed Cookie Inventory / List
-
-Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
-
-Cookie Name | Provider | Type/Category | Purpose | Duration
----|---|---|---|---
-session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
-sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
-sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
-sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
-_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
-_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
-sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
-sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
-hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
-__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
-
-Notes:
-- “Session” duration means the cookie is deleted when you close your browser.
-- Some cookies are only set for logged-in users or when specific features are used.
-- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
-- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
-
-This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
-
-Last updated: April 2026
-
-SouthCaravan Cookie Policy
-
-Introduction / What Are Cookies?
-
-SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
-
-Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
-
-We use cookies for several important reasons on SouthCaravan:
-- To enable secure login and session management for registered business accounts
-- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
-- To analyze platform usage and improve our services
-- To remember your preferences and settings
-
-This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
-
-We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
-
-Types/Categories of Cookies Used
-
-SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
-
-1. Strictly Necessary (Essential) Cookies
-These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
-- Secure user authentication and login sessions
-- Maintaining your shopping/RFQ cart and procurement workflows
-- Security and fraud prevention
-- Basic navigation between pages
-
-These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
-
-2. Functional / Preference Cookies
-These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
-- Remembering your preferred language, currency (where applicable), or dashboard layout
-- Saving your filter preferences for vendor searches or product categories
-- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
-
-3. Performance / Analytics Cookies
-These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
-- Analyze platform usage, page views, and feature engagement
-- Identify popular procurement tools and areas for improvement
-- Measure the effectiveness of our B2B features and user journeys
-- Optimize performance and fix technical issues
-
-We use this data in aggregated and anonymized form to enhance the overall experience for all users.
-
-4. Marketing / Targeting Cookies (where applicable)
-These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
-
-We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
-
-Detailed Cookie Inventory / List
-
-Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
-
-Cookie Name | Provider | Type/Category | Purpose | Duration
----|---|---|---|---
-session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
-sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
-sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
-sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
-_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
-_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
-sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
-sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
-hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
-__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
-
-Notes:
-- “Session” duration means the cookie is deleted when you close your browser.
-- Some cookies are only set for logged-in users or when specific features are used.
-- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
-- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
-
-This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
-
-How Cookies Are Used on the Platform
-
-On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
-
-Specifically, cookies are used to:
-- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
-- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
-- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
-- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
-- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
-- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
-
-Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
-
-Third-Party Cookies and Sharing
-
-SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
-
-Third-party services that may set cookies include:
-- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
-- Cloudflare – for security, content delivery, and protection against DDoS attacks.
-- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
-- Other potential providers for payment processing, email communications, or enterprise integrations.
-
-We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
-
-Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
-
-We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
-
-For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
-
-Last updated: April 2026
-
-SouthCaravan Cookie Policy
-
-Introduction / What Are Cookies?
-
-SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
-
-Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
-
-We use cookies for several important reasons on SouthCaravan:
-- To enable secure login and session management for registered business accounts
-- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
-- To analyze platform usage and improve our services
-- To remember your preferences and settings
-
-This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
-
-We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
-
-Types/Categories of Cookies Used
-
-SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
-
-1. Strictly Necessary (Essential) Cookies
-These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
-- Secure user authentication and login sessions
-- Maintaining your shopping/RFQ cart and procurement workflows
-- Security and fraud prevention
-- Basic navigation between pages
-
-These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
-
-2. Functional / Preference Cookies
-These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
-- Remembering your preferred language, currency (where applicable), or dashboard layout
-- Saving your filter preferences for vendor searches or product categories
-- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
-
-3. Performance / Analytics Cookies
-These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
-- Analyze platform usage, page views, and feature engagement
-- Identify popular procurement tools and areas for improvement
-- Measure the effectiveness of our B2B features and user journeys
-- Optimize performance and fix technical issues
-
-We use this data in aggregated and anonymized form to enhance the overall experience for all users.
-
-4. Marketing / Targeting Cookies (where applicable)
-These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
-
-We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
-
-Detailed Cookie Inventory / List
-
-Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
-
-Cookie Name | Provider | Type/Category | Purpose | Duration
----|---|---|---|---
-session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
-sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
-sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
-sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
-_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
-_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
-sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
-sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
-hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
-__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
-
-Notes:
-- “Session” duration means the cookie is deleted when you close your browser.
-- Some cookies are only set for logged-in users or when specific features are used.
-- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
-- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
-
-This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
-
-How Cookies Are Used on the Platform
-
-On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
-
-Specifically, cookies are used to:
-- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
-- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
-- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
-- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
-- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
-- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
-
-Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
-
-Third-Party Cookies and Sharing
-
-SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
-
-Third-party services that may set cookies include:
-- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
-- Cloudflare – for security, content delivery, and protection against DDoS attacks.
-- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
-- Other potential providers for payment processing, email communications, or enterprise integrations.
-
-We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
-
-Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
-
-We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
-
-For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
-
-Legal Basis for Processing (if applicable)
-
-SouthCaravan processes cookie data in accordance with applicable data protection laws. Our legal basis for using cookies depends on the category and purpose:
-
-- Strictly Necessary Cookies: We rely on our legitimate interest in providing a functional and secure platform, as well as the necessity to perform our contractual obligations with business users. These cookies do not require prior consent.
-
-- Functional / Preference Cookies: Processing is based on our legitimate interest to deliver a personalized and user-friendly experience, or on your explicit consent where required by law.
-
-- Performance / Analytics Cookies: We process these based on legitimate interests to understand platform usage and improve our B2B services. Where applicable (for example, under GDPR or ePrivacy rules), we seek your consent before setting these cookies.
-
-- Marketing / Targeting Cookies: These are used only with your prior consent. Given the B2B nature of our platform, such cookies are limited and focused on professional relevance.
-
-For users in the European Union or other jurisdictions with strict consent requirements, we provide a cookie consent management tool that allows you to accept or reject non-essential cookies. You can withdraw your consent at any time without affecting your ability to use the core functions of the platform.
-
-In Uganda and other jurisdictions, we ensure processing aligns with the principles of the Data Protection and Privacy Act, including lawfulness, fairness, and minimization of data.
-
-Managing Cookies and Consent
-
-You have several options to manage cookies on SouthCaravan:
-
-1. Cookie Consent Banner
-   When you first visit our platform, you will see a cookie consent banner. You can accept all cookies, reject non-essential cookies, or customize your preferences by category.
-
-2. Cookie Settings Center
-   Registered users can access a dedicated cookie settings page in their account dashboard to review and update their preferences at any time.
-
-3. Browser Settings
-   Most web browsers allow you to control cookies through their settings. You can:
-   - Block all cookies
-   - Block only third-party cookies
-   - Delete cookies already stored on your device
-   - Receive notifications when a cookie is set
-
-   Please note that disabling strictly necessary cookies may prevent you from accessing certain parts of the platform or using core B2B features such as logging in, posting RFQs, or managing vendor relationships.
-
-4. Opt-Out Links
-   For specific third-party analytics tools (such as Google Analytics), you can use their respective opt-out mechanisms.
-
-Disabling cookies may impact your experience on SouthCaravan. Some features, such as remembering your login or saving RFQ preferences, may not work as intended.
-
-If you have questions about managing cookies or wish to exercise your data protection rights, please contact us using the details provided below.
-
-Updates to This Policy
-
-We may update this Cookie Policy from time to time to reflect changes in our cookie practices, platform features, or applicable laws and regulations. Any material changes will be notified to you by:
-- Posting the updated policy on this page with a new “Last updated” date
-- Sending an email notification to registered business users (where appropriate)
-- Displaying a prominent notice on the platform when you next log in
-
-We encourage you to review this policy periodically. Your continued use of SouthCaravan after any updates constitutes your acceptance of the revised Cookie Policy.
-
-Last updated: April 2026
-
-SouthCaravan Cookie Policy
-
-Introduction / What Are Cookies?
-
-SouthCaravan is a B2B vendor management and procurement platform headquartered in Kampala, Uganda, and operating internationally. We are committed to transparency in how we collect and use data to provide a secure, efficient, and personalized experience for businesses, buyers, suppliers, and procurement teams.
-
-Cookies are small text files that are placed on your device (computer, tablet, or mobile) when you visit our website (southcaravan.com) and platform. Cookies and similar technologies (such as pixels, web beacons, and local storage) allow us to remember your actions and preferences over time, enabling core platform functionality, enhancing user experience, and helping us understand how our services are used.
-
-We use cookies for several important reasons on SouthCaravan:
-- To enable secure login and session management for registered business accounts
-- To support procurement workflows such as posting RFQs, managing vendor lists, and tracking supply chain activities
-- To analyze platform usage and improve our services
-- To remember your preferences and settings
-
-This Cookie Policy explains the types of cookies we use, their purposes, and how you can manage them. It forms part of our overall Privacy Policy. By continuing to use SouthCaravan, you consent to our use of cookies in accordance with this policy, unless you adjust your preferences.
-
-We regularly review and update our cookie practices to ensure compliance with applicable data protection laws, including the Uganda Data Protection and Privacy Act, GDPR (for EU users), and other relevant international regulations.
-
-Types/Categories of Cookies Used
-
-SouthCaravan uses different categories of cookies to deliver and improve our B2B procurement and vendor management platform. We group cookies as follows:
-
-1. Strictly Necessary (Essential) Cookies
-These cookies are essential for the platform to function properly and cannot be disabled. They enable core features such as:
-- Secure user authentication and login sessions
-- Maintaining your shopping/RFQ cart and procurement workflows
-- Security and fraud prevention
-- Basic navigation between pages
-
-These cookies do not store any personally identifiable information beyond what is strictly required for the service to operate. They are usually session-based and expire when you close your browser.
-
-2. Functional / Preference Cookies
-These cookies allow us to remember your choices and provide a more personalized experience. Examples include:
-- Remembering your preferred language, currency (where applicable), or dashboard layout
-- Saving your filter preferences for vendor searches or product categories
-- Keeping you logged in for convenience during long procurement sessions (if you select “Remember me”)
-
-3. Performance / Analytics Cookies
-These cookies help us understand how visitors and registered users interact with SouthCaravan. They allow us to:
-- Analyze platform usage, page views, and feature engagement
-- Identify popular procurement tools and areas for improvement
-- Measure the effectiveness of our B2B features and user journeys
-- Optimize performance and fix technical issues
-
-We use this data in aggregated and anonymized form to enhance the overall experience for all users.
-
-4. Marketing / Targeting Cookies (where applicable)
-These cookies may be used to deliver more relevant content, measure the success of marketing campaigns, or support limited retargeting for business audiences. On a primarily B2B platform like SouthCaravan, these are used sparingly and focus on professional relevance rather than consumer advertising.
-
-We also use third-party cookies from trusted service providers (such as analytics tools) to support the above categories. You can manage your consent preferences at any time through our cookie settings banner or browser controls.
-
-Detailed Cookie Inventory / List
-
-Below is a detailed list of the main cookies used on the SouthCaravan platform. This list is based on a regular technical audit and may be updated from time to time. We distinguish between first-party cookies (set by SouthCaravan) and third-party cookies (set by our trusted service providers).
-
-Cookie Name | Provider | Type/Category | Purpose | Duration
----|---|---|---|---
-session_id / PHPSESSID | SouthCaravan (first-party) | Strictly Necessary | Maintains your active session and authentication status while using the platform | Session (expires when browser closes)
-sc_auth_token | SouthCaravan (first-party) | Strictly Necessary | Secure authentication for logged-in business users and procurement workflows | 30 days (or until logout)
-sc_language | SouthCaravan (first-party) | Functional / Preference | Remembers your selected language preference | 1 year
-sc_filters | SouthCaravan (first-party) | Functional / Preference | Saves your search and filter preferences for vendors, RFQs, and products | 6 months
-_ga | Google Analytics (third-party) | Performance / Analytics | Distinguishes unique users and sessions for aggregated usage analytics | 2 years
-_ga_XXXXXX | Google Analytics (third-party) | Performance / Analytics | Tracks session-specific data for platform improvement | 2 years
-sc_analytics | SouthCaravan (first-party) | Performance / Analytics | Internal analytics to understand feature usage and optimize B2B workflows | 1 year
-sc_cart | SouthCaravan (first-party) | Strictly Necessary | Stores items in your RFQ or procurement cart | Session or 7 days
-hubspotutk (if integrated) | HubSpot (third-party) | Performance / Analytics | Tracks user behavior for B2B lead intelligence and platform optimization | 6 months
-__cfduid or similar | Cloudflare (third-party) | Strictly Necessary | Security and DDoS protection for reliable platform access | 30 days
-
-Notes:
-- “Session” duration means the cookie is deleted when you close your browser.
-- Some cookies are only set for logged-in users or when specific features are used.
-- We may use additional cookies for security, load balancing, or integrations with enterprise tools (e.g., ERP connectors). These are reviewed regularly.
-- Third-party providers are contractually required to protect any data they process and use it only for the purposes outlined.
-
-This table is not exhaustive. For the most current list, please check our cookie consent management tool or contact us. SouthCaravan does not use cookies for cross-site behavioral advertising targeted at individual consumers.
-
-How Cookies Are Used on the Platform
-
-On SouthCaravan, cookies play a critical role in supporting the day-to-day operations of our international B2B commerce platform. As a procurement and vendor management solution connecting buyers and suppliers across Africa and global markets, we rely on cookies to deliver a seamless and secure experience.
-
-Specifically, cookies are used to:
-- Enable secure access to business accounts, allowing procurement managers, supplier representatives, and administrators to log in and perform sensitive tasks such as posting Requests for Quotations (RFQs), reviewing bids, managing contracts, and tracking shipments.
-- Maintain session continuity during complex workflows, such as multi-step vendor onboarding, product catalog browsing, or supply chain visibility tools, so users do not lose progress when navigating between pages.
-- Remember user preferences, including language (English, French, or others), currency display settings, and dashboard customizations, making the platform more intuitive for our diverse international user base.
-- Support analytics that help us understand how businesses interact with key features — for example, which supplier search filters are most used, how long users spend on the RFQ dashboard, or which integration tools (such as ERP connectors) are most valuable — so we can continuously improve the platform.
-- Facilitate essential e-commerce functions like saving items in an RFQ cart or shortlisting vendors for future reference.
-- Enhance security by detecting unusual activity and preventing unauthorized access to business data.
-
-Because SouthCaravan primarily serves business users rather than individual consumers, our cookie usage focuses on operational efficiency, platform performance, and legitimate business interests rather than personalized consumer advertising. All cookie usage is designed to support transparent, efficient, and compliant B2B trade across borders.
-
-Third-Party Cookies and Sharing
-
-SouthCaravan works with carefully selected third-party service providers to enhance platform functionality, security, and performance. Some of these providers may set cookies or use similar tracking technologies on our site.
-
-Third-party services that may set cookies include:
-- Google Analytics – for aggregated performance and usage analytics to help us improve the platform.
-- Cloudflare – for security, content delivery, and protection against DDoS attacks.
-- HubSpot (or similar CRM tools) – for B2B relationship management and understanding how organizations engage with our services (where integrated).
-- Other potential providers for payment processing, email communications, or enterprise integrations.
-
-We only share data collected through cookies with these third parties in limited circumstances and under strict contractual agreements that require them to protect the data and use it solely for the purposes we specify. We do not sell personal or business data.
-
-Data processed through third-party cookies may include technical information such as IP address, device type, browser information, and anonymized usage statistics. In some cases, this data may be transferred outside Uganda or the European Economic Area. Where such transfers occur, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or other mechanisms recognized under applicable data protection laws.
-
-We do not allow third parties to use cookies on SouthCaravan for their own independent advertising purposes unless explicitly consented to by the user. Our focus remains on supporting B2B procurement activities in a privacy-conscious manner.
-
-For a full list of third-party providers and their privacy practices, please refer to our main Privacy Policy.
-
-Legal Basis for Processing (if applicable)
-
-SouthCaravan processes cookie data in accordance with applicable data protection laws. Our legal basis for using cookies depends on the category and purpose:
-
-- Strictly Necessary Cookies: We rely on our legitimate interest in providing a functional and secure platform, as well as the necessity to perform our contractual obligations with business users. These cookies do not require prior consent.
-
-- Functional / Preference Cookies: Processing is based on our legitimate interest to deliver a personalized and user-friendly experience, or on your explicit consent where required by law.
-
-- Performance / Analytics Cookies: We process these based on legitimate interests to understand platform usage and improve our B2B services. Where applicable (for example, under GDPR or ePrivacy rules), we seek your consent before setting these cookies.
-
-- Marketing / Targeting Cookies: These are used only with your prior consent. Given the B2B nature of our platform, such cookies are limited and focused on professional relevance.
-
-For users in the European Union or other jurisdictions with strict consent requirements, we provide a cookie consent management tool that allows you to accept or reject non-essential cookies. You can withdraw your consent at any time without affecting your ability to use the core functions of the platform.
-
-In Uganda and other jurisdictions, we ensure processing aligns with the principles of the Data Protection and Privacy Act, including lawfulness, fairness, and minimization of data.
-
-Managing Cookies and Consent
-
-You have several options to manage cookies on SouthCaravan:
-
-1. Cookie Consent Banner
-   When you first visit our platform, you will see a cookie consent banner. You can accept all cookies, reject non-essential cookies, or customize your preferences by category.
-
-2. Cookie Settings Center
-   Registered users can access a dedicated cookie settings page in their account dashboard to review and update their preferences at any time.
-
-3. Browser Settings
-   Most web browsers allow you to control cookies through their settings. You can:
-   - Block all cookies
-   - Block only third-party cookies
-   - Delete cookies already stored on your device
-   - Receive notifications when a cookie is set
-
-   Please note that disabling strictly necessary cookies may prevent you from accessing certain parts of the platform or using core B2B features such as logging in, posting RFQs, or managing vendor relationships.
-
-4. Opt-Out Links
-   For specific third-party analytics tools (such as Google Analytics), you can use their respective opt-out mechanisms.
-
-Disabling cookies may impact your experience on SouthCaravan. Some features, such as remembering your login or saving RFQ preferences, may not work as intended.
-
-If you have questions about managing cookies or wish to exercise your data protection rights, please contact us using the details provided below.
-
-Updates to This Policy
-
-We may update this Cookie Policy from time to time to reflect changes in our cookie practices, platform features, or applicable laws and regulations. Any material changes will be notified to you by:
-- Posting the updated policy on this page with a new “Last updated” date
-- Sending an email notification to registered business users (where appropriate)
-- Displaying a prominent notice on the platform when you next log in
-
-We encourage you to review this policy periodically. Your continued use of SouthCaravan after any updates constitutes your acceptance of the revised Cookie Policy.
-
-Contact Information
-
-If you have any questions, concerns, or requests regarding this Cookie Policy, our use of cookies, or your data rights, please contact SouthCaravan’s Data Protection Officer or Privacy Team:
-
-Email: privacy@southcaravan.com  
+Email: compliance@southcaravan.com  
 Phone: +256 700 123 456 (Kampala, Uganda)  
-Address: SouthCaravan Ltd, Plot 45, Kampala Road, Kampala, Uganda  
+Secure Whistleblower Portal: [Insert secure link when implemented]
 
-We aim to respond to all inquiries within 30 days. For urgent matters related to data protection or cookie consent, please include “Cookie Policy Inquiry” in the subject line of your email.
+All reports are investigated promptly, fairly, and in accordance with applicable laws. Whistleblowers are protected from retaliation.
 
-You may also reach out through the “Contact Us” form available in your account dashboard or on our website.
-
-This Cookie Policy is effective as of its last update date. For the full Privacy Policy, please visit: https://www.southcaravan.com/privacy-policy
+Updates to This Compliance Page
+This page is reviewed at least annually or upon significant regulatory changes. Material updates are communicated via the website, email notifications to registered users where appropriate, and platform announcements.
 
 Last updated: April 2026
+
+Related Resources
+For more details, please refer to:
+- Privacy Policy
+- Cookie Policy
+- Terms of Service
+- Data Processing Agreement (available to business clients)
+- Code of Business Conduct and Ethics
+
+Contact Our Compliance Team
+SouthCaravan Ltd  
+Plot 45, Kampala Road, Kampala, Uganda  
+Email: compliance@southcaravan.com  
+Phone: +256 700 123 456  
+
+We welcome inquiries from current and prospective business partners. Our team is available to discuss specific compliance requirements, provide documentation, or support your due diligence processes.
+
+SouthCaravan – Building Trust Through Compliance
+By choosing SouthCaravan, businesses benefit from a platform engineered for regulatory resilience, operational transparency, and sustainable growth in international markets.

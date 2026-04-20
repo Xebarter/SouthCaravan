@@ -34,6 +34,7 @@ const publicRoutePrefixes = [
   '/privacy',
   '/terms',
   '/cookies',
+  '/compliance',
   '/status',
 ];
 
