@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { isUuid } from '@/lib/is-uuid';
+import { productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthedBuyer();
@@ -24,9 +25,8 @@ export async function GET(req: NextRequest) {
   }
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const vid = product.vendor_id ? String(product.vendor_id).trim() : '';
-  if (!vid || !isUuid(vid)) {
-    return NextResponse.json({ error: 'This product cannot be quoted (no vendor).' }, { status: 400 });
+  if (!productIsRfqRoutable(product)) {
+    return NextResponse.json({ error: 'This product cannot be quoted (invalid seller reference).' }, { status: 400 });
   }
 
   return NextResponse.json({ product });

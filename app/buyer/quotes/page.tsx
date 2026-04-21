@@ -41,7 +41,7 @@ type CatalogHit = {
   minimum_order: number;
   unit: string;
   images: string[] | null;
-  vendor_id: string;
+  vendor_id: string | null;
   in_stock: boolean;
 };
 
@@ -362,6 +362,7 @@ export default function BuyerQuotesPage() {
                                 <p className="text-sm font-medium truncate">{hit.name}</p>
                                 <p className="text-xs text-muted-foreground">
                                   <Money amount={Number(hit.price)} /> · MOQ {hit.minimum_order} {hit.unit}
+                                  {!hit.vendor_id ? ' · Platform' : ''}
                                   {!hit.in_stock ? ' · low availability' : ''}
                                 </p>
                               </div>

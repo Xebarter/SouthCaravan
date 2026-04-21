@@ -47,6 +47,7 @@ export function MainNav() {
         { label: 'Dashboard', href: '/dashboard', icon: Home },
         { label: 'Users', href: '/admin/users', icon: Users },
         { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+        { label: 'Quotes', href: '/admin/quotes', icon: FileText },
         { label: 'Vendors', href: '/admin/vendors', icon: TrendingUp },
         { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
         { label: 'Settings', href: '/admin/settings', icon: Settings },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
+import { getPlatformRfqRecipientUserId } from '@/lib/platform-rfq-recipient';
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await getAuthedBuyer();
@@ -70,6 +71,9 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     }
   }
 
+  const platformRecipient = await getPlatformRfqRecipientUserId();
+  const platformId = platformRecipient.ok ? platformRecipient.userId : null;
+
   const vendorIds = Array.from(new Set((quotes ?? []).map((q) => String(q.vendor_user_id)).filter(Boolean)));
   let vendorMap: Record<string, { company_name: string; name: string; email: string }> = {};
   if (vendorIds.length > 0) {
@@ -92,17 +96,25 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     itemsByQuote[qid]!.push(row);
   }
 
-  const quotesDetailed = (quotes ?? []).map((q) => ({
-    ...q,
-    vendor: vendorMap[String(q.vendor_user_id)] ?? { company_name: '', name: '', email: '' },
-    items: itemsByQuote[String(q.id)] ?? [],
-  }));
+  const quotesDetailed = (quotes ?? []).map((q) => {
+    const uid = String(q.vendor_user_id);
+    const isPlatform = Boolean(platformId && uid === platformId);
+    return {
+      ...q,
+      is_platform_quote: isPlatform,
+      vendor: isPlatform
+        ? { company_name: 'SouthCaravan', name: 'Platform listings', email: '' }
+        : vendorMap[uid] ?? { company_name: '', name: '', email: '' },
+      items: itemsByQuote[String(q.id)] ?? [],
+    };
+  });
 
   return NextResponse.json({
     rfq,
     rfq_items: rfqItems ?? [],
     quotes: quotesDetailed,
     products,
+    platform_recipient_configured: platformRecipient.ok,
   });
 }
 

@@ -63,3 +63,8 @@ alter table public.quotes drop constraint if exists quotes_status_check;
 alter table public.quotes
   add constraint quotes_status_check
   check (status in ('pending', 'awaiting_buyer', 'accepted', 'rejected', 'expired'));
+
+-- App note: RFQs for admin-created products (products.vendor_id null) are assigned to a
+-- platform inbox user via quotes.vendor_user_id. Set server env PLATFORM_RFQ_RECIPIENT_USER_ID
+-- to that admin auth user UUID for a stable recipient; otherwise the app picks the first admin
+-- discovered via the Auth Admin API (see lib/platform-rfq-recipient.ts).

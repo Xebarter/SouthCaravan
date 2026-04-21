@@ -66,6 +66,8 @@ export async function POST(request: Request) {
       name: emailPrefix,
       email,
       company_name: company || emailPrefix,
+      is_verified: false,
+      verified_at: null,
     })
 
     if (insertError) {

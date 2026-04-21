@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { isUuid } from '@/lib/is-uuid';
+import { getPlatformRfqRecipientUserId, productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
 
 function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
@@ -44,6 +45,9 @@ export async function GET() {
     return NextResponse.json({ error: qErr.message }, { status: 500 });
   }
 
+  const platformRecipient = await getPlatformRfqRecipientUserId();
+  const platformId = platformRecipient.ok ? platformRecipient.userId : null;
+
   const vendorIds = Array.from(new Set((quotes ?? []).map((q) => String(q.vendor_user_id)).filter(Boolean)));
   let vendorMap: Record<string, { company_name: string; name: string }> = {};
   if (vendorIds.length > 0) {
@@ -82,10 +86,17 @@ export async function GET() {
         awaiting_buyer: awaiting,
         accepted,
       },
-      quotes: qlist.map((q) => ({
-        ...q,
-        vendor: vendorMap[String(q.vendor_user_id)] ?? { company_name: '', name: '' },
-      })),
+      quotes: qlist.map((q) => {
+        const uid = String(q.vendor_user_id);
+        const isPlatform = Boolean(platformId && uid === platformId);
+        return {
+          ...q,
+          is_platform_quote: isPlatform,
+          vendor: isPlatform
+            ? { company_name: 'SouthCaravan', name: 'Platform listings' }
+            : vendorMap[uid] ?? { company_name: '', name: '' },
+        };
+      }),
     };
   });
 
@@ -154,14 +165,15 @@ export async function POST(req: NextRequest) {
   for (const id of productIds) {
     const p = productById[id];
     if (!p) return NextResponse.json({ error: `Unknown product: ${id}` }, { status: 400 });
-    const vid = p.vendor_id ? String(p.vendor_id).trim() : '';
-    if (!vid || !isUuid(vid)) {
+    if (!productIsRfqRoutable(p)) {
       return NextResponse.json(
-        { error: `Product "${p.name}" is not sold by a registered vendor and cannot be included in an RFQ.` },
+        { error: `Product "${p.name}" cannot be quoted (invalid seller reference).` },
         { status: 400 },
       );
     }
   }
+
+  let platformRecipientId: string | null = null;
 
   const defaultTitle =
     title ||
@@ -207,9 +219,22 @@ export async function POST(req: NextRequest) {
   const groups = new Map<string, Group>();
   for (const it of normalized) {
     const p = productById[it.productId]!;
-    const vid = String(p.vendor_id!).trim();
-    if (!groups.has(vid)) groups.set(vid, { vendorUserId: vid, lines: [] });
-    groups.get(vid)!.lines.push(it);
+    const vidRaw = p.vendor_id ? String(p.vendor_id).trim() : '';
+    const isVendorSku = Boolean(vidRaw && isUuid(vidRaw));
+    let recipientUserId: string;
+    if (isVendorSku) {
+      recipientUserId = vidRaw;
+    } else {
+      if (!platformRecipientId) {
+        const resolved = await getPlatformRfqRecipientUserId();
+        if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: 503 });
+        platformRecipientId = resolved.userId;
+      }
+      recipientUserId = platformRecipientId;
+    }
+    const groupKey = isVendorSku ? `v:${vidRaw}` : 'platform';
+    if (!groups.has(groupKey)) groups.set(groupKey, { vendorUserId: recipientUserId, lines: [] });
+    groups.get(groupKey)!.lines.push(it);
   }
 
   const createdQuotes: { quote: any; items: any[] }[] = [];

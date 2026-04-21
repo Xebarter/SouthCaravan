@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
-import { isUuid } from '@/lib/is-uuid';
+import { productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthedBuyer();
@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('products')
     .select('id,name,price,minimum_order,unit,images,vendor_id,category,subcategory,in_stock')
-    .not('vendor_id', 'is', null)
     .ilike('name', `%${q}%`)
     .limit(limit);
 
@@ -26,6 +25,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []).filter((p) => p.vendor_id && isUuid(String(p.vendor_id)));
+  const rows = (data ?? []).filter((p) => productIsRfqRoutable(p));
   return NextResponse.json({ products: rows });
 }

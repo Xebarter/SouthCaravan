@@ -31,10 +31,14 @@ function formatShortId(id: string) {
   return id.length <= 8 ? id : id.slice(-8);
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, isPlatform?: boolean) {
   const s = String(status || '').toLowerCase();
   if (s === 'pending')
-    return { label: 'Vendor preparing', className: 'border-amber-500/40 text-amber-700 dark:text-amber-400', icon: Clock };
+    return {
+      label: isPlatform ? 'Platform preparing' : 'Vendor preparing',
+      className: 'border-amber-500/40 text-amber-700 dark:text-amber-400',
+      icon: Clock,
+    };
   if (s === 'awaiting_buyer')
     return { label: 'Ready — your decision', className: 'border-sky-500/40 text-sky-700 dark:text-sky-400', icon: CheckCircle2 };
   if (s === 'accepted')
@@ -225,12 +229,12 @@ export default function BuyerRfqWorkspacePage({ params }: { params: { id: string
         </Card>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Vendor responses</h2>
+          <h2 className="text-lg font-semibold">Supplier responses</h2>
           {quotes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No vendor quotes yet.</p>
+            <p className="text-sm text-muted-foreground">No quotes yet.</p>
           ) : (
             quotes.map((q: any) => {
-              const meta = statusBadge(q.status);
+              const meta = statusBadge(q.status, Boolean(q.is_platform_quote));
               const Icon = meta.icon;
               const v = q.vendor ?? {};
               const displayName = v.company_name?.trim() || v.name?.trim() || `Vendor ${formatShortId(q.vendor_user_id)}`;
