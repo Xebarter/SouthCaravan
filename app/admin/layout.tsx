@@ -33,7 +33,6 @@ const adminNavItems = [
   { href: '/admin/adds', label: 'Adds', icon: Megaphone },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/cartegories', label: 'Cartegories', icon: Boxes },
-  { href: '/admin/menu-items', label: 'Menu Items', icon: Boxes },
   { href: '/admin/blog', label: 'Blog', icon: NotebookPen },
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin/messages', label: 'Messages', icon: MessageSquare },

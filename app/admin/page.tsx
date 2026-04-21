@@ -298,7 +298,7 @@ export default function AdminOverviewPage() {
               ))
             )}
             <Button variant="ghost" asChild className="w-full">
-              <Link href="/admin/menu-items">Manage full menu taxonomy</Link>
+              <Link href="/admin/cartegories">Manage full menu taxonomy</Link>
             </Button>
           </CardContent>
         </Card>

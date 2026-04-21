@@ -2,7 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useEffect } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -397,14 +407,26 @@ export default function AdminCartegoriesPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Cartegories Management</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Cartegories & menu taxonomy</h2>
           <p className="text-muted-foreground mt-1">
-            Organize category hierarchy used in sidebar navigation and product creation.
+            Control marketplace visibility and storefront navigation: top-level menu items (level 1), subcategories,
+            and the same taxonomy used when creating products.
           </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href="#seed-taxonomy">Import taxonomy</a>
+          </Button>
+          <Button size="sm" asChild>
+            <a href="#add-category" className="inline-flex items-center">
+              <Plus className="w-4 h-4 mr-2" />
+              Add category
+            </a>
+          </Button>
         </div>
       </div>
 
-      <Card>
+      <Card id="seed-taxonomy">
         <CardHeader className="pb-3">
           <CardTitle>Default Cartegories</CardTitle>
           <CardDescription>
@@ -429,11 +451,12 @@ export default function AdminCartegoriesPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="add-category">
         <CardHeader className="pb-3">
-          <CardTitle>Add New Cartegory</CardTitle>
+          <CardTitle>Add new category / top-level menu item</CardTitle>
           <CardDescription>
-            Use this for precise creation. For fast Level 2 add, use inline quick add under each Level 1 category.
+            Level 1 entries are the parent categories shown in the sidebar. For level 2, use quick add under each level
+            1 row, or choose level and parent here.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-4 lg:grid-cols-5">
@@ -481,9 +504,9 @@ export default function AdminCartegoriesPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Category Hierarchy</CardTitle>
+            <CardTitle>Category registry & hierarchy</CardTitle>
             <CardDescription>
-              Level 2 categories are nested under Level 1, and Level 3 under Level 2.
+              Parent categories (menu items), then level 2 and level 3. Toggle visibility, sort order, or remove entries.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -526,6 +549,7 @@ export default function AdminCartegoriesPage() {
                         }
                         aria-label={`${expanded ? 'Collapse' : 'Expand'} ${parent.name}`}
                       >
+                        <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
                         {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                         <div className="text-left">
                           <p className="font-semibold line-clamp-1">{highlightMatch(parent.name, searchQuery)}</p>
