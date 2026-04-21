@@ -71,11 +71,18 @@ export async function GET() {
   const { data: pendingVendors, error: pendingError } = await supabaseAdmin
     .from('vendors')
     .select('id, company_name, email, created_at, is_verified')
-    .eq('is_verified', false)
+    .or('is_verified.eq.false,is_verified.is.null')
     .order('created_at', { ascending: true })
     .limit(10);
 
   if (pendingError) return NextResponse.json({ error: pendingError.message }, { status: 500 });
+
+  const { count: pendingVendorCount, error: pendingCountError } = await supabaseAdmin
+    .from('vendors')
+    .select('id', { count: 'exact', head: true })
+    .or('is_verified.eq.false,is_verified.is.null');
+
+  if (pendingCountError) return NextResponse.json({ error: pendingCountError.message }, { status: 500 });
 
   const { data: orders, error: ordersError } = await supabaseAdmin
     .from('orders')
@@ -100,7 +107,7 @@ export async function GET() {
       vendorCount: vendorCount ?? 0,
       userCount: userCount ?? 0,
       featuredCount: featuredCount ?? 0,
-      pendingVendorCount: pendingVendors?.length ?? 0,
+      pendingVendorCount: pendingVendorCount ?? 0,
     },
     featuredProducts: featuredProducts ?? [],
     pendingVendors: pendingVendors ?? [],

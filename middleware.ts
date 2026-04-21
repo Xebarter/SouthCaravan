@@ -49,6 +49,7 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const pathname = url.pathname
   const search = url.search
+  const isAdminPath = pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -56,6 +57,15 @@ export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseAnonKey) {
     // If Supabase env is missing, we still enforce that protected routes cannot be
     // accessed anonymously (production should always have these env vars).
+    if (isAdminPath && !ADMIN_AUTH_DISABLED) {
+      const authUrl = request.nextUrl.clone()
+      authUrl.pathname = '/auth'
+      authUrl.searchParams.set('role', 'admin')
+      authUrl.searchParams.set('next', `${pathname}${search}`)
+      authUrl.searchParams.set('error', 'auth_unavailable')
+      return NextResponse.redirect(authUrl)
+    }
+
     if (isProtectedPath(pathname)) {
       const role = inferRoleFromPath(pathname)
       const authUrl = request.nextUrl.clone()
@@ -99,7 +109,6 @@ export async function middleware(request: NextRequest) {
   const { data } = await supabase.auth.getUser()
   const user = data.user
 
-  const isAdminPath = pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
   const isProtected = isProtectedPath(pathname)
   const isVendorPath = pathname === '/vendor' || pathname.startsWith('/vendor/')
 
