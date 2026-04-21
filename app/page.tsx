@@ -29,9 +29,9 @@ export default async function HomePage() {
   const initialHasMore = initialCategoryFeed.hasMore;
 
   return (
-    <div className="bg-background">
+    <div className="bg-gradient-to-b from-sky-50 via-blue-50/40 to-slate-50/60">
       <ProductAdBannerSection items={sponsoredItems} />
-      <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10">
+      <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10 bg-transparent">
         <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">
           <div className="space-y-3 sm:space-y-4">
             <Badge className="bg-sky-100 text-sky-800 border-sky-200">

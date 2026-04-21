@@ -1,107 +1,190 @@
-SouthCaravan About Page
+============================================================
+DPO Pay by Network — Payment Integration Documentation
+SouthCaravan Marketplace
+============================================================
 
-About SouthCaravan
+OVERVIEW
+--------
+Payments at checkout are processed by DPO Pay by Network (formerly 3G Direct Pay),
+an African-focused payment gateway. The integration uses DPO's API v6 XML interface.
+The buyer is redirected to DPO's hosted payment page; card/mobile-money details never
+touch SouthCaravan's servers.
 
-Who We Are
 
-SouthCaravan is a leading B2B vendor management and procurement platform headquartered in Kampala, Uganda, designed to transform how businesses across Africa and the world connect, source, and trade with confidence.
+ENVIRONMENT VARIABLES (add to .env.local / deployment env)
+-----------------------------------------------------------
+DPO_COMPANY_TOKEN       — Merchant token from DPO onboarding dashboard
+DPO_SERVICE_TYPE        — Service type code assigned during onboarding (e.g. 111455)
+DPO_PAYMENT_CURRENCY    — ISO 4217 currency code (e.g. USD, KES, ZAR, UGX)
+DPO_SANDBOX             — "true" to use sandbox, "false" (or absent) for live
+NEXT_PUBLIC_SITE_URL    — Full public URL (e.g. https://southcaravan.com)
+                          Used to build absolute RedirectURL and BackURL for DPO.
 
-Founded with a vision to bridge the gap in African supply chains and empower businesses to access reliable suppliers globally, SouthCaravan provides a secure, transparent, and efficient digital marketplace where buyers and suppliers can discover opportunities, manage procurement processes, and build long-term business relationships.
 
-Our platform simplifies complex procurement workflows — from vendor discovery and RFQ management to contract lifecycle, performance tracking, and payment reconciliation — while embedding compliance, security, and sustainability at its core.
+FILES CREATED / MODIFIED
+-------------------------
 
-Mission
-To empower African and global businesses with a world-class B2B procurement platform that drives efficiency, transparency, and sustainable growth through technology and trusted connections.
+lib/dpo.ts
+  Server-side DPO API client. Never imported in client components.
+  Exports:
+    dpoCreateToken(params)  — POSTs XML to DPO /API/v6/ to open a payment session.
+                              Returns { transToken, transRef }.
+    dpoVerifyToken(token)   — POSTs XML to verify payment status after redirect.
+                              Returns { result, resultExplanation, customerName,
+                                        transactionAmount, transactionCurrency }.
+    dpoBuildCheckoutUrl(t)  — Returns the DPO hosted checkout URL for a given token:
+                              https://secure.3gdirectpay.com/pay.asp?ID={token}
+    getDpoConfig()          — Reads env vars; throws if DPO_COMPANY_TOKEN or
+                              DPO_SERVICE_TYPE are missing.
+  Sandbox URL: https://secure1.sandbox.directpay.online/API/v6/
+  Live URL:    https://secure.3gdirectpay.com/API/v6/
 
-Vision
-To become the most trusted digital infrastructure for cross-border B2B trade in Africa and beyond — enabling seamless, compliant, and responsible procurement that accelerates economic development and creates value for all participants.
+app/api/payments/dpo/create-token/route.ts   [POST]
+  Called by the checkout page when the buyer clicks "Pay with DPO".
+  Flow:
+    1. Authenticates the buyer via getAuthedBuyer().
+    2. Validates request body: items[], shippingAddress, optional customerName/email.
+    3. Computes order total using checkoutTotals() from lib/checkout-session.ts.
+    4. Looks up vendor_user_id from the first product's vendor_id (if it's a UUID);
+       falls back to the buyer's own ID to satisfy the DB NOT NULL constraint
+       before the payments-dpo.sql migration is applied.
+    5. Inserts a pending order into public.orders (tries with payment_status column
+       first; auto-retries without it if the column doesn't exist yet, i.e. migration
+       pending).
+    6. Inserts order line items into public.order_items.
+    7. Calls dpoCreateToken() with:
+         companyRef  = the new order UUID (used to look up the order on return)
+         redirectUrl = {NEXT_PUBLIC_SITE_URL}/checkout/payment-return
+         backUrl     = {NEXT_PUBLIC_SITE_URL}/api/payments/dpo/callback
+         amount      = total (2 decimal places)
+         currency    = DPO_PAYMENT_CURRENCY
+    8. Saves transToken and transRef back onto the order row.
+    9. Returns { orderId, transToken, checkoutUrl } to the client.
+  On any DPO or DB error the order is deleted (best-effort cleanup) and an
+  error JSON is returned with the raw detail message for debugging.
 
-Our Story
+app/api/payments/dpo/verify/route.ts   [GET ?token=&orderId=]
+  Called by /checkout/payment-return after DPO redirects the buyer back.
+  Flow:
+    1. Authenticates the buyer.
+    2. Looks up the order by dpo_trans_token = token AND buyer_id = auth user.
+       Falls back to looking up by orderId param (= CompanyRef echoed by DPO)
+       if the dpo_trans_token column doesn't exist yet (pre-migration).
+    3. Returns immediately with { paid: true } if the order is already confirmed
+       (idempotent).
+    4. Calls dpoVerifyToken() with the transToken.
+    5. On result "000" (paid): sets order.status = 'confirmed',
+                                       order.payment_status = 'paid'.
+       On any other result:    sets order.payment_status = 'failed'.
+    6. Returns { orderId, paid, result, resultExplanation, customerName,
+                 transactionAmount }.
 
-SouthCaravan was born in Kampala, Uganda, out of a deep understanding of the challenges faced by businesses operating in emerging markets: fragmented supplier networks, lengthy manual procurement processes, limited visibility into vendor reliability, currency and regulatory complexities, and the need for greater transparency in supply chains.
+app/api/payments/dpo/callback/route.ts   [POST + GET]
+  Server-to-server BackURL that DPO calls directly after payment (push notification).
+  This endpoint is unauthenticated (DPO calls it, not the browser).
+  Flow:
+    1. Reads TransactionToken (or TransID) and CompanyRef from query params
+       or form-encoded body.
+    2. Looks up the order by id = CompanyRef.
+    3. Skips silently if order not found or already paid.
+    4. Calls dpoVerifyToken() to confirm before trusting the callback.
+    5. Updates order.payment_status and order.status accordingly.
+    6. Always returns HTTP 200 OK (required by DPO).
 
-Recognizing these pain points, our founders — seasoned professionals with backgrounds in procurement, technology, logistics, and international trade — set out to build a platform that combines the best of global B2B technology with deep local market expertise.
+app/checkout/page.tsx   [modified]
+  The checkout page was simplified from 3 steps (shipping → payment → review)
+  to 2 steps (shipping → payment).
+  Auth guard: uses useAuth() to detect unauthenticated visitors and redirects
+  them to /auth?role=buyer&next=/checkout before they can proceed.
+  Payment step:
+    - Shows order total, shipping summary, and DPO trust badge.
+    - "Pay with DPO" button calls POST /api/payments/dpo/create-token.
+    - On success, sets window.location.href = checkoutUrl to redirect the buyer
+      to DPO's hosted checkout page.
+    - Fake card form (name, number, expiry, CVC) has been removed entirely.
 
-Since our inception, SouthCaravan has grown rapidly, connecting thousands of buyers and suppliers across multiple African countries and international markets. We have facilitated millions of dollars in procurement transactions while maintaining an unwavering focus on data security, regulatory compliance, and ethical business practices.
+app/checkout/payment-return/page.tsx   [new]
+  The RedirectURL DPO sends the buyer back to after payment.
+  DPO appends query params: TransID, CCDapproval, PnrID, CompanyRef.
+  Flow:
+    1. Reads TransID (= transToken) and CompanyRef (= orderId) from URL.
+    2. Calls GET /api/payments/dpo/verify?token=...&orderId=... .
+    3. Shows one of three states:
+         paid    — CheckCircle, order reference, auto-redirects to /buyer/orders.
+         failed  — XCircle, DPO result explanation, links to retry or back to cart.
+         error   — AlertCircle, error message, links to orders or marketplace.
+    4. On success, clears the sessionStorage checkout session.
 
-What We Offer
+supabase/payments-dpo.sql   [new]
+  Database migration (run once in Supabase SQL Editor):
+    ALTER TABLE public.orders ALTER COLUMN vendor_user_id DROP NOT NULL;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS dpo_trans_token text;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS dpo_trans_ref   text;
+    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_status  text
+      NOT NULL DEFAULT 'pending'
+      CHECK (payment_status IN ('pending', 'paid', 'failed'));
+    CREATE INDEX ON public.orders (dpo_trans_token) WHERE dpo_trans_token IS NOT NULL;
 
-SouthCaravan delivers a comprehensive suite of tools tailored for modern B2B procurement and vendor management:
+supabase/setup.sql   [new]
+  Single combined file that creates the entire database schema in correct
+  dependency order and ends with the DPO migration. Run this once on a
+  fresh Supabase project instead of running each file individually.
 
-• Intelligent Vendor Discovery & Matching  
-  Advanced search, AI-powered recommendations, and detailed supplier profiles to help buyers find the right partners quickly.
+lib/api/buyer-auth.ts   [modified]
+  getAuthedBuyer() now checks three sources for the buyer role (in order):
+    1. app_metadata.role / app_metadata.roles  (set by admin/service role)
+    2. user_metadata.role                      (set during client-side signUp)
+    3. public.user_roles table                 (set by POST /api/auth/portal-access)
+  Previously only source 1 was checked, causing 401 errors for all users
+  who signed up via the UI (their role is in user_metadata, not app_metadata).
 
-• Request for Quotation (RFQ) & Tender Management  
-  Streamlined creation, distribution, bidding, and evaluation of RFQs and tenders with automated workflows.
 
-• Supplier Onboarding & Qualification  
-  Robust due diligence tools, document verification, compliance screening, and performance rating systems.
+FULL PAYMENT FLOW (happy path)
+------------------------------
+1.  Buyer adds items to cart and proceeds to /checkout.
+2.  Checkout page auth-guards: if not logged in, redirect to /auth?role=buyer&next=/checkout.
+3.  Buyer fills the Shipping step (name, email, address) and clicks "Continue to payment".
+4.  Payment step shows the order total and a "Pay with DPO" button.
+5.  Buyer clicks "Pay with DPO":
+      → POST /api/payments/dpo/create-token
+      ← { orderId, transToken, checkoutUrl }
+      → window.location.href = checkoutUrl
+6.  Buyer is on DPO's hosted page and completes payment (card, mobile money, etc.).
+7.  DPO redirects buyer to:
+      https://southcaravan.com/checkout/payment-return
+        ?TransID={transToken}&CompanyRef={orderId}&CCDapproval=...
+8.  payment-return page calls:
+      GET /api/payments/dpo/verify?token={TransID}&orderId={CompanyRef}
+9.  Server calls DPO verifyToken; if Result = "000":
+      orders.status        → 'confirmed'
+      orders.payment_status → 'paid'
+10. payment-return page shows "Payment confirmed!" and redirects to /buyer/orders.
+11. DPO also calls BackURL server-to-server:
+      POST /api/payments/dpo/callback?TransactionToken=...&CompanyRef=...
+    This independently verifies and updates the order (handles cases where the
+    browser redirect was interrupted).
 
-• Contract Lifecycle Management  
-  Digital contract creation, negotiation, approval, storage, and renewal reminders.
 
-• Procurement Analytics & Insights  
-  Real-time dashboards, spend analysis, supplier performance metrics, and procurement trend reports.
+DPO RESULT CODES (key ones)
+----------------------------
+000 — Transaction Paid (success)
+001 — Authorized
+900 — Transaction not paid yet
+901 — Transaction declined
+902 — Reverse
+904 — Invalid currency code
 
-• Secure Communication & Collaboration  
-  Built-in messaging, document sharing, and audit-ready interaction logs.
 
-• Compliance & Risk Management Tools  
-  Sanctions screening, KYC/KYS processes, audit trails, and regulatory reporting support.
-
-• Sustainable & ESG Procurement Features  
-  Tools to track supplier sustainability credentials and support responsible sourcing goals.
-
-Our platform is accessible via web and mobile interfaces, with enterprise-grade security and scalability to support both growing SMEs and large multinational organizations.
-
-Why Choose SouthCaravan
-
-• Headquartered in Uganda with pan-African expertise and a global outlook  
-• Designed specifically for the realities of African and emerging market procurement  
-• Strong focus on data protection, cybersecurity, and regulatory compliance  
-• Transparent pricing and flexible plans for businesses of all sizes  
-• Dedicated customer success and support teams  
-• Commitment to ethical business practices and sustainable development  
-• Continuous innovation driven by user feedback and market needs
-
-Our Values
-
-• Integrity – We operate with honesty, transparency, and accountability in everything we do.  
-• Innovation – We leverage technology to solve real business challenges and continuously improve our platform.  
-• Inclusion – We believe in empowering businesses of all sizes across diverse markets.  
-• Sustainability – We promote responsible procurement and support environmentally and socially conscious supply chains.  
-• Excellence – We strive for the highest standards in service, security, and user experience.  
-• Partnership – We view our users as long-term partners and work collaboratively to drive mutual success.
-
-Our Team
-
-SouthCaravan is powered by a diverse, talented, and passionate team of professionals based primarily in Uganda, with remote contributors across Africa and beyond. Our leadership combines deep local market knowledge with international experience in technology, procurement, finance, and legal compliance.
-
-We are united by a shared commitment to building infrastructure that supports Africa’s economic growth while meeting global standards.
-
-Leadership Team
-[Insert leadership names and short bios when available – e.g., CEO, CTO, Head of Compliance, etc.]
-
-Global Reach, Local Roots
-
-While proudly Ugandan at heart, SouthCaravan serves businesses throughout East Africa, West Africa, Southern Africa, and increasingly in Europe, Asia, and the Middle East. Our platform supports multiple languages, currencies, and regulatory environments to make cross-border trade smoother and more reliable.
-
-We actively partner with local chambers of commerce, industry associations, and government bodies to strengthen supply chain resilience and promote intra-African trade in line with the African Continental Free Trade Area (AfCFTA) objectives.
-
-Join the SouthCaravan Community
-
-Whether you are a buyer looking to optimize procurement, a supplier seeking new business opportunities, or an enterprise aiming to digitize your supply chain — SouthCaravan provides the tools, network, and trust you need to succeed.
-
-Ready to transform your procurement processes?  
-Sign up today or request a personalized demo.
-
-Contact Us
-SouthCaravan Ltd  
-Plot 45, Kampala Road, Kampala, Uganda  
-Email: info@southcaravan.com  
-Phone: +256 783 676 313  
-Website: www.southcaravan.com
-
-Follow us on social media for the latest updates, success stories, and industry insights.
-
-Last updated: April 2026
+NOTES & CONSTRAINTS
+-------------------
+- Card details never pass through SouthCaravan servers (DPO hosted page).
+- The integration is resilient to the payments-dpo.sql migration not yet being
+  applied: the create-token route retries the DB insert without the payment_status
+  column, and the verify route falls back to orderId lookup if dpo_trans_token
+  column is missing.
+- A single checkout order may span multiple vendors; vendor_user_id is nullable
+  post-migration for this reason.
+- Prices are stored and sent to DPO in USD (DPO_PAYMENT_CURRENCY=USD). The
+  Money component converts display amounts to the buyer's preferred currency
+  using live FX rates, but the DPO charge is always in the configured currency.
+- PTL (payment token lifetime) defaults to 5 hours; configurable in lib/dpo.ts.

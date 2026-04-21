@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, ShoppingBag, ShoppingCart } from 'lucide-react';
+import Image from 'next/image';
+import { CheckCircle2, Loader2, ShoppingBag, ShoppingCart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +61,44 @@ export function ProductPurchaseActions({
   const handleAddToCart = async () => {
     if (!inStock) return;
     const qty = clampQty(quantity);
+
+    const toastId = toast.custom((id) => (
+      <div className="flex w-[360px] items-start gap-3 rounded-xl border border-border bg-popover p-4 shadow-lg">
+        {imageUrl ? (
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+            <Image src={imageUrl} alt={name} fill className="object-cover" sizes="64px" />
+          </div>
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+            <ShoppingCart className="h-6 w-6" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            <span className="text-sm font-semibold text-foreground">Added to cart</span>
+          </div>
+          <p className="mt-0.5 truncate text-sm text-foreground">{name}</p>
+          <p className="text-xs text-muted-foreground">
+            {qty} {unit} · {vendorLabel}
+          </p>
+          <button
+            onClick={() => { toast.dismiss(id); router.push('/cart'); }}
+            className="mt-2.5 w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            View cart →
+          </button>
+        </div>
+        <button
+          onClick={() => toast.dismiss(id)}
+          className="shrink-0 rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Dismiss"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    ), { duration: 5000 });
+
     try {
       await addToCart({
         id: productId,
@@ -70,14 +109,8 @@ export function ProductPurchaseActions({
         image: imageUrl,
         minQty: minimumOrder,
       });
-      toast.success('Added to cart', {
-        description: `${qty} ${unit} · ${name}`,
-        action: {
-          label: 'View cart',
-          onClick: () => router.push('/cart'),
-        },
-      });
     } catch (e) {
+      toast.dismiss(toastId);
       const msg = e instanceof Error ? e.message : 'Could not add to cart';
       toast.error(msg);
     }

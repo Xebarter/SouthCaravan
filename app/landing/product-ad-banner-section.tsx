@@ -55,8 +55,8 @@ export default function ProductAdBannerSection({ items }: { items: SponsoredItem
   }, [promoBanners.length])
 
   return (
-    <section className="bg-background py-4">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="bg-transparent py-4">
+      <div className="px-2 sm:px-3">
         {!activeBannerProduct ? (
           <div className="rounded-2xl border border-border bg-card p-3 md:p-4 shadow-sm min-h-[150px] md:h-[210px] overflow-hidden">
             {Array.isArray(items) && items.length === 0 ? (

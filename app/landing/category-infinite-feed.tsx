@@ -96,7 +96,7 @@ export default function CategoryInfiniteFeed({
   const isEmpty = useMemo(() => sections.length === 0 && !loading, [sections.length, loading]);
 
   return (
-    <section className="px-2 sm:px-4 md:px-6 py-5 sm:py-6 md:py-8 bg-background">
+    <section className="px-2 sm:px-4 md:px-6 py-5 sm:py-6 md:py-8 bg-transparent">
       <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-5">
         {sections.map((section, sectionIndex) => {
           const isInitialSection = sectionIndex < initialSectionCount;
