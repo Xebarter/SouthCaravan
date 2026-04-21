@@ -10,6 +10,7 @@ import { ProductPurchaseActions } from '@/components/product-purchase-actions';
 import { Money } from '@/components/money';
 import { getProductById, getRelatedProducts } from '@/lib/product-data';
 import { getVendorDisplayName } from '@/lib/vendor-display';
+import { isUuid } from '@/lib/is-uuid';
 
 function normalizeSpecs(specs: Record<string, unknown> | null) {
   if (!specs) return [];
@@ -100,6 +101,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   inStock={product.in_stock}
                   vendorLabel={getVendorDisplayName(product.vendor_id)}
                   imageUrl={product.images?.[0]}
+                  rfqEnabled={Boolean(product.vendor_id && isUuid(String(product.vendor_id)))}
                 />
               </CardContent>
             </Card>

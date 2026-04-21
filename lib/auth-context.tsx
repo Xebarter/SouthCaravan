@@ -36,7 +36,10 @@ function clearPortalHints() {
 function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
   if (!supabaseUser?.id) return null;
   const meta = supabaseUser.app_metadata ?? {};
-  const role = (meta.role as UserRole | undefined) ?? 'buyer';
+  // Prefer the scalar `role` field; fall back to the first entry in the
+  // `roles` array (written by the portal-access grant flow); default buyer.
+  const rolesArr: string[] = Array.isArray(meta.roles) ? meta.roles : [];
+  const role = ((meta.role as string | undefined) ?? rolesArr[0] ?? 'buyer') as UserRole;
 
   const name =
     supabaseUser.user_metadata?.name ||
@@ -44,6 +47,11 @@ function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
     (typeof supabaseUser.email === 'string' ? supabaseUser.email.split('@')[0] : 'User');
 
   const company = supabaseUser.user_metadata?.company as string | undefined;
+  const avatar = (
+    supabaseUser.user_metadata?.avatar_url ||
+    supabaseUser.user_metadata?.picture ||
+    undefined
+  ) as string | undefined;
 
   return {
     id: supabaseUser.id,
@@ -51,6 +59,7 @@ function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
     name,
     role,
     company,
+    avatar,
     createdAt: new Date(supabaseUser.created_at ?? Date.now()),
   };
 }

@@ -1,11 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
@@ -19,6 +17,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   DollarSign,
+  Loader2,
   Package,
   ShoppingBag,
   Users,
@@ -27,21 +26,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
-import { mockOrders, mockProducts } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
-import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 
 const PERIODS = ['7D', '30D', '90D', 'All'] as const;
 type Period = typeof PERIODS[number];
-
-const MONTHLY_DATA = [
-  { month: 'Nov', revenue: 18400, orders: 24 },
-  { month: 'Dec', revenue: 24800, orders: 31 },
-  { month: 'Jan', revenue: 19200, orders: 26 },
-  { month: 'Feb', revenue: 28600, orders: 38 },
-  { month: 'Mar', revenue: 32100, orders: 42 },
-  { month: 'Apr', revenue: 27400, orders: 35 },
-];
 
 const STATUS_COLORS: Record<string, string> = {
   pending:   '#f59e0b',
@@ -119,40 +107,59 @@ export default function VendorAnalyticsPage() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>('30D');
 
-  const vendor = getVendorProfileForConsole(user);
-  if (!vendor) return null;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [data, setData] = useState<any>(null);
 
-  const vendorOrders = mockOrders.filter((o) => o.vendorId === vendor.id);
-  const vendorProducts = mockProducts.filter((p) => p.vendorId === vendor.id);
-  const totalRevenue = vendorOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const avgOrderValue = vendorOrders.length > 0 ? totalRevenue / vendorOrders.length : 0;
-  const uniqueBuyers = new Set(vendorOrders.map((o) => o.buyerId)).size;
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(`/api/vendor/analytics?period=${encodeURIComponent(period)}`, { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Failed to load analytics');
+        if (!cancelled) setData(json);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load analytics');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, period]);
 
+  if (!user) return null;
+
+  const totalRevenue = Number(data?.totalRevenue ?? 0);
+  const totalOrders = Number(data?.totalOrders ?? 0);
+  const avgOrderValue = Number(data?.avgOrderValue ?? 0);
+  const uniqueBuyers = Number(data?.uniqueBuyers ?? 0);
+  const monthlyRevenue = Array.isArray(data?.monthlyRevenue) ? data.monthlyRevenue : [{ month: '—', revenue: 0 }];
+  const orderStatusCounts = data?.orderStatusCounts && typeof data.orderStatusCounts === 'object' ? data.orderStatusCounts : {};
   const orderStatusData = useMemo(
-    () =>
-      Object.entries(
-        vendorOrders.reduce<Record<string, number>>((acc, o) => {
-          acc[o.status] = (acc[o.status] ?? 0) + 1;
-          return acc;
-        }, {}),
-      ).map(([name, value]) => ({ name, value })),
-    [vendorOrders],
+    () => Object.entries(orderStatusCounts).map(([name, value]) => ({ name, value: Number(value) || 0 })),
+    [orderStatusCounts],
   );
 
-  const topProducts = useMemo(
-    () =>
-      vendorProducts.slice(0, 5).map((p, i) => {
-        const shares = [0.35, 0.25, 0.20, 0.12, 0.08];
-        const revenue = Math.round(totalRevenue * (shares[i] ?? 0));
-        const pct = Math.round((shares[i] ?? 0) * 100);
-        return {
-          name: p.name.length > 26 ? p.name.slice(0, 26) + '…' : p.name,
-          revenue,
-          pct,
-        };
-      }),
-    [vendorProducts, totalRevenue],
-  );
+  const topProducts = useMemo(() => {
+    const raw = Array.isArray(data?.topProducts) ? data.topProducts : [];
+    const denom = totalRevenue > 0 ? totalRevenue : 1;
+    return raw.slice(0, 5).map((p: any) => {
+      const name = String(p.name ?? 'Product');
+      const revenue = Number(p.revenue ?? 0);
+      const pct = Math.max(0, Math.min(100, Math.round((revenue / denom) * 100)));
+      return {
+        name: name.length > 26 ? name.slice(0, 26) + '…' : name,
+        revenue,
+        pct,
+      };
+    });
+  }, [data, totalRevenue]);
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -161,7 +168,7 @@ export default function VendorAnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Performance overview for {vendor.companyName}
+            Performance overview for your storefront
           </p>
         </div>
         <div className="flex rounded-lg border border-border overflow-hidden w-fit">
@@ -182,6 +189,17 @@ export default function VendorAnalyticsPage() {
         </div>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading analytics…</span>
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
@@ -194,8 +212,8 @@ export default function VendorAnalyticsPage() {
         />
         <StatCard
           title="Total Orders"
-          value={vendorOrders.length}
-          sub={`${vendorOrders.filter((o) => o.status === 'pending').length} awaiting action`}
+          value={totalOrders}
+          sub={`${Number(orderStatusCounts?.pending ?? 0)} awaiting action`}
           icon={ShoppingBag}
           iconBg="bg-primary"
           trend={8}
@@ -232,7 +250,7 @@ export default function VendorAnalyticsPage() {
           </CardHeader>
           <CardContent className="pt-2">
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={MONTHLY_DATA} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="vendorRevenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2} />

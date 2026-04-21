@@ -93,7 +93,21 @@ export async function POST(request: Request) {
       )
     if (roleErr) throw roleErr
 
-    // 2. Ensure the profile row exists for this portal.
+    // 2. Sync the role into app_metadata.roles so the middleware's JWT-based
+    //    access checks (e.g. hasVendorAccess) see it immediately.
+    const { data: existingUserData } = await admin.auth.admin.getUserById(user.id)
+    const existingMeta = existingUserData?.user?.app_metadata ?? {}
+    const existingRoles: string[] = Array.isArray(existingMeta.roles) ? existingMeta.roles : []
+    if (!existingRoles.includes(portal)) {
+      await admin.auth.admin.updateUserById(user.id, {
+        app_metadata: {
+          ...existingMeta,
+          roles: [...existingRoles, portal],
+        },
+      })
+    }
+
+    // 3. Ensure the profile row exists for this portal.
     if (portal === 'buyer') {
       const name =
         (typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||

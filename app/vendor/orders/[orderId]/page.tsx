@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { use } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  Loader2,
   MapPin,
   Package,
   PackageCheck,
@@ -19,8 +20,6 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
-import { getBuyerLabel, getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
-import { mockOrders, mockProducts, mockUsers } from '@/lib/mock-data';
 
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
@@ -37,6 +36,27 @@ const STATUS_META: Record<
 
 const STEPS: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered'];
 
+type VendorOrderDetail = {
+  id: string;
+  buyerId: string;
+  status: OrderStatus;
+  totalAmount: number;
+  shippingAddress: string;
+  notes: string;
+  estimatedDelivery: string | null;
+  createdAt: string;
+  buyer: { id: string; email: string; name: string | null; phone: string | null } | null;
+  items: {
+    id: string;
+    productId: string;
+    productName: string | null;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    createdAt: string;
+  }[];
+};
+
 export default function VendorOrderDetailPage({
   params,
 }: {
@@ -45,11 +65,72 @@ export default function VendorOrderDetailPage({
   const { orderId } = use(params);
   const { user } = useAuth();
 
-  const vendor = getVendorProfileForConsole(user);
-  const order = mockOrders.find((o) => o.id === orderId);
-  const buyer = order ? mockUsers.find((u) => u.id === order.buyerId) : null;
+  const [order, setOrder] = useState<VendorOrderDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [updating, setUpdating] = useState<OrderStatus | null>(null);
 
-  if (!vendor || !order || order.vendorId !== vendor.id) {
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`, { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Failed to load order');
+        if (!cancelled) setOrder(json?.order ?? null);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load order');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, orderId]);
+
+  const buyerLabel = useMemo(() => {
+    if (!order) return '';
+    return order.buyer?.name || order.buyer?.email?.split('@')?.[0] || 'Buyer';
+  }, [order]);
+
+  const handleSetStatus = async (next: OrderStatus) => {
+    if (!order) return;
+    setUpdating(next);
+    setError('');
+    try {
+      const res = await fetch(`/api/vendor/orders/${encodeURIComponent(order.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: next }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to update order');
+      setOrder((prev) => (prev ? { ...prev, status: next } : prev));
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update order');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center py-28 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading order…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !order) {
     return (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <Card className="max-w-md border-border/60">
@@ -58,7 +139,7 @@ export default function VendorOrderDetailPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              This order doesn't exist or doesn't belong to your account.
+              {error || "This order doesn't exist or doesn't belong to your account."}
             </p>
             <Button asChild variant="outline" size="sm">
               <Link href="/vendor/orders">Back to orders</Link>
@@ -98,10 +179,10 @@ export default function VendorOrderDetailPage({
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               <span className="font-medium text-foreground">
-                {buyer?.company || buyer?.name || getBuyerLabel(order.buyerId)}
+                {buyerLabel}
               </span>
               {' · '}
-              {order.createdAt.toLocaleDateString('en-US', {
+              {new Date(order.createdAt).toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
@@ -175,7 +256,6 @@ export default function VendorOrderDetailPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {order.items.map((line, idx) => {
-              const product = mockProducts.find((p) => p.id === line.productId);
               return (
                 <div
                   key={`${line.productId}-${idx}`}
@@ -186,7 +266,7 @@ export default function VendorOrderDetailPage({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium leading-tight truncate">
-                      {product?.name ?? line.productId}
+                      {line.productName ?? line.productId}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {line.quantity.toLocaleString()} ×{' '}
@@ -212,7 +292,13 @@ export default function VendorOrderDetailPage({
 
         {/* Sidebar: shipping, notes, actions */}
         <div className="md:col-span-2 space-y-4">
-          {order.shippingAddress && (
+          {error ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          {order.shippingAddress ? (
             <Card className="border-border/60">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2 text-sm font-semibold mb-2">
@@ -225,7 +311,7 @@ export default function VendorOrderDetailPage({
                 {order.estimatedDelivery && (
                   <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
                     Est. delivery:{' '}
-                    {order.estimatedDelivery.toLocaleDateString('en-US', {
+                    {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
@@ -234,9 +320,9 @@ export default function VendorOrderDetailPage({
                 )}
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
-          {order.notes && (
+          {order.notes ? (
             <Card className="border-border/60">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-2 text-sm font-semibold mb-2">
@@ -246,7 +332,7 @@ export default function VendorOrderDetailPage({
                 <p className="text-sm text-muted-foreground leading-relaxed">{order.notes}</p>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
           {/* Action buttons */}
           {!isCancelled && status !== 'delivered' && (
@@ -256,26 +342,47 @@ export default function VendorOrderDetailPage({
                   Actions
                 </p>
                 {status === 'pending' && (
-                  <Button className="w-full" size="sm">
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={Boolean(updating)}
+                    onClick={() => handleSetStatus('confirmed')}
+                  >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Confirm Order
+                    {updating === 'confirmed' ? 'Updating…' : 'Confirm Order'}
                   </Button>
                 )}
                 {status === 'confirmed' && (
-                  <Button className="w-full" size="sm">
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={Boolean(updating)}
+                    onClick={() => handleSetStatus('shipped')}
+                  >
                     <Truck className="h-4 w-4 mr-2" />
-                    Mark as Shipped
+                    {updating === 'shipped' ? 'Updating…' : 'Mark as Shipped'}
                   </Button>
                 )}
                 {status === 'shipped' && (
-                  <Button className="w-full" size="sm">
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={Boolean(updating)}
+                    onClick={() => handleSetStatus('delivered')}
+                  >
                     <PackageCheck className="h-4 w-4 mr-2" />
-                    Mark Delivered
+                    {updating === 'delivered' ? 'Updating…' : 'Mark Delivered'}
                   </Button>
                 )}
-                <Button variant="outline" className="w-full" size="sm">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  disabled={Boolean(updating)}
+                  onClick={() => handleSetStatus('cancelled')}
+                >
                   <PackageX className="h-4 w-4 mr-2" />
-                  Cancel Order
+                  {updating === 'cancelled' ? 'Updating…' : 'Cancel Order'}
                 </Button>
               </CardContent>
             </Card>

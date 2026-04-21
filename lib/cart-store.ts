@@ -132,8 +132,11 @@ async function buyerCartPost(body: Record<string, unknown>): Promise<CartState> 
   return data.state;
 }
 
-async function buyerCartGet(): Promise<CartState> {
+// Returns null when the caller is not authenticated as a buyer (401/403),
+// which is a signal to fall back to localStorage — not an error.
+async function buyerCartGet(): Promise<CartState | null> {
   const res = await fetch('/api/buyer/cart', { credentials: 'include' });
+  if (res.status === 401 || res.status === 403) return null;
   const data = (await res.json().catch(() => ({}))) as { state?: CartState; error?: string };
   if (!res.ok) {
     throw new Error(typeof data.error === 'string' ? data.error : 'Failed to load cart');
@@ -397,22 +400,32 @@ export function useCart(): UseCartReturn {
             } else {
               const data = await buyerCartGet();
               if (!cancelled) {
-                setState(data);
-                setServerBacked(true);
+                if (data !== null) {
+                  setState(data);
+                  setServerBacked(true);
+                } else {
+                  setState(safeRead());
+                  setServerBacked(false);
+                }
               }
             }
           } else {
             const data = await buyerCartGet();
             if (!cancelled) {
-              setState(data);
-              setServerBacked(true);
+              if (data !== null) {
+                setState(data);
+                setServerBacked(true);
+              } else {
+                setState(safeRead());
+                setServerBacked(false);
+              }
             }
           }
         } catch (e) {
           console.error('[useCart] buyer hydrate', e);
           if (!cancelled) {
-            setState(EMPTY_STATE);
-            setServerBacked(true);
+            setState(safeRead());
+            setServerBacked(false);
           }
         }
       } else {

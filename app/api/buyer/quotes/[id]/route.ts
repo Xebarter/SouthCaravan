@@ -87,8 +87,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   if (!allowed.has(status)) {
     return NextResponse.json({ error: 'Only accepted/rejected updates allowed' }, { status: 400 });
   }
-  if (quote.status !== 'pending') {
-    return NextResponse.json({ error: 'Quote can no longer be modified' }, { status: 400 });
+
+  const isRfqQuote = Boolean(quote.rfq_request_id);
+  const canDecide =
+    quote.status === 'awaiting_buyer' || (quote.status === 'pending' && !isRfqQuote);
+  if (!canDecide) {
+    return NextResponse.json(
+      { error: 'Wait for the vendor to send their quote before you accept or decline.' },
+      { status: 400 },
+    );
   }
 
   const { data: updated, error } = await supabaseAdmin
@@ -127,7 +134,8 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     return NextResponse.json({ error: lookupError.message }, { status: 500 });
   }
   if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (quote.status !== 'pending') return NextResponse.json({ error: 'Only pending quotes can be deleted' }, { status: 400 });
+  const deletable = quote.status === 'pending' || quote.status === 'awaiting_buyer';
+  if (!deletable) return NextResponse.json({ error: 'Only open quotes can be deleted' }, { status: 400 });
 
   const { error } = await supabaseAdmin.from('quotes').delete().eq('id', id).eq('buyer_id', auth.buyerId);
   if (error) {

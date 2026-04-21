@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MessageSquare, Search, Send } from 'lucide-react';
+import { Loader2, MessageSquare, Search, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { mockConversations, mockMessages, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
-import { getVendorConsoleUserId } from '@/lib/vendor-dashboard-data';
 
 function getInitials(name: string) {
   return name
@@ -53,6 +51,24 @@ function Avatar({ id, name, size = 'md' }: { id: string; name: string; size?: 's
   );
 }
 
+type ConversationItem = {
+  id: string;
+  buyerId: string;
+  buyer: { id: string; email: string; name: string | null } | null;
+  updatedAt: string;
+  lastMessage: { id: string; content: string; createdAt: string; senderId: string } | null;
+  unreadCount: number;
+};
+
+type MessageItem = {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+};
+
 export default function VendorMessagesPage() {
   const { user } = useAuth();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -60,48 +76,114 @@ export default function VendorMessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const vendorUserId = getVendorConsoleUserId(user);
+  const vendorUserId = user?.id ?? '';
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState<string>('');
 
-  const userConversations = mockConversations.filter((c) =>
-    c.participants.includes(vendorUserId),
-  );
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingConversations(true);
+      setError('');
+      try {
+        const res = await fetch('/api/vendor/messages/conversations', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Failed to load conversations');
+        if (!cancelled) setConversations(Array.isArray(json?.conversations) ? json.conversations : []);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load conversations');
+      } finally {
+        if (!cancelled) setLoadingConversations(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
-  const filteredConversations = userConversations.filter((c) => {
-    const otherId = c.participants.find((p) => p !== vendorUserId);
-    const other = mockUsers.find((u) => u.id === otherId);
+  useEffect(() => {
+    if (!user || !selectedConvId) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingMessages(true);
+      setError('');
+      try {
+        const res = await fetch(`/api/vendor/messages/${encodeURIComponent(selectedConvId)}`, { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Failed to load messages');
+        if (!cancelled) setMessages(Array.isArray(json?.messages) ? json.messages : []);
+        // Mark unread as read for this conversation.
+        await fetch(`/api/vendor/messages/${encodeURIComponent(selectedConvId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ markRead: true }),
+        }).catch(() => {});
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load messages');
+      } finally {
+        if (!cancelled) setLoadingMessages(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, selectedConvId]);
+
+  const filteredConversations = conversations.filter((c) => {
+    const otherName = c.buyer?.name ?? '';
+    const otherEmail = c.buyer?.email ?? '';
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      other?.name.toLowerCase().includes(q) ||
-      other?.company?.toLowerCase().includes(q)
+      otherName.toLowerCase().includes(q) ||
+      otherEmail.toLowerCase().includes(q)
     );
   });
 
   const selectedConv = selectedConvId
-    ? userConversations.find((c) => c.id === selectedConvId) ?? null
+    ? conversations.find((c) => c.id === selectedConvId) ?? null
     : null;
 
-  const convMessages = selectedConv
-    ? mockMessages
-        .filter((m) => m.conversationId === selectedConv.id)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    : [];
-
-  const otherUserId = selectedConv?.participants.find((p) => p !== vendorUserId);
-  const otherUser = otherUserId ? mockUsers.find((u) => u.id === otherUserId) : null;
-
-  const totalUnread = mockMessages.filter(
-    (m) => m.recipientId === vendorUserId && !m.read,
-  ).length;
+  const otherUser = selectedConv?.buyer ?? null;
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [convMessages.length]);
+  }, [messages.length]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageText.trim() || !selectedConvId) return;
+    const content = messageText.trim();
     setMessageText('');
+    setError('');
+    try {
+      const res = await fetch(`/api/vendor/messages/${encodeURIComponent(selectedConvId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to send message');
+      const msg = json?.message;
+      if (msg?.id) setMessages((prev) => [...prev, msg]);
+      // Refresh conversation list (unread counts + last message).
+      fetch('/api/vendor/messages/conversations', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((j) => setConversations(Array.isArray(j?.conversations) ? j.conversations : []))
+        .catch(() => {});
+    } catch (e: any) {
+      setError(e?.message || 'Failed to send message');
+    }
   };
+
+  if (!user) return null;
 
   return (
     <div className="flex flex-col w-full px-4 sm:px-6 lg:px-8 py-8" style={{ height: 'calc(100dvh - 4rem)' }}>
@@ -114,6 +196,12 @@ export default function VendorMessagesPage() {
             : 'All caught up'}
         </p>
       </div>
+
+      {error ? (
+        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
 
       {/* Split pane */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 flex-1 min-h-0">
@@ -134,7 +222,12 @@ export default function VendorMessagesPage() {
 
           {/* List */}
           <ScrollArea className="flex-1 min-h-0">
-            {filteredConversations.length === 0 ? (
+            {loadingConversations ? (
+              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <p className="text-xs">Loading conversations…</p>
+              </div>
+            ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center px-4">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/40 mb-3" />
                 <p className="text-xs text-muted-foreground">No conversations found</p>
@@ -142,18 +235,10 @@ export default function VendorMessagesPage() {
             ) : (
               <div className="p-2 space-y-0.5">
                 {filteredConversations.map((conv) => {
-                  const otherId = conv.participants.find((p) => p !== vendorUserId);
-                  const other = mockUsers.find((u) => u.id === otherId);
-                  const lastMsg = mockMessages
-                    .filter((m) => m.conversationId === conv.id)
-                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+                  const other = conv.buyer;
+                  const lastMsg = conv.lastMessage;
                   const isSelected = selectedConvId === conv.id;
-                  const hasUnread = mockMessages.some(
-                    (m) =>
-                      m.conversationId === conv.id &&
-                      m.recipientId === vendorUserId &&
-                      !m.read,
-                  );
+                  const hasUnread = (conv.unreadCount ?? 0) > 0;
 
                   return (
                     <button
@@ -177,7 +262,7 @@ export default function VendorMessagesPage() {
                               isSelected ? 'text-primary-foreground' : '',
                             )}
                           >
-                            {other?.name}
+                            {other?.name ?? other?.email ?? 'Buyer'}
                           </span>
                           <span
                             className={cn(
@@ -187,7 +272,7 @@ export default function VendorMessagesPage() {
                                 : 'text-muted-foreground',
                             )}
                           >
-                            {conv.updatedAt.toLocaleDateString('en-US', {
+                            {new Date(conv.updatedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                             })}
@@ -208,7 +293,7 @@ export default function VendorMessagesPage() {
                             <span className="shrink-0 h-2 w-2 rounded-full bg-primary" />
                           )}
                         </div>
-                        {other?.company && (
+                        {other?.email && (
                           <p
                             className={cn(
                               'text-[10px] truncate mt-0.5',
@@ -217,7 +302,7 @@ export default function VendorMessagesPage() {
                                 : 'text-muted-foreground/70',
                             )}
                           >
-                            {other.company}
+                            {other.email}
                           </p>
                         )}
                       </div>
@@ -247,12 +332,17 @@ export default function VendorMessagesPage() {
               {/* Messages */}
               <ScrollArea className="flex-1 min-h-0">
                 <div className="px-5 py-4 space-y-4">
-                  {convMessages.length === 0 ? (
+                  {loadingMessages ? (
+                    <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <p className="text-xs">Loading messages…</p>
+                    </div>
+                  ) : messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <p className="text-sm text-muted-foreground">No messages yet. Say hello!</p>
                     </div>
                   ) : (
-                    convMessages.map((msg) => {
+                    messages.map((msg) => {
                       const isMine = msg.senderId === vendorUserId;
                       return (
                         <div
@@ -279,7 +369,7 @@ export default function VendorMessagesPage() {
                                   : 'text-muted-foreground',
                               )}
                             >
-                              {msg.createdAt.toLocaleTimeString('en-US', {
+                              {new Date(msg.createdAt).toLocaleTimeString('en-US', {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}

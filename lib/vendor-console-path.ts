@@ -6,6 +6,7 @@
 const VENDOR_CONSOLE_ROOT_SEGMENTS = new Set([
   'products',
   'orders',
+  'quotes',
   'messages',
   'analytics',
   'settings',

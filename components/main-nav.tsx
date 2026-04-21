@@ -56,6 +56,7 @@ export function MainNav() {
         { label: 'Dashboard', href: '/vendor', icon: Home },
         { label: 'Products', href: '/vendor/products', icon: Package },
         { label: 'Orders', href: '/vendor/orders', icon: ShoppingCart },
+        { label: 'Quotes', href: '/vendor/quotes', icon: FileText },
         { label: 'Messages', href: '/vendor/messages', icon: MessageSquare },
         { label: 'Analytics', href: '/vendor/analytics', icon: BarChart3 },
         { label: 'Settings', href: '/vendor/settings', icon: Settings },

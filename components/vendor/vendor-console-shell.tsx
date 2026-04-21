@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   BarChart3,
   ExternalLink,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/vendor/orders',    label: 'Orders',    icon: ShoppingCart },
+  { href: '/vendor/quotes',    label: 'Quotes',    icon: FileText },
   { href: '/vendor/messages',  label: 'Messages',  icon: MessageSquare },
   { href: '/vendor/products',  label: 'Products',  icon: Package },
   { href: '/vendor/analytics', label: 'Analytics', icon: BarChart3 },

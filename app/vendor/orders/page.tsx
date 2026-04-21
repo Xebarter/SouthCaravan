@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Loader2,
   PackageCheck,
   PackageX,
   ShoppingBag,
@@ -17,9 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
-import { mockOrders, mockUsers } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
-import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 const ALL_TABS = ['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
@@ -33,38 +32,68 @@ const STATUS_META: Record<OrderStatus, { label: string; badgeCn: string; icon: R
   cancelled: { label: 'Cancelled', badgeCn: 'bg-red-500/10 text-red-500 border-red-500/20',                               icon: PackageX },
 };
 
+type VendorOrderListItem = {
+  id: string;
+  buyerId: string;
+  buyer: { id: string; email: string; name: string | null } | null;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  itemsCount: number;
+};
+
 export default function VendorOrdersPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [orders, setOrders] = useState<VendorOrderListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  const vendor = getVendorProfileForConsole(user);
-  if (!vendor) return null;
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(`/api/vendor/orders?status=${encodeURIComponent(activeTab)}`, {
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Failed to load orders');
+        const next = Array.isArray(json?.orders) ? json.orders : [];
+        if (!cancelled) setOrders(next);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load orders');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, activeTab]);
 
-  const vendorOrders = mockOrders.filter((o) => o.vendorId === vendor.id);
-  const totalRevenue = vendorOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalRevenue = useMemo(
+    () => orders.reduce((sum, o) => sum + Number(o.totalAmount ?? 0), 0),
+    [orders],
+  );
 
   const counts = useMemo(
     () =>
       ALL_TABS.reduce<Record<Tab, number>>(
         (acc, tab) => {
-          acc[tab] =
-            tab === 'all'
-              ? vendorOrders.length
-              : vendorOrders.filter((o) => o.status === tab).length;
+          acc[tab] = tab === 'all' ? orders.length : orders.filter((o) => o.status === tab).length;
           return acc;
         },
         {} as Record<Tab, number>,
       ),
-    [vendorOrders],
+    [orders],
   );
 
-  const filtered = useMemo(
-    () =>
-      activeTab === 'all'
-        ? vendorOrders
-        : vendorOrders.filter((o) => o.status === activeTab),
-    [vendorOrders, activeTab],
-  );
+  const filtered = orders;
+
+  if (!user) return null;
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -82,7 +111,7 @@ export default function VendorOrdersPage() {
           [
             {
               label: 'Total orders',
-              value: vendorOrders.length,
+              value: orders.length,
               icon: ShoppingBag,
               color: 'bg-primary',
             },
@@ -156,7 +185,16 @@ export default function VendorOrdersPage() {
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-28 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading orders…</span>
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-28 text-center">
           <div className="rounded-full bg-secondary p-5 mb-5">
             <ShoppingBag className="h-8 w-8 text-muted-foreground/50" />
@@ -199,9 +237,10 @@ export default function VendorOrdersPage() {
               </thead>
               <tbody className="divide-y divide-border/40">
                 {filtered.map((order) => {
-                  const buyer = mockUsers.find((u) => u.id === order.buyerId);
                   const meta = STATUS_META[order.status as OrderStatus];
                   const StatusIcon = meta?.icon;
+                  const buyerName =
+                    order.buyer?.name || order.buyer?.email?.split('@')?.[0] || 'Buyer';
                   return (
                     <tr
                       key={order.id}
@@ -212,21 +251,21 @@ export default function VendorOrdersPage() {
                       </td>
                       <td className="px-5 py-4">
                         <p className="font-medium text-sm leading-tight">
-                          {buyer?.company || buyer?.name}
+                          {buyerName}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[180px]">
-                          {buyer?.email}
+                          {order.buyer?.email ?? ''}
                         </p>
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
-                        {order.createdAt.toLocaleDateString('en-US', {
+                        {new Date(order.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                         })}
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
-                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                        {order.itemsCount} item{order.itemsCount !== 1 ? 's' : ''}
                       </td>
                       <td className="px-5 py-4 font-semibold tabular-nums text-sm">
                         <Money amountUSD={order.totalAmount} />

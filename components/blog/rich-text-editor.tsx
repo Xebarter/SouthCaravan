@@ -22,7 +22,7 @@ import {
   Undo,
   Redo,
   Link as LinkIcon,
-  LinkOff,
+  Unlink,
   Code2,
 } from 'lucide-react';
 
@@ -201,7 +201,7 @@ function Toolbar({ editor }: { editor: Editor }) {
           title="Remove link"
           onClick={() => editor.chain().focus().unsetLink().run()}
         >
-          <LinkOff className="h-3.5 w-3.5" />
+          <Unlink className="h-3.5 w-3.5" />
         </ToolbarButton>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
+import { isUuid } from '@/lib/is-uuid';
 
 function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
@@ -35,10 +36,42 @@ export async function POST(req: NextRequest) {
 
   const vendorUserId = asString((body as any).vendorUserId).trim();
   if (!vendorUserId) return NextResponse.json({ error: 'Missing vendorUserId' }, { status: 400 });
+  if (!isUuid(vendorUserId)) return NextResponse.json({ error: 'Invalid vendorUserId' }, { status: 400 });
 
   const validUntil = (body as any).validUntil ?? null;
   const items = Array.isArray((body as any).items) ? (body as any).items : [];
   if (items.length === 0) return NextResponse.json({ error: 'At least one item is required' }, { status: 400 });
+
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((it: any) => (it?.productId ? String(it.productId).trim() : ''))
+        .filter((id: string) => id && isUuid(id)),
+    ),
+  );
+  if (productIds.length > 0) {
+    const { data: products, error: pErr } = await supabaseAdmin
+      .from('products')
+      .select('id,vendor_id')
+      .in('id', productIds);
+    if (pErr) {
+      console.error('[buyer/quotes POST validate products]', pErr);
+      return NextResponse.json({ error: pErr.message }, { status: 500 });
+    }
+    const byId: Record<string, string> = {};
+    for (const p of products ?? []) {
+      if (p?.id) byId[String(p.id)] = p.vendor_id ? String(p.vendor_id).trim() : '';
+    }
+    for (const pid of productIds) {
+      const vid = byId[pid];
+      if (!vid || vid !== vendorUserId) {
+        return NextResponse.json(
+          { error: 'Each product must belong to the vendor you are requesting.' },
+          { status: 400 },
+        );
+      }
+    }
+  }
 
   const { data: quote, error: createError } = await supabaseAdmin
     .from('quotes')

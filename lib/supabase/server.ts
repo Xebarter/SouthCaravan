@@ -14,7 +14,7 @@ export async function getServerSupabaseClient() {
       setAll(cookiesToSet) {
         try {
           for (const cookie of cookiesToSet) {
-            cookieStore.set(cookie)
+            cookieStore.set(cookie.name, cookie.value, cookie.options)
           }
         } catch {
           // Server Components cannot set cookies. (This is fine in read-only contexts.)

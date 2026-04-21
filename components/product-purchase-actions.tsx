@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { setCheckoutLineItems, type CheckoutLineItem } from '@/lib/checkout-session';
 import { addToCart } from '@/lib/cart-store';
+import { useAuth } from '@/lib/auth-context';
 
 export type ProductPurchaseActionsProps = {
   productId: string;
@@ -21,6 +22,8 @@ export type ProductPurchaseActionsProps = {
   inStock: boolean;
   vendorLabel: string;
   imageUrl?: string;
+  /** False for platform-owned SKUs without a vendor auth id */
+  rfqEnabled?: boolean;
 };
 
 export function ProductPurchaseActions({
@@ -32,8 +35,10 @@ export function ProductPurchaseActions({
   inStock,
   vendorLabel,
   imageUrl,
+  rfqEnabled = true,
 }: ProductPurchaseActionsProps) {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [quantity, setQuantity] = useState(Math.max(1, minimumOrder));
   const [busy, setBusy] = useState(false);
 
@@ -56,6 +61,20 @@ export function ProductPurchaseActions({
     };
     setCheckoutLineItems([line]);
     router.push('/checkout');
+  };
+
+  const handleRequestQuote = () => {
+    if (!inStock || !rfqEnabled || authLoading) return;
+    const qty = clampQty(quantity);
+    const next = `/buyer/quotes?add=${encodeURIComponent(productId)}&qty=${encodeURIComponent(String(qty))}`;
+    if (user?.role === 'buyer') {
+      router.push(next);
+      return;
+    }
+    const qs = new URLSearchParams();
+    qs.set('role', 'buyer');
+    qs.set('next', next);
+    router.push(`/login?${qs.toString()}`);
   };
 
   const handleAddToCart = async () => {
@@ -166,8 +185,14 @@ export function ProductPurchaseActions({
             </>
           )}
         </Button>
-        <Button asChild variant="outline" className="rounded-full px-5 border-slate-300">
-          <Link href="/login">Request quotation</Link>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-full px-5 border-slate-300"
+          disabled={!inStock || !rfqEnabled || authLoading}
+          onClick={handleRequestQuote}
+        >
+          Request quotation
         </Button>
         <Button asChild variant="outline" className="rounded-full px-5 border-slate-300">
           <Link href="/login">Contact supplier</Link>

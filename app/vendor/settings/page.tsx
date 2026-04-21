@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   Building2,
   Globe,
+  Loader2,
   Lock,
   Mail,
   MapPin,
@@ -24,7 +25,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
-import { getVendorProfileForConsole } from '@/lib/vendor-dashboard-data';
 
 type NotifKey = 'orders' | 'quotes' | 'messages' | 'marketing';
 
@@ -39,10 +39,27 @@ function getInitials(name: string) {
   return name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2);
 }
 
+type VendorProfileApi = {
+  user_id: string;
+  company_name: string;
+  description: string;
+  public_email: string;
+  contact_email: string;
+  phone: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+};
+
 export default function VendorSettingsPage() {
   const { user } = useAuth();
-  const vendor = getVendorProfileForConsole(user);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [profile, setProfile] = useState<VendorProfileApi | null>(null);
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
     orders: true,
     quotes: true,
@@ -50,13 +67,106 @@ export default function VendorSettingsPage() {
     marketing: false,
   });
 
-  if (!vendor) return null;
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    ;(async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [profileRes, prefsRes] = await Promise.all([
+          fetch('/api/vendor/profile', { cache: 'no-store' }),
+          fetch('/api/vendor/notification-prefs', { cache: 'no-store' }),
+        ]);
+        const profileJson = await profileRes.json().catch(() => ({}));
+        const prefsJson = await prefsRes.json().catch(() => ({}));
+        if (!profileRes.ok) throw new Error(profileJson?.error ?? 'Failed to load profile');
+        if (!prefsRes.ok) throw new Error(prefsJson?.error ?? 'Failed to load notification preferences');
+        if (!cancelled) {
+          setProfile(profileJson?.profile ?? null);
+          const p = prefsJson?.prefs ?? {};
+          setNotifs({
+            orders: Boolean(p.orders),
+            quotes: Boolean(p.quotes),
+            messages: Boolean(p.messages),
+            marketing: Boolean(p.marketing),
+          });
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load settings');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const vendorDisplay = useMemo(() => {
+    const companyName = profile?.company_name || user?.email?.split('@')?.[0] || 'Vendor';
+    const email = profile?.public_email || user?.email || '';
+    return { companyName, email };
+  }, [profile, user]);
+
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-3xl">
+        <div className="flex items-center gap-2 text-muted-foreground py-24 justify-center">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Loading settings…</span>
+        </div>
+      </div>
+    );
+  }
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    toast.success('Settings saved');
+    setError('');
+    try {
+      const profilePayload = profile
+        ? {
+            companyName: profile.company_name,
+            description: profile.description,
+            publicEmail: profile.public_email,
+            phone: profile.phone,
+            website: profile.website,
+            address: profile.address,
+            city: profile.city,
+            state: profile.state,
+            zipCode: profile.zip_code,
+            country: profile.country,
+          }
+        : {};
+
+      const [profileRes, prefsRes] = await Promise.all([
+        fetch('/api/vendor/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profilePayload),
+        }),
+        fetch('/api/vendor/notification-prefs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notifs),
+        }),
+      ]);
+
+      const profileJson = await profileRes.json().catch(() => ({}));
+      const prefsJson = await prefsRes.json().catch(() => ({}));
+      if (!profileRes.ok) throw new Error(profileJson?.error ?? 'Failed to save profile');
+      if (!prefsRes.ok) throw new Error(prefsJson?.error ?? 'Failed to save notification preferences');
+
+      setProfile(profileJson?.profile ?? profile);
+      toast.success('Settings saved');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save settings');
+      toast.error(e?.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -68,6 +178,12 @@ export default function VendorSettingsPage() {
           Manage your business profile and account preferences
         </p>
       </div>
+
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
 
       <Tabs defaultValue="profile">
         <TabsList>
@@ -92,11 +208,11 @@ export default function VendorSettingsPage() {
             <CardContent className="pt-6 pb-6">
               <div className="flex items-center gap-5">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold select-none">
-                  {getInitials(vendor.companyName)}
+                  {getInitials(vendorDisplay.companyName)}
                 </div>
                 <div>
-                  <p className="font-semibold text-base">{vendor.companyName}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">{vendor.email}</p>
+                  <p className="font-semibold text-base">{vendorDisplay.companyName}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{vendorDisplay.email}</p>
                   <Button variant="outline" size="sm" className="mt-2.5 h-7 text-xs gap-1.5">
                     <Upload className="h-3 w-3" />
                     Upload logo
@@ -124,7 +240,8 @@ export default function VendorSettingsPage() {
                 </Label>
                 <Input
                   id="vendor-company-name"
-                  defaultValue={vendor.companyName}
+                  value={profile?.company_name ?? ''}
+                  onChange={(e) => setProfile((p) => (p ? { ...p, company_name: e.target.value } : p))}
                   className="max-w-lg"
                 />
               </div>
@@ -135,7 +252,8 @@ export default function VendorSettingsPage() {
                 <Textarea
                   id="vendor-desc"
                   rows={3}
-                  defaultValue={vendor.description}
+                  value={profile?.description ?? ''}
+                  onChange={(e) => setProfile((p) => (p ? { ...p, description: e.target.value } : p))}
                   className="max-w-lg resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -148,14 +266,23 @@ export default function VendorSettingsPage() {
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                     Public email
                   </Label>
-                  <Input id="vendor-email" type="email" defaultValue={vendor.email} />
+                  <Input
+                    id="vendor-email"
+                    type="email"
+                    value={profile?.public_email ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, public_email: e.target.value } : p))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="vendor-phone" className="text-sm flex items-center gap-1.5">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                     Phone
                   </Label>
-                  <Input id="vendor-phone" defaultValue={vendor.phone ?? ''} />
+                  <Input
+                    id="vendor-phone"
+                    value={profile?.phone ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, phone: e.target.value } : p))}
+                  />
                 </div>
               </div>
               <div className="space-y-1.5 max-w-lg">
@@ -165,7 +292,8 @@ export default function VendorSettingsPage() {
                 </Label>
                 <Input
                   id="vendor-website"
-                  defaultValue={vendor.website ?? ''}
+                  value={profile?.website ?? ''}
+                  onChange={(e) => setProfile((p) => (p ? { ...p, website: e.target.value } : p))}
                   placeholder="https://"
                 />
               </div>
@@ -186,20 +314,36 @@ export default function VendorSettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1.5 max-w-lg">
                 <Label htmlFor="vendor-address" className="text-sm">Street address</Label>
-                <Input id="vendor-address" defaultValue={vendor.address} />
+                <Input
+                  id="vendor-address"
+                  value={profile?.address ?? ''}
+                  onChange={(e) => setProfile((p) => (p ? { ...p, address: e.target.value } : p))}
+                />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg">
                 <div className="col-span-2 space-y-1.5">
                   <Label htmlFor="vendor-city" className="text-sm">City</Label>
-                  <Input id="vendor-city" defaultValue={vendor.city} />
+                  <Input
+                    id="vendor-city"
+                    value={profile?.city ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, city: e.target.value } : p))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="vendor-state" className="text-sm">State</Label>
-                  <Input id="vendor-state" defaultValue={vendor.state} />
+                  <Input
+                    id="vendor-state"
+                    value={profile?.state ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, state: e.target.value } : p))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="vendor-zip" className="text-sm">ZIP</Label>
-                  <Input id="vendor-zip" defaultValue={vendor.zipCode} />
+                  <Input
+                    id="vendor-zip"
+                    value={profile?.zip_code ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, zip_code: e.target.value } : p))}
+                  />
                 </div>
               </div>
             </CardContent>

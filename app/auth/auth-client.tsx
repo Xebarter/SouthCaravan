@@ -21,11 +21,27 @@ type Mode = 'signin' | 'signup' | 'forgot'
 type PortalMatch = PortalRole | 'unknown'
 
 function getDefaultNext(role: PortalRole) {
-  if (role === 'buyer') return '/buyer'
+  if (role === 'buyer') return '/'
   if (role === 'vendor') return '/vendor/orders'
   if (role === 'services') return '/services/orders'
   if (role === 'admin') return '/admin'
   return '/'
+}
+
+function safeNextPath(input: string | null | undefined, role: PortalRole) {
+  const fallback = getDefaultNext(role)
+  const raw = (input ?? '').trim()
+  if (!raw) return fallback
+
+  // Only allow internal absolute paths.
+  if (!raw.startsWith('/')) return fallback
+
+  // Avoid redirect loops back to auth/login entrypoints.
+  if (raw === '/auth' || raw.startsWith('/auth?') || raw === '/login' || raw.startsWith('/login?')) {
+    return fallback
+  }
+
+  return raw
 }
 
 function hasAdminAccess(user: any) {
@@ -43,6 +59,12 @@ function portalLabel(role: PortalRole): string {
 function portalTitleCase(role: PortalRole): string {
   const label = portalLabel(role)
   return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+function userRequestedPortalAtSignup(user: any, role: PortalRole): boolean {
+  if (!user || role === 'admin') return false
+  const metaRole = typeof user?.user_metadata?.role === 'string' ? user.user_metadata.role : ''
+  return metaRole.toLowerCase() === role
 }
 
 async function fetchHasPortalAccess(role: PortalRole): Promise<boolean> {
@@ -205,11 +227,11 @@ async function gateBuyerPhoneIfNeeded(email: string): Promise<{ needsPhone: bool
 }
 
 export default function AuthClient() {
-  const router = useRouter()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   const role = (searchParams.get('role') as PortalRole) || 'buyer'
-  const next = searchParams.get('next') || getDefaultNext(role)
+  const next = safeNextPath(searchParams.get('next'), role)
   const errorParam = searchParams.get('error') || ''
   const requestedMode = (searchParams.get('mode') as Mode) || 'signin'
 
@@ -282,11 +304,28 @@ export default function AuthClient() {
           return
         }
 
-        const hasAccess = await fetchHasPortalAccess(role)
+        let hasAccess = await fetchHasPortalAccess(role)
         if (cancelled) return
         if (hasAccess) {
           router.replace(next)
           return
+        }
+
+        // If the user originally requested this portal during sign-up (via
+        // user_metadata.role), grant it automatically on their first session.
+        // This fixes the "vendor signed up but no vendor access yet" loop that
+        // can happen after email confirmation.
+        if (userRequestedPortalAtSignup(user, role)) {
+          const granted = await grantPortalAccess(role)
+          if (cancelled) return
+          if (granted.ok) {
+            hasAccess = await fetchHasPortalAccess(role)
+            if (cancelled) return
+            if (hasAccess) {
+              router.replace(next)
+              return
+            }
+          }
         }
 
         // Signed in but no role for this portal: offer to add it. This is
@@ -300,7 +339,7 @@ export default function AuthClient() {
     return () => {
       cancelled = true
     }
-  }, [role, next, router])
+  }, [role, next])
 
   const handleSignOutAndContinue = async () => {
     setBusy(true)
@@ -358,14 +397,31 @@ export default function AuthClient() {
           return { ok: false as const }
         }
       } else {
-        // Role-membership gate: signing in with valid credentials is NOT
-        // enough. The user must have been granted this portal role.
         const hasAccess = await fetchHasPortalAccess(role)
         if (!hasAccess) {
-          // Keep the session alive only for the grant action; the UI now
-          // asks the user to confirm creating a portal account with this email.
-          setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
-          return { ok: false as const }
+          if (role === 'buyer') {
+            // Buyer access is granted automatically on successful sign-in:
+            // the user proved their identity and chose the buyer portal.
+            const granted = await grantPortalAccess('buyer')
+            if (!granted.ok) {
+              setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
+              return { ok: false as const }
+            }
+          } else {
+            // If they requested this portal during sign-up (user_metadata.role),
+            // grant it automatically on sign-in; otherwise require explicit
+            // upgrade confirmation.
+            if (userRequestedPortalAtSignup(user, role)) {
+              const granted = await grantPortalAccess(role)
+              if (!granted.ok) {
+                setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
+                return { ok: false as const }
+              }
+            } else {
+              setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
+              return { ok: false as const }
+            }
+          }
         }
       }
 
@@ -805,7 +861,7 @@ export default function AuthClient() {
                 type="button"
                 className={authSecondaryButtonClassName}
                 disabled={busy}
-                onClick={() => router.replace(getDefaultNext(sessionConflict.activePortal as PortalRole))}
+                onClick={() => window.location.replace(getDefaultNext(sessionConflict.activePortal as PortalRole))}
               >
                 Stay in current portal
               </button>

@@ -38,6 +38,7 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
                 id: row.id,
                 vendorId: row.vendor_user_id,
                 buyerId: row.buyer_id,
+                rfqRequestId: row.rfq_request_id ?? null,
                 totalAmount: Number(row.total_amount ?? 0),
                 validUntil: row.valid_until ? new Date(row.valid_until) : new Date(),
                 status: row.status,
@@ -89,12 +90,20 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
 
   const quotePillMap: Record<string, string> = {
     pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    awaiting_buyer: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
     accepted: 'bg-green-500/10 text-green-400 border-green-500/20',
     rejected: 'bg-red-500/10 text-red-400 border-red-500/20',
     expired: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   };
 
-  const canRespond = quote.status === 'pending';
+  const isRfqQuote = Boolean((quote as any).rfqRequestId);
+  const canRespond =
+    quote.status === 'awaiting_buyer' || (quote.status === 'pending' && !isRfqQuote);
+
+  const statusLabel =
+    quote.status === 'awaiting_buyer'
+      ? 'Ready for decision'
+      : quote.status.charAt(0).toUpperCase() + quote.status.slice(1).replace(/_/g, ' ');
 
   return (
     <div className="space-y-8 pb-12">
@@ -124,16 +133,14 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Quote Summary</span>
-                <Badge className={quotePillMap[quote.status]}>
-                  {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
-                </Badge>
+                <Badge className={quotePillMap[quote.status] ?? quotePillMap.pending}>{statusLabel}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total</span>
                 <span className="font-semibold text-primary">
-                  <Money amountUSD={quote.totalAmount} />
+                  <Money amount={quote.totalAmount} />
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -160,10 +167,10 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">
-                            <Money amountUSD={line.subtotal} />
+                            <Money amount={line.subtotal} />
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            <Money amountUSD={line.unitPrice} /> each
+                            <Money amount={line.unitPrice} /> each
                           </p>
                         </div>
                       </div>
@@ -245,11 +252,23 @@ export default function BuyerQuoteDetailPage({ params }: { params: { id: string 
                     Convert to Order
                   </Button>
                 </Link>
+              ) : quote.status === 'pending' && isRfqQuote ? (
+                <div className="text-sm text-muted-foreground">
+                  Waiting for the vendor to send their quote. You can open the RFQ workspace to see other suppliers.
+                </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
                   This quote can no longer be modified. You can view it or message the vendor.
                 </div>
               )}
+
+              {(quote as any).rfqRequestId ? (
+                <Link href={`/buyer/rfqs/${(quote as any).rfqRequestId}`}>
+                  <Button variant="secondary" size="sm" className="w-full rounded-xl">
+                    Open RFQ workspace
+                  </Button>
+                </Link>
+              ) : null}
 
               <Link href="/buyer/messages">
                 <Button variant="outline" size="sm" className="w-full">
