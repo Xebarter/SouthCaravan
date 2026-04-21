@@ -214,21 +214,21 @@ export function Header() {
                   ) : (
                     <>
                       <Link
-                        href="/auth?role=buyer&next=/buyer"
+                        href="/auth?role=buyer&next=/buyer&mode=signup"
                         className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                         onClick={() => setProfileMenuOpen(false)}
                       >
                         Join as Buyer
                       </Link>
                       <Link
-                        href="/auth?role=vendor&next=/vendor"
+                        href="/auth?role=vendor&next=/vendor&mode=signup"
                         className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                         onClick={() => setProfileMenuOpen(false)}
                       >
                         Join as Vendor
                       </Link>
                       <Link
-                        href="/auth?role=services&next=/services/orders"
+                        href="/auth?role=services&next=/services/orders&mode=signup"
                         className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                         onClick={() => setProfileMenuOpen(false)}
                       >
@@ -355,21 +355,21 @@ export function Header() {
                 ) : (
                   <>
                     <Link
-                      href="/auth?role=buyer&next=/buyer"
+                      href="/auth?role=buyer&next=/buyer&mode=signup"
                       className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                       onClick={() => setProfileMenuOpen(false)}
                     >
                       Join as Buyer
                     </Link>
                     <Link
-                      href="/auth?role=vendor&next=/vendor"
+                      href="/auth?role=vendor&next=/vendor&mode=signup"
                       className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                       onClick={() => setProfileMenuOpen(false)}
                     >
                       Join as Vendor
                     </Link>
                     <Link
-                      href="/auth?role=services&next=/services/orders"
+                      href="/auth?role=services&next=/services/orders&mode=signup"
                       className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
                       onClick={() => setProfileMenuOpen(false)}
                     >

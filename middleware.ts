@@ -34,6 +34,20 @@ function hasVendorAccess(user: any) {
   return roles.includes('vendor')
 }
 
+function hasServicesAccess(user: any) {
+  const meta = user?.app_metadata ?? {}
+  if (meta.role === 'services') return true
+  const roles = Array.isArray(meta.roles) ? meta.roles : []
+  return roles.includes('services')
+}
+
+function getDashboardForUser(user: any): string {
+  if (hasAdminAccess(user)) return '/admin'
+  if (hasVendorAccess(user)) return '/vendor'
+  if (hasServicesAccess(user)) return '/services/orders'
+  return '/buyer'
+}
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
@@ -91,6 +105,15 @@ export async function middleware(request: NextRequest) {
 
   const { data } = await supabase.auth.getUser()
   const user = data.user
+
+  // Redirect logged-in users landing on the home page to their dashboard.
+  if (user && pathname === '/') {
+    const dashboard = getDashboardForUser(user)
+    const dashUrl = request.nextUrl.clone()
+    dashUrl.pathname = dashboard
+    dashUrl.search = ''
+    return NextResponse.redirect(dashUrl)
+  }
 
   const isAdminPath = pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
   const isProtected = isProtectedPath(pathname)
