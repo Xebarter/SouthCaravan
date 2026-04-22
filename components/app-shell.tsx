@@ -11,6 +11,7 @@ import {
   type DefaultMarketplaceSection,
 } from '@/lib/default-marketplace-taxonomy';
 import { isVendorConsolePath } from '@/lib/vendor-console-path';
+import { isServicesConsolePath } from '@/lib/services-console-path';
 
 const publicRoutePrefixes = [
   '/',
@@ -62,6 +63,8 @@ export function AppShell({
   );
   const vendorConsolePage = useMemo(() => isVendorConsolePath(pathname), [pathname]);
   const buyerConsolePage = useMemo(() => pathname === '/buyer' || pathname.startsWith('/buyer/'), [pathname]);
+  const servicesConsolePage = useMemo(() => isServicesConsolePath(pathname), [pathname]);
+  const marketplacePortalConsole = buyerConsolePage || servicesConsolePage;
 
   if (!publicPage) {
     if (vendorConsolePage) {
@@ -72,7 +75,7 @@ export function AppShell({
       );
     }
 
-    if (buyerConsolePage) {
+    if (marketplacePortalConsole) {
       return (
         <>
           <Header />

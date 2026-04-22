@@ -271,6 +271,13 @@ export default function AuthClient() {
     requestedPortal: PortalRole
   } | null>(null)
 
+  /** Preserves role/next (and other params) when opening sign-in after email verification prompt. */
+  const signInAfterVerifyHref = React.useMemo(() => {
+    const p = new URLSearchParams(searchParams.toString())
+    p.set('mode', 'signin')
+    return `/auth?${p.toString()}`
+  }, [searchParams])
+
   React.useEffect(() => {
     setError('')
     setMessage('')
@@ -749,12 +756,20 @@ export default function AuthClient() {
             <p className="text-[17px] font-medium leading-relaxed text-foreground">
               Account created. Please verify your email to proceed.
             </p>
-            <Link
-              href="/"
-              className={`${authPrimaryButtonClassName} mt-8 w-full sm:w-auto sm:min-w-[220px]`}
-            >
-              Return to Shop
-            </Link>
+            <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center">
+              <Link
+                href="/"
+                className={`${authPrimaryButtonClassName} w-full sm:w-auto sm:min-w-[220px]`}
+              >
+                Return to Shop
+              </Link>
+              <Link
+                href={signInAfterVerifyHref}
+                className={`${authSecondaryButtonClassName} w-full sm:w-auto sm:min-w-[220px]`}
+              >
+                Sign in
+              </Link>
+            </div>
           </div>
         </div>
       </AuthPageBackground>

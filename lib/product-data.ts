@@ -49,13 +49,23 @@ export async function getRelatedProducts(product: ProductRecord): Promise<Relate
   return getCached(key, 60_000, async () => {
     const { data } = await supabaseAdmin
       .from('products')
-      .select('id, name, price, unit, images')
+      .select('id, vendor_id, name, price, unit, images')
       .eq('category', product.category)
       .neq('id', product.id)
       .order('created_at', { ascending: false })
-      .limit(4);
+      .limit(8);
 
-    return (await filterProductsByVerifiedVendor((data ?? []) as any[])) as RelatedProductSummary[];
+    const rows = (data ?? []) as Array<
+      RelatedProductSummary & { vendor_id: string | null }
+    >;
+    const filtered = await filterProductsByVerifiedVendor(rows);
+    return filtered.slice(0, 4).map(({ id, name, price, unit, images }) => ({
+      id,
+      name,
+      price,
+      unit,
+      images,
+    }));
   });
 }
 

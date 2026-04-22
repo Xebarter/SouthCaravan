@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
 
   const baseQuery = supabaseAdmin
     .from('products')
-    .select('id, name, category, subcategory, sub_subcategory, images, in_stock, is_featured')
+    .select(
+      'id, vendor_id, name, category, subcategory, sub_subcategory, images, in_stock, is_featured',
+    )
     .order('is_featured', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(12);

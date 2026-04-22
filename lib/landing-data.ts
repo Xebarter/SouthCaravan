@@ -164,7 +164,7 @@ export async function getSponsoredProducts(limit = DEFAULT_SPONSORED_LIMIT): Pro
     const { data, error } = await supabaseAdmin
       .from('product_ads')
       .select(
-        'id, product_id, banner_image_url, headline, cta_label, sort_order, products(id, name, description, price, in_stock, images, category, subcategory)',
+        'id, product_id, banner_image_url, headline, cta_label, sort_order, products(id, vendor_id, name, description, price, in_stock, images, category, subcategory)',
       )
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
@@ -172,7 +172,14 @@ export async function getSponsoredProducts(limit = DEFAULT_SPONSORED_LIMIT): Pro
       .limit(limit);
 
     if (error) return [];
-    const items = (data ?? []).filter((row: any) => row.products && row.banner_image_url);
+    const rows = (data ?? []).filter((row: any) => row.products && row.banner_image_url);
+    const nested = rows.map((row: any) => row.products).filter(Boolean);
+    const allowedIds = new Set(
+      (await filterProductsByVerifiedVendor(nested as { id: string; vendor_id?: string | null }[])).map((p) =>
+        String(p.id),
+      ),
+    );
+    const items = rows.filter((row: any) => allowedIds.has(String(row.products.id)));
     return items as SponsoredItem[];
   });
 }
