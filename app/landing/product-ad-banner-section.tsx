@@ -135,8 +135,8 @@ export default function ProductAdBannerSection({ items }: { items: SponsoredItem
               </div>
 
               <div className="md:col-span-8 order-1 md:order-2">
-                <div className="relative aspect-[1600/450] w-full overflow-hidden rounded-xl border border-border bg-muted/30">
-                  <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-black/10 via-transparent to-black/5" />
+                <div className="relative w-full overflow-hidden rounded-xl border border-border bg-muted/30 h-[140px] sm:h-[170px] md:h-[210px] md:aspect-1600/450">
+                  <div className="pointer-events-none absolute inset-0 z-1 bg-linear-to-r from-black/10 via-transparent to-black/5" />
                   {activeBannerImageUrl ? (
                     <Image
                       src={activeBannerImageUrl}

@@ -29,7 +29,7 @@ export default async function HomePage() {
   const initialHasMore = initialCategoryFeed.hasMore;
 
   return (
-    <div className="bg-gradient-to-b from-sky-50 via-blue-50/40 to-slate-50/60">
+    <div className="bg-linear-to-b from-sky-50 via-blue-50/40 to-slate-50/60">
       <ProductAdBannerSection items={sponsoredItems} />
       <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10 bg-transparent">
         <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">
@@ -39,10 +39,10 @@ export default async function HomePage() {
             </Badge>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4">
               <Link href={heroProducts[0] ? `/product/${heroProducts[0].id}` : '/public/vendors'} className="lg:col-span-6 block">
-                <Card className="border-slate-200 bg-gradient-to-br from-sky-50 via-white to-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                <Card className="border-slate-200 bg-linear-to-br from-sky-50 via-white to-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
                   <CardContent className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
                     {heroProducts[0]?.images?.[0] ? (
-                      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-md">
+                      <div className="relative w-full overflow-hidden rounded-md h-[210px] sm:h-[260px] lg:h-[320px] lg:aspect-16/10">
                         <Image
                           src={heroProducts[0].images[0]}
                           alt={heroProducts[0].name}
@@ -54,7 +54,7 @@ export default async function HomePage() {
                         />
                       </div>
                     ) : (
-                      <div className="aspect-[16/10] rounded-lg bg-slate-100 flex items-center justify-center">
+                      <div className="aspect-16/10 rounded-lg bg-slate-100 flex items-center justify-center">
                         <Package className="w-12 h-12 text-slate-500" />
                       </div>
                     )}
@@ -84,7 +84,7 @@ export default async function HomePage() {
                     <Card className="border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all bg-white">
                       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                         {product.images?.[0] ? (
-                          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
+                          <div className="relative w-full overflow-hidden rounded-md h-[160px] sm:h-[170px] md:h-[180px] sm:aspect-4/3">
                             <Image
                               src={product.images[0]}
                               alt={product.name}
@@ -95,7 +95,7 @@ export default async function HomePage() {
                             />
                           </div>
                         ) : (
-                          <div className="aspect-[4/3] rounded-md bg-slate-100 flex items-center justify-center">
+                          <div className="rounded-md bg-slate-100 flex items-center justify-center h-[160px] sm:h-[170px] md:h-[180px] sm:aspect-4/3">
                             <Package className="w-7 h-7 text-slate-500" />
                           </div>
                         )}
