@@ -19,6 +19,7 @@ create table if not exists public.service_offerings (
   featured_sort_order int not null default 0,
   is_ad boolean not null default false,
   ad_sort_order int not null default 0,
+  images text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -27,6 +28,7 @@ alter table public.service_offerings add column if not exists is_featured boolea
 alter table public.service_offerings add column if not exists featured_sort_order int not null default 0;
 alter table public.service_offerings add column if not exists is_ad boolean not null default false;
 alter table public.service_offerings add column if not exists ad_sort_order int not null default 0;
+alter table public.service_offerings add column if not exists images text[] not null default '{}';
 
 create index if not exists service_offerings_provider_idx
   on public.service_offerings (provider_user_id, created_at desc);

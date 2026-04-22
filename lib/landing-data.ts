@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
+import { normalizeOfferingImageUrls } from '@/lib/service-offering-images';
 
 export type LandingProduct = {
   id: string;
@@ -93,7 +94,7 @@ function serviceRowToFeedProduct(row: any): FeedProduct {
     price: Number(row.rate ?? 0),
     minimum_order: 1,
     unit: pricingType === 'hourly' ? 'hour' : 'service',
-    images: [],
+    images: normalizeOfferingImageUrls(row.images),
     in_stock: Boolean(row.is_active),
     is_featured: Boolean(row.is_featured),
     created_at: typeof row.created_at === 'string' ? row.created_at : undefined,
@@ -239,7 +240,7 @@ export async function getLandingCategoryFeedSections(params: {
       const { data: serviceRows, error: servicesErr } = await supabaseAdmin
         .from('service_offerings')
         .select(
-          'id,title,description,category,subcategory,pricing_type,rate,currency,is_active,is_featured,created_at',
+          'id,title,description,category,subcategory,pricing_type,rate,currency,is_active,is_featured,images,created_at',
         )
         .eq('is_active', true)
         .in('category', pageCategories)

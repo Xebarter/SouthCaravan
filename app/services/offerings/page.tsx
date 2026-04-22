@@ -22,6 +22,7 @@ import {
   ServicesOfferingCatalog,
   type AddOfferingPayload,
 } from '@/components/services/services-offering-catalog'
+import { OfferingImagesEditor } from '@/components/services/offering-images-editor'
 
 type Offering = {
   id: string
@@ -35,6 +36,7 @@ type Offering = {
   is_active: boolean
   is_featured?: boolean
   is_ad?: boolean
+  images?: string[] | null
   created_at: string
 }
 
@@ -263,8 +265,8 @@ export default function ServicesOfferingsPage() {
           <div className="grid gap-3">
             {offerings.map((o) => (
               <Card key={o.id} className="border-border/60 shadow-sm">
-                <CardContent className="py-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
+                <CardContent className="py-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-foreground leading-snug">{o.title}</p>
                       <Badge variant="secondary" className="text-[10px] font-medium">
@@ -292,9 +294,17 @@ export default function ServicesOfferingsPage() {
                       {' · '}
                       {o.currency} {Number(o.rate ?? 0).toLocaleString()}
                     </p>
+                    <OfferingImagesEditor
+                      offeringId={o.id}
+                      images={o.images ?? undefined}
+                      disabled={loading}
+                      needsSetup={needsSetup}
+                      onUpdated={() => void load()}
+                      onError={(message) => setError(message)}
+                    />
                   </div>
 
-                  <div className="flex items-center gap-4 justify-between sm:justify-end sm:shrink-0">
+                  <div className="flex items-center gap-4 justify-between sm:justify-end sm:shrink-0 sm:flex-col sm:items-end">
                     <div className="flex items-center gap-2">
                       {(() => {
                         const featuredReq = requestByOfferingAndKind.get(`${o.id}:featured`)

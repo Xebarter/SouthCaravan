@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthedServicesUserId } from '@/lib/services-auth'
+import { normalizeOfferingImageUrls } from '@/lib/service-offering-images'
 
 function isMissingTableError(error: any) {
   const msg = String(error?.message ?? '').toLowerCase()
@@ -14,7 +15,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('service_offerings')
     .select(
-      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,created_at,updated_at',
+      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,images,created_at,updated_at',
     )
     .eq('provider_user_id', auth.userId)
     .order('created_at', { ascending: false })
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     rate: Number(body?.rate ?? 0),
     currency: String(body?.currency ?? 'USD').trim(),
     is_active: Boolean(body?.is_active ?? true),
+    images: normalizeOfferingImageUrls(body?.images),
   }
 
   if (!payload.category || !payload.subcategory || !payload.title) {
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
     .from('service_offerings')
     .insert(payload as any)
     .select(
-      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,created_at,updated_at',
+      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,images,created_at,updated_at',
     )
     .single()
 

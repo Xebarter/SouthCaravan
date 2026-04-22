@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Money } from '@/components/money'
 import { stripHtmlForPreview } from '@/lib/strip-html'
+import { normalizeOfferingImageUrls } from '@/lib/service-offering-images'
 
 type PageProps = { params: Promise<{ id: string }> }
 
@@ -17,7 +18,7 @@ export default async function PublicServiceOfferingPage(props: PageProps) {
   const { data: offering, error } = await supabaseAdmin
     .from('service_offerings')
     .select(
-      'id,title,description,category,subcategory,pricing_type,rate,currency,is_active,is_featured,is_ad,provider_user_id,created_at',
+      'id,title,description,category,subcategory,pricing_type,rate,currency,is_active,is_featured,is_ad,provider_user_id,images,created_at',
     )
     .eq('id', id)
     .eq('is_active', true)
@@ -35,6 +36,7 @@ export default async function PublicServiceOfferingPage(props: PageProps) {
     vendor?.company_name?.trim() || vendor?.name?.trim() || vendor?.email?.trim() || 'Service provider'
   const pricingType = String(offering.pricing_type ?? 'fixed').toLowerCase() === 'hourly' ? 'hourly' : 'fixed'
   const currency = String(offering.currency ?? 'USD').toUpperCase()
+  const gallery = normalizeOfferingImageUrls((offering as { images?: unknown }).images)
 
   return (
     <div className="min-h-screen bg-linear-to-b from-sky-50 via-white to-slate-50/80">
@@ -51,6 +53,36 @@ export default async function PublicServiceOfferingPage(props: PageProps) {
             <Badge className="bg-violet-500/10 text-violet-700 border border-violet-500/20">Promoted</Badge>
           ) : null}
         </div>
+
+        {gallery.length > 0 ? (
+          <div className="space-y-3">
+            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video sm:aspect-21/9 max-h-[min(420px,50vh)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={gallery[0]}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
+            {gallery.length > 1 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {gallery.slice(1).map((src) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src}
+                    src={src}
+                    alt=""
+                    className="h-16 w-24 shrink-0 rounded-lg object-cover border border-slate-200"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">{offering.title}</h1>

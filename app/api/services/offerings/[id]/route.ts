@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthedServicesUserId } from '@/lib/services-auth'
+import { normalizeOfferingImageUrls } from '@/lib/service-offering-images'
 
 function isMissingTableError(error: any) {
   const msg = String(error?.message ?? '').toLowerCase()
@@ -28,6 +29,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (body.rate != null) updates.rate = Number(body.rate ?? 0)
   if (body.currency != null) updates.currency = String(body.currency).trim()
   if (body.is_active != null) updates.is_active = Boolean(body.is_active)
+  if (body.images != null) updates.images = normalizeOfferingImageUrls(body.images)
 
   const { data, error } = await supabaseAdmin
     .from('service_offerings')
@@ -35,7 +37,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .eq('id', id)
     .eq('provider_user_id', auth.userId)
     .select(
-      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,created_at,updated_at',
+      'id,provider_user_id,category,subcategory,title,description,pricing_type,rate,currency,is_active,is_featured,featured_sort_order,is_ad,ad_sort_order,images,created_at,updated_at',
     )
     .maybeSingle()
 
