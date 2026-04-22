@@ -74,7 +74,7 @@ function BrowseTree({
                     href={href}
                     className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-sm font-medium leading-snug text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
-                      if (!pinned) onRequestClose()
+                      onRequestClose()
                     }}
                   >
                     {node.title}
@@ -100,7 +100,7 @@ function BrowseTree({
               href={href}
               className="block w-full rounded-md px-2 py-2 pl-8 text-left text-sm leading-snug text-foreground hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
-                if (!pinned) onRequestClose()
+                onRequestClose()
               }}
             >
               {node.title}
@@ -204,7 +204,7 @@ export function AddItemsSidebar({
                   href={href}
                   className="block rounded-lg border border-transparent px-3 py-2.5 text-left transition hover:border-border hover:bg-muted/40"
                   onClick={() => {
-                    if (!pinned) onRequestClose()
+                    onRequestClose()
                   }}
                 >
                   {row.breadcrumb ? (
@@ -256,7 +256,7 @@ export function AddItemsSidebar({
           href="/"
           className="text-xs font-medium text-primary hover:underline"
           onClick={() => {
-            if (!pinned) onRequestClose()
+            onRequestClose()
           }}
         >
           View all products
