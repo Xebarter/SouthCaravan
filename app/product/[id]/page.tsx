@@ -180,6 +180,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                           alt={item.name}
                           fill
                           loading="lazy"
+                          unoptimized
                           sizes="25vw"
                           className="object-cover"
                         />

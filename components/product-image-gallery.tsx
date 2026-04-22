@@ -76,6 +76,7 @@ export function ProductImageGallery({
           alt={alt}
           fill
           priority
+          unoptimized
           sizes="(min-width: 1024px) 58vw, 100vw"
           className="object-cover"
         />
@@ -121,7 +122,14 @@ export function ProductImageGallery({
                 onClick={() => openExpandedAt(absoluteIndex)}
                 aria-label={`Expand image ${absoluteIndex + 1}`}
               >
-                <Image src={src} alt={`${alt} thumbnail ${absoluteIndex + 1}`} fill sizes="20vw" className="object-cover" />
+                <Image
+                  src={src}
+                  alt={`${alt} thumbnail ${absoluteIndex + 1}`}
+                  fill
+                  unoptimized
+                  sizes="20vw"
+                  className="object-cover"
+                />
                 {isLastThumbWithMore && (
                   <div className="absolute inset-0 grid place-items-center bg-black/55 text-white text-sm font-semibold">
                     +{remainingCount}
@@ -147,6 +155,7 @@ export function ProductImageGallery({
                 src={safeImages[activeIndex]}
                 alt={`${alt} — expanded image ${activeIndex + 1}`}
                 fill
+                unoptimized
                 sizes="96vw"
                 className="object-contain"
                 priority
