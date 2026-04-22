@@ -61,6 +61,7 @@ export type FeedSection = {
 
 const DEFAULT_LANDING_LIMIT = 12;
 const DEFAULT_SPONSORED_LIMIT = 12;
+const DEFAULT_FEATURED_LIMIT = 5;
 
 export const LANDING_CATEGORIES_MAX = 2000;
 export const LANDING_FEED_MAX_PAGE_SIZE = 6;
@@ -82,6 +83,23 @@ export async function getLandingProducts(limit = DEFAULT_LANDING_LIMIT): Promise
         'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured',
       )
       .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data as LandingProduct[];
+  });
+}
+
+export async function getFeaturedLandingProducts(limit = DEFAULT_FEATURED_LIMIT): Promise<LandingProduct[]> {
+  const cacheKey = `landing-featured:${limit}`;
+  return getCached(cacheKey, 60_000, async () => {
+    const { data, error } = await supabaseAdmin
+      .from('products')
+      .select(
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured',
+      )
+      .eq('is_featured', true)
       .order('created_at', { ascending: false })
       .limit(limit);
 

@@ -9,6 +9,7 @@ import ProductAdBannerSection from './landing/product-ad-banner-section';
 import PopularCategories from './landing/popular-categories';
 import {
   getLandingCategoryFeedSections,
+  getFeaturedLandingProducts,
   getLandingProducts,
   getSponsoredProducts,
 } from '@/lib/landing-data';
@@ -18,8 +19,9 @@ import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 
 export default async function HomePage() {
-  const products = await getLandingProducts();
-  const heroProducts = products.slice(0, 5);
+  const featuredProducts = await getFeaturedLandingProducts(5);
+  const fallbackProducts = featuredProducts.length > 0 ? [] : await getLandingProducts(5);
+  const heroProducts = (featuredProducts.length > 0 ? featuredProducts : fallbackProducts).slice(0, 5);
   const sponsoredItems = await getSponsoredProducts();
   const initialCategoryFeed = await getLandingCategoryFeedSections({ page: 0, pageSize: 3, perCategory: 4 });
   const menuSections = await getMarketplaceMenuSections();
