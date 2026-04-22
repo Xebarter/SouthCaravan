@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
+import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 
 export type LandingProduct = {
   id: string;
@@ -87,7 +88,7 @@ export async function getLandingProducts(limit = DEFAULT_LANDING_LIMIT): Promise
       .limit(limit);
 
     if (error || !data) return [];
-    return data as LandingProduct[];
+    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
   });
 }
 
@@ -104,7 +105,7 @@ export async function getFeaturedLandingProducts(limit = DEFAULT_FEATURED_LIMIT)
       .limit(limit);
 
     if (error || !data) return [];
-    return data as LandingProduct[];
+    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
   });
 }
 
@@ -175,7 +176,8 @@ export async function getLandingCategoryFeedSections(params: {
           return { category, products: [] as FeedProduct[] };
         }
 
-        return { category, products: (data ?? []) as FeedProduct[] };
+        const filtered = await filterProductsByVerifiedVendor((data ?? []) as FeedProduct[]);
+        return { category, products: filtered as FeedProduct[] };
       }),
     );
 
@@ -212,7 +214,7 @@ export async function getProductsByCategory(params: {
 
     const { data, error } = await query;
     if (error || !data) return [];
-    return data as LandingProduct[];
+    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
   });
 }
 

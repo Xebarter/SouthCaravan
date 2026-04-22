@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
+import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 
 export type ProductRecord = {
   id: string;
@@ -38,7 +39,8 @@ export async function getProductById(productId: string): Promise<ProductRecord |
       .single();
 
     if (error || !data) return null;
-    return data as ProductRecord;
+    const filtered = await filterProductsByVerifiedVendor([data as ProductRecord]);
+    return filtered[0] ?? null;
   });
 }
 
@@ -53,7 +55,7 @@ export async function getRelatedProducts(product: ProductRecord): Promise<Relate
       .order('created_at', { ascending: false })
       .limit(4);
 
-    return (data ?? []) as RelatedProductSummary[];
+    return (await filterProductsByVerifiedVendor((data ?? []) as any[])) as RelatedProductSummary[];
   });
 }
 

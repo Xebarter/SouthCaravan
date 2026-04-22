@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 
 type CategorySuggestionType = 'category' | 'subcategory' | 'subSubcategory';
 
@@ -44,7 +45,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const products = (data ?? []).map((item) => ({
+  const filtered = await filterProductsByVerifiedVendor((data ?? []) as any[]);
+
+  const products = filtered.map((item: any) => ({
     id: item.id,
     name: item.name,
     category: item.category,
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
 
   const suggestionsMap = new Map<string, CategorySuggestion>();
 
-  for (const item of data ?? []) {
+  for (const item of filtered as any[]) {
     const category = item.category ?? null;
     const subcategory = item.subcategory ?? null;
     const subSubcategory = item.sub_subcategory ?? null;

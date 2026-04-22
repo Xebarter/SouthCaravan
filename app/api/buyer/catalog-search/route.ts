@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
+import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthedBuyer();
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []).filter((p) => productIsRfqRoutable(p));
+  const routable = (data ?? []).filter((p) => productIsRfqRoutable(p));
+  const rows = await filterProductsByVerifiedVendor(routable as any[]);
   return NextResponse.json({ products: rows });
 }
