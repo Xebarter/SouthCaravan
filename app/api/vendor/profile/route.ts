@@ -94,6 +94,9 @@ export async function PATCH(req: NextRequest) {
   const publicEmail = asString((body as any).publicEmail).trim();
   if (publicEmail) patch.public_email = publicEmail;
 
+  const contactEmail = asString((body as any).contactEmail).trim();
+  if (contactEmail) patch.contact_email = contactEmail;
+
   const phone = asString((body as any).phone).trim();
   patch.phone = phone;
 
@@ -114,6 +117,9 @@ export async function PATCH(req: NextRequest) {
 
   const country = asString((body as any).country).trim();
   patch.country = country;
+
+  const logoUrl = asString((body as any).logoUrl).trim();
+  patch.logo_url = logoUrl;
 
   // Never allow changing ownership from the API.
   delete (patch as any).user_id;

@@ -370,7 +370,7 @@ export default function VendorSettingsPage() {
               <CardTitle className="text-base">Email notifications</CardTitle>
               <CardDescription className="text-xs">
                 Choose which events send an email to{' '}
-                <span className="font-medium text-foreground">{vendor.email}</span>
+                <span className="font-medium text-foreground">{vendorDisplay.email}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="divide-y divide-border/50">
