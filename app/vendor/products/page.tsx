@@ -883,20 +883,21 @@ export default function VendorProductsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2 rounded-lg border border-border bg-background/95 p-1.5 shadow-sm opacity-100 transition-opacity md:opacity-100">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-8 w-8 bg-background hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary"
                           onClick={() => openEdit(product)}
                           aria-label={`Edit ${product.name}`}
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-8 w-8 border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive"
                           onClick={() => handleDelete(product)}
                           disabled={deletingId === product.id}
                           aria-label={`Delete ${product.name}`}
@@ -907,6 +908,7 @@ export default function VendorProductsPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           )}
                         </Button>
+                        </div>
                       </div>
                     </td>
                   </tr>
