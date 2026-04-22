@@ -12,8 +12,10 @@ export default function LoginClient() {
     const role = params.get('role') ?? ''
 
     const qs = new URLSearchParams()
-    if (role) qs.set('role', role)
-    if (next) qs.set('next', next)
+    // Production default: generic login routes to /dashboard, which performs a
+    // server-side role redirect.
+    qs.set('role', role || 'auto')
+    qs.set('next', next || '/dashboard')
 
     router.replace(`/auth${qs.toString() ? `?${qs.toString()}` : ''}`)
   }, [router, params])

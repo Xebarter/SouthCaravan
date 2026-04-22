@@ -36,10 +36,19 @@ function clearPortalHints() {
 function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
   if (!supabaseUser?.id) return null;
   const meta = supabaseUser.app_metadata ?? {};
-  // Prefer the scalar `role` field; fall back to the first entry in the
-  // `roles` array (written by the portal-access grant flow); default buyer.
+  // Prefer the scalar `role` field; fall back to app_metadata.roles (written by
+  // the portal-access grant flow). If multiple roles exist, prefer the most
+  // privileged / operational portal first.
   const rolesArr: string[] = Array.isArray(meta.roles) ? meta.roles : [];
-  const role = ((meta.role as string | undefined) ?? rolesArr[0] ?? 'buyer') as UserRole;
+  const scalar = typeof meta.role === 'string' ? meta.role : '';
+  const merged = [scalar, ...rolesArr].map((r) => String(r || '').toLowerCase()).filter(Boolean);
+  const role = (merged.includes('admin')
+    ? 'admin'
+    : merged.includes('vendor')
+      ? 'vendor'
+      : merged.includes('services')
+        ? 'services'
+        : 'buyer') as UserRole;
 
   const name =
     supabaseUser.user_metadata?.name ||

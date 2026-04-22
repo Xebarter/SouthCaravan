@@ -1,44 +1,28 @@
-'use client';
+import { redirect } from 'next/navigation'
+import { getServerSupabaseClient } from '@/lib/supabase/server'
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-import { AdminDashboard } from '@/components/dashboards/admin-dashboard';
-import { BuyerDashboard } from '@/components/dashboards/buyer-dashboard';
-import { Skeleton } from '@/components/ui/skeleton';
+function inferPrimaryPortal(user: any): 'admin' | 'vendor' | 'services' | 'buyer' {
+  const meta = user?.app_metadata ?? {}
+  const scalar = typeof meta.role === 'string' ? meta.role : ''
+  const roles = Array.isArray(meta.roles) ? meta.roles : []
+  const merged = [scalar, ...roles].map((r: any) => String(r || '').toLowerCase()).filter(Boolean)
 
-export default function DashboardPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+  if (merged.includes('admin')) return 'admin'
+  if (merged.includes('vendor')) return 'vendor'
+  if (merged.includes('services')) return 'services'
+  return 'buyer'
+}
 
-  useEffect(() => {
-    if (isLoading || !user) return;
+export default async function DashboardPage() {
+  const supabase = await getServerSupabaseClient()
+  const { data } = await supabase.auth.getUser()
+  const user = data.user
 
-    if (user.role === 'vendor') router.replace('/vendor');
-    if (user.role === 'buyer') router.replace('/buyer');
-  }, [isLoading, user, router]);
+  if (!user) redirect('/login?next=/dashboard')
 
-  if (isLoading || !user) {
-    return (
-      <div className="container mx-auto max-w-7xl px-4 py-16 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
-  }
-
-  if (user.role === 'vendor' || user.role === 'buyer') {
-    return (
-      <div className="container mx-auto max-w-7xl px-4 py-16 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
-  }
-
-  if (user.role === 'admin') {
-    return <AdminDashboard />;
-  }
-
-  return null;
+  const primary = inferPrimaryPortal(user)
+  if (primary === 'admin') redirect('/admin')
+  if (primary === 'vendor') redirect('/vendor')
+  if (primary === 'services') redirect('/services')
+  redirect('/buyer')
 }

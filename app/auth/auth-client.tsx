@@ -16,16 +16,17 @@ import {
 } from '@/components/auth-chrome'
 import { getBrowserSupabaseClient } from '@/lib/supabase/client'
 
-type PortalRole = 'buyer' | 'vendor' | 'services' | 'admin'
+type PortalRole = 'buyer' | 'vendor' | 'services' | 'admin' | 'auto'
 type Mode = 'signin' | 'signup' | 'forgot'
 type PortalMatch = PortalRole | 'unknown'
 
 function getDefaultNext(role: PortalRole) {
-  if (role === 'buyer') return '/'
-  if (role === 'vendor') return '/vendor/orders'
-  if (role === 'services') return '/services/orders'
   if (role === 'admin') return '/admin'
-  return '/'
+  if (role === 'vendor') return '/vendor'
+  if (role === 'services') return '/services'
+  if (role === 'buyer') return '/buyer'
+  // Auto always routes through dashboard for server-side role routing.
+  return '/dashboard'
 }
 
 function safeNextPath(input: string | null | undefined, role: PortalRole) {
@@ -51,8 +52,22 @@ function hasAdminAccess(user: any) {
   return roles.includes('admin')
 }
 
+function inferPrimaryPortal(user: any): PortalRole {
+  const meta = user?.app_metadata ?? {}
+  const scalar = typeof meta.role === 'string' ? meta.role : ''
+  const roles = Array.isArray(meta.roles) ? meta.roles : []
+  const merged = [scalar, ...roles].map((r: any) => String(r || '').toLowerCase()).filter(Boolean)
+
+  if (merged.includes('admin')) return 'admin'
+  if (merged.includes('vendor')) return 'vendor'
+  if (merged.includes('services')) return 'services'
+  if (merged.includes('buyer')) return 'buyer'
+  return 'buyer'
+}
+
 function portalLabel(role: PortalRole): string {
   if (role === 'services') return 'service provider'
+  if (role === 'auto') return 'account'
   return role
 }
 
@@ -69,6 +84,7 @@ function userRequestedPortalAtSignup(user: any, role: PortalRole): boolean {
 
 async function fetchHasPortalAccess(role: PortalRole): Promise<boolean> {
   if (role === 'admin') return true
+  if (role === 'auto') return false
   try {
     const res = await fetch(`/api/auth/portal-access?portal=${encodeURIComponent(role)}`, {
       method: 'GET',
@@ -230,7 +246,7 @@ export default function AuthClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const role = (searchParams.get('role') as PortalRole) || 'buyer'
+  const role = (searchParams.get('role') as PortalRole) || 'auto'
   const next = safeNextPath(searchParams.get('next'), role)
   const errorParam = searchParams.get('error') || ''
   const requestedMode = (searchParams.get('mode') as Mode) || 'signin'
@@ -274,7 +290,7 @@ export default function AuthClient() {
 
   React.useEffect(() => {
     // Allow deep links like /auth?mode=signup, but admin is always sign-in only.
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'auto') {
       setMode('signin')
       return
     }
@@ -292,6 +308,13 @@ export default function AuthClient() {
         if (cancelled) return
         const user = data.user
         if (!user) return
+
+        // Generic login: if already signed in, route to the right portal/dashboard.
+        if (role === 'auto') {
+          const primary = inferPrimaryPortal(user)
+          router.replace(next || getDefaultNext(primary))
+          return
+        }
 
         // Admin uses auth metadata; everyone else uses user_roles.
         if (role === 'admin') {
@@ -388,6 +411,12 @@ export default function AuthClient() {
 
     if (!signIn.error) {
       const user = (await supabase.auth.getUser()).data.user
+
+      // Generic login: don't grant portals. Just route through /dashboard (or next).
+      if (role === 'auto') {
+        router.replace(next || '/dashboard')
+        return { ok: true as const }
+      }
 
       // Admin uses auth.users.app_metadata, not user_roles.
       if (role === 'admin') {
@@ -564,7 +593,7 @@ export default function AuthClient() {
   }
 
   const handleSignUp = async () => {
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'auto') {
       setError('Admin accounts cannot be created here.')
       return { ok: false as const }
     }

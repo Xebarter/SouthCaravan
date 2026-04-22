@@ -111,6 +111,7 @@ export async function middleware(request: NextRequest) {
 
   const isProtected = isProtectedPath(pathname)
   const isVendorPath = pathname === '/vendor' || pathname.startsWith('/vendor/')
+  const isServicesPath = pathname === '/services' || pathname.startsWith('/services/')
 
   if (!user && isProtected) {
     const role = inferRoleFromPath(pathname)
@@ -127,6 +128,15 @@ export async function middleware(request: NextRequest) {
     authUrl.searchParams.set('role', 'vendor')
     authUrl.searchParams.set('next', '/vendor')
     authUrl.searchParams.set('error', 'vendor_required')
+    return NextResponse.redirect(authUrl)
+  }
+
+  if (user && isServicesPath && !hasServicesAccess(user)) {
+    const authUrl = request.nextUrl.clone()
+    authUrl.pathname = '/auth'
+    authUrl.searchParams.set('role', 'services')
+    authUrl.searchParams.set('next', '/services')
+    authUrl.searchParams.set('error', 'services_required')
     return NextResponse.redirect(authUrl)
   }
 
