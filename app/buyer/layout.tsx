@@ -82,6 +82,7 @@ export default function BuyerConsoleLayout({
   useEffect(() => {
     let cancelled = false;
     if (!user) return;
+    const buyerId = user.id;
 
     async function computeUnread() {
       try {
@@ -97,7 +98,7 @@ export default function BuyerConsoleLayout({
             if (!res.ok) return 0;
             const json = await res.json().catch(() => null);
             const messages = Array.isArray(json?.messages) ? (json.messages as ApiMessageRow[]) : [];
-            return messages.filter((m) => m.recipient_id === user.id && !m.read).length;
+            return messages.filter((m) => m.recipient_id === buyerId && !m.read).length;
           }),
         );
 
@@ -178,7 +179,7 @@ export default function BuyerConsoleLayout({
   return (
     <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-linear-to-b from-background via-background to-muted/30">
       {/* Mobile header + hamburger */}
-      <div className="md:hidden sticky top-0 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur">
+      <div className="md:hidden sticky top-14 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/70">
         <div className="h-14 px-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium tracking-wide text-muted-foreground truncate">Buyer</p>
@@ -254,7 +255,7 @@ export default function BuyerConsoleLayout({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden md:block w-72 p-4 bg-muted/20 shrink-0 md:w-80 lg:sticky lg:top-4 lg:bottom-auto lg:h-[calc(100dvh-2rem)]'
+          'hidden md:block w-72 p-4 bg-muted/20 shrink-0 md:w-80 lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100dvh-5rem)]'
         )}
       >
         <div className="w-full bg-card/70 backdrop-blur border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">

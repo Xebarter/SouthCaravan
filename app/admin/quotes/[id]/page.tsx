@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,9 @@ import { ArrowLeft, Building2, CheckCircle2, Loader2, Send, Store } from 'lucide
 
 type LineState = { id: string; product_id: string | null; quantity: number; unit_price: number; subtotal: number };
 
-export default function AdminQuoteEditorPage({ params }: { params: { id: string } }) {
+export default function AdminQuoteEditorPage() {
+  const routeParams = useParams();
+  const quoteId = typeof routeParams?.id === 'string' ? routeParams.id : '';
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -29,11 +31,11 @@ export default function AdminQuoteEditorPage({ params }: { params: { id: string 
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!user || user.role !== 'admin') return;
+    if (!user || user.role !== 'admin' || !quoteId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/quotes/${encodeURIComponent(params.id)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/quotes/${encodeURIComponent(quoteId)}`, { cache: 'no-store' });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setQuote(null);
@@ -60,7 +62,7 @@ export default function AdminQuoteEditorPage({ params }: { params: { id: string 
     } finally {
       setLoading(false);
     }
-  }, [params.id, user]);
+  }, [quoteId, user]);
 
   useEffect(() => {
     void load();
@@ -73,11 +75,11 @@ export default function AdminQuoteEditorPage({ params }: { params: { id: string 
   const editable = quote && String(quote.status) === 'pending';
 
   async function save(submit: boolean) {
-    if (!quote) return;
+    if (!quote || !quoteId) return;
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/quotes/${encodeURIComponent(params.id)}`, {
+      const res = await fetch(`/api/admin/quotes/${encodeURIComponent(quoteId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,6 +104,19 @@ export default function AdminQuoteEditorPage({ params }: { params: { id: string 
 
   if (!user || user.role !== 'admin') {
     return <div className="px-4 py-12 text-center text-muted-foreground text-sm">Admin sign-in required.</div>;
+  }
+
+  if (!quoteId) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center space-y-4">
+        <p className="text-muted-foreground">Invalid quote link.</p>
+        <Link href="/admin/quotes">
+          <Button variant="outline" className="rounded-xl">
+            Back
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   if (loading) {
