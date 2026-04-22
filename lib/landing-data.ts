@@ -19,6 +19,21 @@ export type LandingProduct = {
   is_featured: boolean;
 };
 
+/** Active service offering row for category browse (public). */
+export type ServiceOfferingSummary = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  subcategory: string;
+  pricing_type: string;
+  rate: number;
+  currency: string;
+  is_featured: boolean;
+  images: string[];
+  is_active: boolean;
+};
+
 export type SponsoredProductSummary = {
   id: string;
   name: string;
@@ -324,6 +339,54 @@ export async function getProductsByCategory(params: {
     const { data, error } = await query;
     if (error || !data) return [];
     return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+  });
+}
+
+export async function getServiceOfferingsByCategory(params: {
+  category?: string;
+  subcategory?: string;
+  limit?: number;
+}): Promise<ServiceOfferingSummary[]> {
+  const category = params.category?.trim();
+  const subcategory = params.subcategory?.trim();
+  const limit = parsePositiveInt(params.limit, 120, 300);
+  const cacheKey = `category-services:${category ?? 'all'}:${subcategory ?? 'all'}:${limit}`;
+
+  return getCached(cacheKey, 30_000, async () => {
+    let query = supabaseAdmin
+      .from('service_offerings')
+      .select(
+        'id,title,description,category,subcategory,pricing_type,rate,currency,images,is_featured,is_active',
+      )
+      .eq('is_active', true)
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (category) query = query.eq('category', category);
+    if (subcategory) query = query.eq('subcategory', subcategory);
+
+    const { data, error } = await query;
+    if (error) {
+      if (isMissingServiceOfferingsTable(error)) return [];
+      console.error('[getServiceOfferingsByCategory]', error.message);
+      return [];
+    }
+    if (!data) return [];
+
+    return (data as any[]).map((row) => ({
+      id: String(row.id),
+      title: String(row.title ?? ''),
+      description: String(row.description ?? ''),
+      category: String(row.category ?? ''),
+      subcategory: String(row.subcategory ?? ''),
+      pricing_type: String(row.pricing_type ?? 'fixed'),
+      rate: Number(row.rate ?? 0),
+      currency: String(row.currency ?? 'USD'),
+      is_featured: Boolean(row.is_featured),
+      images: normalizeOfferingImageUrls(row.images),
+      is_active: Boolean(row.is_active),
+    }));
   });
 }
 

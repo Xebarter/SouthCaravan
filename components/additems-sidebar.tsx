@@ -3,16 +3,41 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
+import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy'
 
 export type AddItemsNode = { title: string; children?: AddItemsNode[] }
 
-type FlatRow = { title: string; breadcrumb: string }
+type FlatRow = { title: string; breadcrumb: string; kind: 'product' | 'service' }
+
+function serviceCategoriesHref(category: string, subcategory?: string) {
+  const p = new URLSearchParams()
+  p.set('type', 'services')
+  p.set('category', category)
+  if (subcategory) p.set('subcategory', subcategory)
+  return `/categories?${p.toString()}`
+}
+
+const SERVICE_MENU_NODES: AddItemsNode[] = DEFAULT_SERVICES_TAXONOMY.map((s) => ({
+  title: s.title,
+  children: s.items.map((item) => ({ title: item })),
+}))
+
+function flattenServiceTaxonomy(): FlatRow[] {
+  const rows: FlatRow[] = []
+  for (const section of DEFAULT_SERVICES_TAXONOMY) {
+    rows.push({ title: section.title, breadcrumb: '', kind: 'service' })
+    for (const item of section.items) {
+      rows.push({ title: item, breadcrumb: section.title, kind: 'service' })
+    }
+  }
+  return rows
+}
 
 function flattenTree(nodes: AddItemsNode[], ancestors: string[] = []): FlatRow[] {
   const rows: FlatRow[] = []
   for (const node of nodes) {
     const breadcrumb = ancestors.join(' › ')
-    rows.push({ title: node.title, breadcrumb })
+    rows.push({ title: node.title, breadcrumb, kind: 'product' })
     if (node.children?.length) {
       rows.push(...flattenTree(node.children, [...ancestors, node.title]))
     }
@@ -41,12 +66,14 @@ function BrowseTree({
   ancestors = [],
   pinned,
   onRequestClose,
+  linkMode = 'products',
 }: {
   nodes: AddItemsNode[]
   depth?: number
   ancestors?: string[]
   pinned: boolean
   onRequestClose: () => void
+  linkMode?: 'products' | 'services'
 }) {
   return (
     <ul className={depth === 0 ? 'space-y-0.5' : 'space-y-0.5 ml-0.5 mt-1 border-l border-border/50 pl-2.5'}>
@@ -54,9 +81,13 @@ function BrowseTree({
         const category = ancestors[0] ?? node.title
         const subcategory = ancestors.length > 0 ? node.title : ''
         const href =
-          ancestors.length === 0
-            ? `/categories?category=${encodeURIComponent(node.title)}`
-            : `/categories?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(subcategory)}`
+          linkMode === 'services'
+            ? ancestors.length === 0
+              ? serviceCategoriesHref(node.title)
+              : serviceCategoriesHref(category, subcategory)
+            : ancestors.length === 0
+              ? `/categories?category=${encodeURIComponent(node.title)}`
+              : `/categories?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(subcategory)}`
         const hasChildren = Boolean(node.children?.length)
 
         if (hasChildren) {
@@ -87,6 +118,7 @@ function BrowseTree({
                     ancestors={[...ancestors, node.title]}
                     pinned={pinned}
                     onRequestClose={onRequestClose}
+                    linkMode={linkMode}
                   />
                 ) : null}
               </details>
@@ -171,7 +203,7 @@ export function AddItemsSidebar({
   } else if (items.length === 0) {
     content = <div className="p-4 text-sm text-muted-foreground">No categories loaded.</div>
   } else if (listMode) {
-    const rows = flattenTree(items)
+    const rows = [...flattenTree(items), ...flattenServiceTaxonomy()]
     const q = trimmedQuery.toLowerCase()
     const matches = rows
       .filter((row) => row.title.toLowerCase().includes(q) || row.breadcrumb.toLowerCase().includes(q))
@@ -179,13 +211,15 @@ export function AddItemsSidebar({
         const ra = rankRow(a, q)
         const rb = rankRow(b, q)
         if (ra !== rb) return ra - rb
+        if (a.kind !== b.kind) return a.kind === 'product' ? -1 : 1
         return a.title.localeCompare(b.title)
       })
 
     if (!matches.length) {
       content = (
         <div className="p-4 text-sm text-muted-foreground">
-          No categories match &quot;{trimmedQuery}&quot;. Try a shorter word (for example &quot;brake&quot; or &quot;filter&quot;).
+          No categories match &quot;{trimmedQuery}&quot;. Try a shorter word (for example &quot;brake&quot;, &quot;filter&quot;,
+          or &quot;tax advisory&quot;).
         </div>
       )
     } else {
@@ -195,11 +229,15 @@ export function AddItemsSidebar({
             const parts = row.breadcrumb ? row.breadcrumb.split(' › ') : []
             const category = parts[0] ?? row.title
             const href =
-              parts.length === 0
-                ? `/categories?category=${encodeURIComponent(row.title)}`
-                : `/categories?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(row.title)}`
+              row.kind === 'service'
+                ? row.breadcrumb
+                  ? serviceCategoriesHref(row.breadcrumb, row.title)
+                  : serviceCategoriesHref(row.title)
+                : parts.length === 0
+                  ? `/categories?category=${encodeURIComponent(row.title)}`
+                  : `/categories?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(row.title)}`
             return (
-              <li key={`${row.breadcrumb}:${row.title}`}>
+              <li key={`${row.kind}-${row.breadcrumb}:${row.title}`}>
                 <Link
                   href={href}
                   className="block rounded-lg border border-transparent px-3 py-2.5 text-left transition hover:border-border hover:bg-muted/40"
@@ -207,6 +245,15 @@ export function AddItemsSidebar({
                     onRequestClose()
                   }}
                 >
+                  <div className="mb-0.5 flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wide ${
+                        row.kind === 'service' ? 'text-sky-700' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {row.kind === 'service' ? 'Service' : 'Product'}
+                    </span>
+                  </div>
                   {row.breadcrumb ? (
                     <p className="mb-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{row.breadcrumb}</p>
                   ) : null}
@@ -220,8 +267,42 @@ export function AddItemsSidebar({
     }
   } else {
     content = (
-      <div className="p-2 pb-4">
-        <BrowseTree nodes={items} pinned={pinned} onRequestClose={onRequestClose} />
+      <div className="p-2 pb-4 space-y-6">
+        <section>
+          <div className="px-2 pb-2 flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Products</h2>
+            <Link
+              href="/categories"
+              className="text-[11px] font-medium text-primary hover:underline shrink-0"
+              onClick={() => onRequestClose()}
+            >
+              View all
+            </Link>
+          </div>
+          <BrowseTree nodes={items} pinned={pinned} onRequestClose={onRequestClose} linkMode="products" />
+        </section>
+
+        <section className="border-t border-border pt-4">
+          <div className="px-2 pb-2 flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Services</h2>
+            <Link
+              href="/categories?type=services"
+              className="text-[11px] font-medium text-primary hover:underline shrink-0"
+              onClick={() => onRequestClose()}
+            >
+              View all
+            </Link>
+          </div>
+          <p className="px-2 pb-2 text-[11px] leading-snug text-muted-foreground">
+            Professional services from SouthCaravan’s catalogue — consulting, tech, logistics, construction, and more.
+          </p>
+          <BrowseTree
+            nodes={SERVICE_MENU_NODES}
+            pinned={pinned}
+            onRequestClose={onRequestClose}
+            linkMode="services"
+          />
+        </section>
       </div>
     )
   }
@@ -238,8 +319,10 @@ export function AddItemsSidebar({
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-foreground">Find parts</div>
-            <p className="text-[11px] leading-snug text-muted-foreground">Search the menu, then open a category.</p>
+            <div className="text-sm font-semibold text-foreground">Browse menu</div>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Products below, then professional services — or search both.
+            </p>
           </div>
           {pinned ? (
             <button
@@ -252,15 +335,26 @@ export function AddItemsSidebar({
           ) : null}
         </div>
 
-        <Link
-          href="/"
-          className="text-xs font-medium text-primary hover:underline"
-          onClick={() => {
-            onRequestClose()
-          }}
-        >
-          View all products
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            href="/categories"
+            className="text-xs font-medium text-primary hover:underline"
+            onClick={() => {
+              onRequestClose()
+            }}
+          >
+            All products
+          </Link>
+          <Link
+            href="/categories?type=services"
+            className="text-xs font-medium text-primary hover:underline"
+            onClick={() => {
+              onRequestClose()
+            }}
+          >
+            All services
+          </Link>
+        </div>
 
         <label className="relative block">
           <span className="sr-only">Search categories</span>
@@ -268,7 +362,7 @@ export function AddItemsSidebar({
           <input
             type="search"
             autoComplete="off"
-            placeholder="e.g. brake pads, oil filter..."
+            placeholder="e.g. brake pads, tax advisory, web design…"
             className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

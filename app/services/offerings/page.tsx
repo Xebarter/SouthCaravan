@@ -71,8 +71,10 @@ export default function ServicesOfferingsPage() {
     return s
   }, [offerings])
 
+  const userId = user?.id
+
   const load = useCallback(async () => {
-    if (!user) return
+    if (!userId) return
     setLoading(true)
     setError('')
     try {
@@ -96,11 +98,20 @@ export default function ServicesOfferingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [userId])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const requestByOfferingAndKind = useMemo(() => {
+    const m = new Map<string, PromotionRequest>()
+    for (const r of promotionRequests) {
+      const key = `${r.offering_id}:${r.kind}`
+      if (!m.has(key)) m.set(key, r)
+    }
+    return m
+  }, [promotionRequests])
 
   async function postOffering(payload: AddOfferingPayload) {
     const res = await fetch('/api/services/offerings', {
@@ -156,15 +167,6 @@ export default function ServicesOfferingsPage() {
   }
 
   if (!user) return null
-
-  const requestByOfferingAndKind = useMemo(() => {
-    const m = new Map<string, PromotionRequest>()
-    for (const r of promotionRequests) {
-      const key = `${r.offering_id}:${r.kind}`
-      if (!m.has(key)) m.set(key, r)
-    }
-    return m
-  }, [promotionRequests])
 
   function openPromotionDialog(offering: Offering, kind: 'featured' | 'ad') {
     setPromoOffering(offering)
