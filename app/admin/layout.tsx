@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
   BarChart3,
@@ -20,9 +20,11 @@ import {
   Sparkles,
   Users,
   X,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth-context';
 
 const adminNavItems = [
   { href: '/admin', label: 'Overview', icon: LayoutGrid },
@@ -32,7 +34,6 @@ const adminNavItems = [
   { href: '/admin/featured-products', label: 'Featured Products', icon: Sparkles },
   { href: '/admin/adds', label: 'Adds', icon: Megaphone },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/cartegories', label: 'Cartegories', icon: Boxes },
   { href: '/admin/blog', label: 'Blog', icon: NotebookPen },
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin/messages', label: 'Messages', icon: MessageSquare },
@@ -48,15 +49,30 @@ function AdminSidebar({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const router = useRouter();
+  const { logout } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function onSignOut() {
+    setSigningOut(true);
+    try {
+      logout();
+      onNavigate?.();
+      router.push('/auth');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   return (
-    <aside className="h-full border-r border-border bg-card/40">
+    <aside className="h-full border-r border-border bg-card/40 flex flex-col">
       <div className="h-16 border-b border-border px-5 flex items-center">
         <div>
           <p className="text-xs text-muted-foreground">SouthCaravan</p>
           <h2 className="font-semibold">Admin Console</h2>
         </div>
       </div>
-      <nav className="p-3 space-y-1">
+      <nav className="p-3 space-y-1 flex-1">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -80,6 +96,18 @@ function AdminSidebar({
           );
         })}
       </nav>
+      <div className="p-3 border-t border-border">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start gap-3 rounded-xl"
+          onClick={onSignOut}
+          disabled={signingOut}
+        >
+          <LogOut className="w-4 h-4" />
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </Button>
+      </div>
     </aside>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,15 +13,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Eye, Filter, Download } from 'lucide-react';
-import { mockOrders, mockUsers, mockVendors } from '@/lib/mock-data';
+import { Eye, Filter, Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+type OrderRow = {
+  id: string;
+  buyer_id: string;
+  vendor_user_id: string | null;
+  status: string;
+  total_amount: number;
+  created_at: string | null;
+  items_count: number;
+  buyer: { id: string; name: string | null; email: string | null } | null;
+  vendor: { id: string; company_name: string | null; name: string | null; email: string | null } | null;
+};
 
 export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
 
-  const filteredOrders = statusFilter === 'all'
-    ? mockOrders
-    : mockOrders.filter(o => o.status === statusFilter);
+  async function load() {
+    setLoading(true);
+    try {
+      const qs = statusFilter && statusFilter !== 'all' ? `?status=${encodeURIComponent(statusFilter)}` : '';
+      const res = await fetch(`/api/admin/orders${qs}`, { cache: 'no-store' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || 'Failed to load orders');
+      setOrders(Array.isArray(json?.orders) ? json.orders : []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500/10 text-yellow-400',
@@ -31,14 +62,15 @@ export default function AdminOrdersPage() {
     cancelled: 'bg-red-500/10 text-red-400',
   };
 
-  const stats = {
-    total: mockOrders.length,
-    pending: mockOrders.filter(o => o.status === 'pending').length,
-    shipped: mockOrders.filter(o => o.status === 'shipped').length,
-    delivered: mockOrders.filter(o => o.status === 'delivered').length,
-    cancelled: mockOrders.filter(o => o.status === 'cancelled').length,
-    totalGMV: mockOrders.reduce((sum, o) => sum + o.totalAmount, 0),
-  };
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const pending = orders.filter((o) => o.status === 'pending').length;
+    const shipped = orders.filter((o) => o.status === 'shipped').length;
+    const delivered = orders.filter((o) => o.status === 'delivered').length;
+    const cancelled = orders.filter((o) => o.status === 'cancelled').length;
+    const totalGMV = orders.reduce((sum, o) => sum + Number(o.total_amount ?? 0), 0);
+    return { total, pending, shipped, delivered, cancelled, totalGMV };
+  }, [orders]);
 
   return (
     <main className="flex-1 overflow-auto">
@@ -138,27 +170,45 @@ export default function AdminOrdersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map(order => {
-                      const buyer = mockUsers.find(u => u.id === order.buyerId);
-                      const vendor = mockVendors.find(v => v.id === order.vendorId);
-                      return (
+                    {loading ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 px-4 text-center text-muted-foreground">
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Loading orders…
+                          </span>
+                        </td>
+                      </tr>
+                    ) : orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 px-4 text-center text-muted-foreground">
+                          No orders found.
+                        </td>
+                      </tr>
+                    ) : (
+                      orders.map((order) => {
+                        const buyerName = order.buyer?.name || order.buyer?.email || order.buyer_id;
+                        const buyerCompany = order.buyer?.email || '';
+                        const vendorName =
+                          order.vendor?.company_name || order.vendor?.name || order.vendor?.email || order.vendor_user_id || '—';
+                        return (
                         <tr key={order.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
-                          <td className="py-3 px-4 font-mono text-xs">{order.id.slice(-6)}</td>
+                          <td className="py-3 px-4 font-mono text-xs">{String(order.id).slice(-6)}</td>
                           <td className="py-3 px-4">
-                            <div className="text-sm font-medium">{buyer?.name}</div>
-                            <div className="text-xs text-muted-foreground">{buyer?.company}</div>
+                            <div className="text-sm font-medium">{buyerName}</div>
+                            <div className="text-xs text-muted-foreground">{buyerCompany}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="text-sm font-medium">{vendor?.companyName}</div>
+                            <div className="text-sm font-medium">{vendorName}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-sm">{order.items.length}</span>
+                            <span className="text-sm">{order.items_count}</span>
                           </td>
                           <td className="py-3 px-4 font-bold text-primary">
-                            <Money amountUSD={order.totalAmount} />
+                            <Money amountUSD={Number(order.total_amount ?? 0)} />
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {order.createdAt.toLocaleDateString()}
+                            {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}
                           </td>
                           <td className="py-3 px-4">
                             <Badge className={statusColors[order.status]}>
@@ -173,8 +223,9 @@ export default function AdminOrdersPage() {
                             </Link>
                           </td>
                         </tr>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>

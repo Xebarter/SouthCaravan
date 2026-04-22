@@ -21,7 +21,9 @@ const nextConfig = {
   images: {
     // Keep Next image optimization enabled for fast, professional loads.
     unoptimized: false,
-    formats: ['image/avif', 'image/webp'],
+    // iOS Safari compatibility: avoid serving AVIF from the optimizer.
+    // If a browser doesn't support WebP, Next will fall back to the original format.
+    formats: ['image/webp'],
     remotePatterns: supabaseHostname
       ? [
           {

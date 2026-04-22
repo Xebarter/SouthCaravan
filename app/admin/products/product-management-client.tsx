@@ -786,7 +786,11 @@ export default function ProductManagementClient() {
       {!hasTaxonomy && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="py-3 text-sm text-amber-700 dark:text-amber-300">
-            No active categories found. Add categories in <Link className="underline" href="/admin/cartegories">/admin/cartegories</Link> before creating products.
+            No active categories found. Add categories in{' '}
+            <Link className="underline" href="/admin/settings?tab=categories">
+              Settings → Cartegories
+            </Link>{' '}
+            before creating products.
           </CardContent>
         </Card>
       )}
@@ -904,8 +908,8 @@ export default function ProductManagementClient() {
                         )}
                       </td>
                       <td className="min-w-0 py-2.5 px-2 align-top text-xs sm:py-3 sm:px-3">
-                        <p className="break-words leading-snug">{product.category}</p>
-                        <p className="break-words leading-snug text-muted-foreground">
+                        <p className="wrap-break-word leading-snug">{product.category}</p>
+                        <p className="wrap-break-word leading-snug text-muted-foreground">
                           {product.subcategory} / {product.sub_subcategory}
                         </p>
                       </td>
@@ -1103,13 +1107,13 @@ export default function ProductManagementClient() {
                       <FormField control={form.control} name="inStock" render={({ field }) => (
                         <FormItem className="flex items-center gap-2">
                           <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                          <FormLabel className="!mt-0">In Stock</FormLabel>
+                          <FormLabel className="mt-0!">In Stock</FormLabel>
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="isFeatured" render={({ field }) => (
                         <FormItem className="flex items-center gap-2">
                           <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                          <FormLabel className="!mt-0">Featured Product</FormLabel>
+                          <FormLabel className="mt-0!">Featured Product</FormLabel>
                         </FormItem>
                       )} />
                     </div>
