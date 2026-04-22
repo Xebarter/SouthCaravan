@@ -139,7 +139,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = getBrowserSupabaseClient();
     setUser(null);
     clearPortalHints();
-    void supabase.auth.signOut();
+    void supabase.auth.signOut().finally(() => {
+      // Avoid landing on a protected page (which would redirect to /auth).
+      window.location.assign('/');
+    });
   };
 
   const value = useMemo(

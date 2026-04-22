@@ -11,6 +11,8 @@ import { Money } from '@/components/money';
 import { getProductById, getRelatedProducts } from '@/lib/product-data';
 import { getVendorDisplayName } from '@/lib/vendor-display';
 import { productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
+import { getPlatformRfqRecipientUserId } from '@/lib/platform-rfq-recipient';
+import { isUuid } from '@/lib/is-uuid';
 
 function normalizeSpecs(specs: Record<string, unknown> | null) {
   if (!specs) return [];
@@ -30,6 +32,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const related = await getRelatedProducts(product);
   const specs = normalizeSpecs(product.specifications);
+  const rawVendorId = product.vendor_id == null ? '' : String(product.vendor_id).trim();
+  const vendorDisplay = rawVendorId ? getVendorDisplayName(rawVendorId) : 'SouthCaravan';
+
+  let messagingRecipientUserId: string | undefined = undefined;
+  if (rawVendorId && isUuid(rawVendorId)) {
+    messagingRecipientUserId = rawVendorId;
+  } else {
+    const platform = await getPlatformRfqRecipientUserId();
+    if (platform.ok) messagingRecipientUserId = platform.userId;
+  }
 
   const criticalPreloadUrls = Array.from(
     new Set([product.images?.[0], ...product.images.slice(1, 5)].filter(Boolean)),
@@ -99,7 +111,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   minimumOrder={product.minimum_order}
                   unit={product.unit}
                   inStock={product.in_stock}
-                  vendorLabel={getVendorDisplayName(product.vendor_id)}
+                  vendorLabel={vendorDisplay}
+                  vendorUserId={messagingRecipientUserId}
                   imageUrl={product.images?.[0]}
                   rfqEnabled={productIsRfqRoutable(product)}
                 />
@@ -114,7 +127,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-sm font-semibold text-slate-900">{getVendorDisplayName(product.vendor_id)}</p>
+              <p className="text-sm font-semibold text-slate-900">{vendorDisplay}</p>
                 <p className="text-sm text-slate-600">Focused on export-ready supply for wholesale and repeat B2B procurement.</p>
                 <p className="text-xs text-slate-500 flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />

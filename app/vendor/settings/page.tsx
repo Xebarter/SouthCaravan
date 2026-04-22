@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   Building2,
+  Eye,
+  EyeOff,
   Globe,
   Loader2,
   Lock,
@@ -25,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
+import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 
 type NotifKey = 'orders' | 'quotes' | 'messages' | 'marketing';
 
@@ -52,20 +55,30 @@ type VendorProfileApi = {
   state: string;
   zip_code: string;
   country: string;
+  logo_url: string;
 };
 
 export default function VendorSettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [profile, setProfile] = useState<VendorProfileApi | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputId = 'vendor-logo-input';
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
     orders: true,
     quotes: true,
     messages: true,
     marketing: false,
   });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwShowCurrent, setPwShowCurrent] = useState(false);
+  const [pwShowNew, setPwShowNew] = useState(false);
+  const [pwShowConfirm, setPwShowConfirm] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -131,6 +144,7 @@ export default function VendorSettingsPage() {
             companyName: profile.company_name,
             description: profile.description,
             publicEmail: profile.public_email,
+            contactEmail: profile.contact_email,
             phone: profile.phone,
             website: profile.website,
             address: profile.address,
@@ -138,6 +152,7 @@ export default function VendorSettingsPage() {
             state: profile.state,
             zipCode: profile.zip_code,
             country: profile.country,
+            logoUrl: profile.logo_url,
           }
         : {};
 
@@ -166,6 +181,89 @@ export default function VendorSettingsPage() {
       toast.error(e?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogoPicked = async (file: File | null) => {
+    if (!file) return;
+    if (!user) return;
+    setError('');
+    setLogoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/vendor/logo', { method: 'POST', body: formData });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to upload logo');
+
+      const nextProfile = json?.profile ?? null;
+      if (nextProfile) setProfile(nextProfile);
+      toast.success('Logo uploaded');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to upload logo');
+      toast.error(e?.message || 'Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    setError('');
+    const current = pwCurrent.trim();
+    const next = pwNew.trim();
+    const confirm = pwConfirm.trim();
+    if (!current || !next || !confirm) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+    if (next.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
+    if (next !== confirm) {
+      toast.error('New password and confirmation do not match');
+      return;
+    }
+
+    setPwSaving(true);
+    try {
+      const supabase = getBrowserSupabaseClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email ?? '',
+        password: current,
+      });
+      if (signInError) throw new Error('Current password is incorrect');
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: next });
+      if (updateError) throw updateError;
+
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+      setPwShowCurrent(false);
+      setPwShowNew(false);
+      setPwShowConfirm(false);
+      toast.success('Password updated');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to update password');
+      toast.error(e?.message || 'Failed to update password');
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Delete your vendor account? This cannot be undone.')) return;
+    setError('');
+    try {
+      const res = await fetch('/api/vendor/account', { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to delete account');
+      logout();
+      window.location.href = '/';
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete account');
+      toast.error(e?.message || 'Failed to delete account');
     }
   };
 
@@ -207,16 +305,57 @@ export default function VendorSettingsPage() {
           <Card className="border-border/60">
             <CardContent className="pt-6 pb-6">
               <div className="flex items-center gap-5">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold select-none">
-                  {getInitials(vendorDisplay.companyName)}
+                <div className="h-16 w-16 shrink-0 rounded-2xl overflow-hidden border border-border bg-secondary">
+                  {profile?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profile.logo_url}
+                      alt={`${vendorDisplay.companyName} logo`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-primary text-primary-foreground text-xl font-bold select-none">
+                      {getInitials(vendorDisplay.companyName)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold text-base">{vendorDisplay.companyName}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">{vendorDisplay.email}</p>
-                  <Button variant="outline" size="sm" className="mt-2.5 h-7 text-xs gap-1.5">
-                    <Upload className="h-3 w-3" />
-                    Upload logo
-                  </Button>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <input
+                      id={logoInputId}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        e.target.value = '';
+                        void handleLogoPicked(file);
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                      disabled={logoUploading}
+                      onClick={() => document.getElementById(logoInputId)?.click()}
+                    >
+                      <Upload className="h-3 w-3" />
+                      {logoUploading ? 'Uploading…' : 'Upload logo'}
+                    </Button>
+                    {profile?.logo_url ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={logoUploading}
+                        onClick={() => setProfile((p) => (p ? { ...p, logo_url: '' } : p))}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -272,6 +411,21 @@ export default function VendorSettingsPage() {
                     value={profile?.public_email ?? ''}
                     onChange={(e) => setProfile((p) => (p ? { ...p, public_email: e.target.value } : p))}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="vendor-contact-email" className="text-sm flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    Contact email
+                  </Label>
+                  <Input
+                    id="vendor-contact-email"
+                    type="email"
+                    value={profile?.contact_email ?? ''}
+                    onChange={(e) => setProfile((p) => (p ? { ...p, contact_email: e.target.value } : p))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used for platform communication (orders, payouts, support)
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="vendor-phone" className="text-sm flex items-center gap-1.5">
@@ -346,6 +500,14 @@ export default function VendorSettingsPage() {
                   />
                 </div>
               </div>
+              <div className="space-y-1.5 max-w-lg">
+                <Label htmlFor="vendor-country" className="text-sm">Country</Label>
+                <Input
+                  id="vendor-country"
+                  value={profile?.country ?? ''}
+                  onChange={(e) => setProfile((p) => (p ? { ...p, country: e.target.value } : p))}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -419,17 +581,76 @@ export default function VendorSettingsPage() {
             <CardContent className="space-y-4 max-w-sm">
               <div className="space-y-1.5">
                 <Label htmlFor="vendor-cur-pw" className="text-sm">Current password</Label>
-                <Input id="vendor-cur-pw" type="password" placeholder="••••••••" />
+                <div className="relative">
+                  <Input
+                    id="vendor-cur-pw"
+                    type={pwShowCurrent ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={pwCurrent}
+                    onChange={(e) => setPwCurrent(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    onClick={() => setPwShowCurrent((v) => !v)}
+                    aria-label={pwShowCurrent ? 'Hide password' : 'View password'}
+                  >
+                    {pwShowCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="vendor-new-pw" className="text-sm">New password</Label>
-                <Input id="vendor-new-pw" type="password" placeholder="••••••••" />
+                <div className="relative">
+                  <Input
+                    id="vendor-new-pw"
+                    type={pwShowNew ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={pwNew}
+                    onChange={(e) => setPwNew(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    onClick={() => setPwShowNew((v) => !v)}
+                    aria-label={pwShowNew ? 'Hide password' : 'View password'}
+                  >
+                    {pwShowNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="vendor-confirm-pw" className="text-sm">Confirm new password</Label>
-                <Input id="vendor-confirm-pw" type="password" placeholder="••••••••" />
+                <div className="relative">
+                  <Input
+                    id="vendor-confirm-pw"
+                    type={pwShowConfirm ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={pwConfirm}
+                    onChange={(e) => setPwConfirm(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    onClick={() => setPwShowConfirm((v) => !v)}
+                    aria-label={pwShowConfirm ? 'Hide password' : 'View password'}
+                  >
+                    {pwShowConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-              <Button variant="outline" size="sm">Update password</Button>
+              <Button variant="outline" size="sm" disabled={pwSaving} onClick={handlePasswordUpdate}>
+                {pwSaving ? 'Updating…' : 'Update password'}
+              </Button>
             </CardContent>
           </Card>
 
@@ -478,6 +699,7 @@ export default function VendorSettingsPage() {
                   variant="outline"
                   size="sm"
                   className="shrink-0 border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                  onClick={handleDeleteAccount}
                 >
                   Delete account
                 </Button>

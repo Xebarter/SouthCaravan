@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Send, Search, Plus, RefreshCw } from 'lucide-react';
+import { Phone, Send, Search, Plus, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 function toDate(v: any) {
@@ -16,6 +17,8 @@ function toDate(v: any) {
 }
 
 export default function BuyerMessagesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const buyerId = user?.id ?? 'user-1';
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -32,6 +35,60 @@ export default function BuyerMessagesPage() {
   const [vendorUserId, setVendorUserId] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [bootstrappedFromQuery, setBootstrappedFromQuery] = useState(false);
+  const [vendorLabels, setVendorLabels] = useState<Record<string, string>>({});
+  const [buyerPhone, setBuyerPhone] = useState('');
+  const [buyerPhoneLoaded, setBuyerPhoneLoaded] = useState(false);
+  const [buyerPhoneSaving, setBuyerPhoneSaving] = useState(false);
+  const [buyerPhoneError, setBuyerPhoneError] = useState<string | null>(null);
+
+  const [vendorPhone, setVendorPhone] = useState<string | null>(null);
+  const [vendorPhoneLoading, setVendorPhoneLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('buyerVendorLabels');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') setVendorLabels(parsed as Record<string, string>);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || buyerPhoneLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/buyer/profile', { method: 'GET', cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        const phone = typeof json?.customer?.phone === 'string' ? json.customer.phone : '';
+        if (!cancelled) setBuyerPhone(phone || '');
+      } finally {
+        if (!cancelled) setBuyerPhoneLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, buyerPhoneLoaded]);
+
+  const upsertVendorLabel = (vendorId: string, label: string) => {
+    const id = (vendorId ?? '').trim();
+    const name = (label ?? '').trim();
+    if (!id || !name) return;
+    setVendorLabels((prev) => {
+      const next = { ...prev, [id]: name };
+      try {
+        localStorage.setItem('buyerVendorLabels', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const unreadSelected = useMemo(() => {
     return messages.filter((m) => String(m.recipient_id) === String(buyerId) && !m.read).length;
@@ -183,6 +240,117 @@ export default function BuyerMessagesPage() {
     }
   };
 
+  useEffect(() => {
+    if (!user || bootstrappedFromQuery) return;
+    const vendorFromQuery = (searchParams.get('vendorUserId') ?? '').trim();
+    if (!vendorFromQuery) return;
+
+    const vendorLabel = (searchParams.get('vendorLabel') ?? '').trim();
+    const productId = (searchParams.get('productId') ?? '').trim();
+    const productName = (searchParams.get('productName') ?? '').trim();
+
+    setBootstrappedFromQuery(true);
+    (async () => {
+      try {
+        if (vendorLabel) upsertVendorLabel(vendorFromQuery, vendorLabel);
+        const res = await fetch('/api/buyer/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendorUserId: vendorFromQuery }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) return;
+        const convId = json?.conversation?.id;
+        if (convId) setSelectedConvId(convId);
+
+        if (!messageText.trim()) {
+          const parts = [
+            productName ? `Hi, I'm interested in “${productName}”.` : `Hi, I'm interested in this product.`,
+            productId ? `Product ID: ${productId}` : '',
+          ].filter(Boolean);
+          setMessageText(parts.join(' '));
+        }
+      } finally {
+        // Clean the URL so refreshes don't keep re-triggering creation.
+        router.replace('/buyer/messages');
+      }
+    })();
+    // intentionally exclude messageText so we don't re-run on typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, searchParams, router, bootstrappedFromQuery]);
+
+  useEffect(() => {
+    const vendorId = String(selectedConv?.vendor_user_id ?? '').trim();
+    if (!user || !vendorId) {
+      setVendorPhone(null);
+      return;
+    }
+    let cancelled = false;
+    setVendorPhoneLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/buyer/vendor-contact?vendorUserId=${encodeURIComponent(vendorId)}`, {
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        if (!cancelled) {
+          const phone = typeof json?.phone === 'string' ? json.phone : null;
+          const displayName = typeof json?.displayName === 'string' ? json.displayName.trim() : '';
+          if (displayName) upsertVendorLabel(vendorId, displayName);
+          setVendorPhone(phone && phone.trim() ? phone.trim() : null);
+        }
+      } finally {
+        if (!cancelled) setVendorPhoneLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedConvId]);
+
+  const saveBuyerPhone = async () => {
+    const phone = buyerPhone.trim();
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 9) {
+      setBuyerPhoneError('Enter a valid phone number (at least 9 digits).');
+      return;
+    }
+    setBuyerPhoneError(null);
+    setBuyerPhoneSaving(true);
+    try {
+      const res = await fetch('/api/buyer/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBuyerPhoneError(json?.error || 'Failed to save phone number');
+        return;
+      }
+      const saved = typeof json?.customer?.phone === 'string' ? json.customer.phone : phone;
+      setBuyerPhone(saved || phone);
+      try {
+        localStorage.setItem('currentBuyerPhone', saved || phone);
+      } catch {
+        // ignore
+      }
+    } finally {
+      setBuyerPhoneSaving(false);
+    }
+  };
+
+  const referenceLine = useMemo(() => {
+    const productName = (searchParams.get('productName') ?? '').trim();
+    const productId = (searchParams.get('productId') ?? '').trim();
+    if (!productName && !productId) return '';
+    if (productName && productId) return `Reference: ${productName} (Product ID: ${productId})`;
+    if (productName) return `Reference: ${productName}`;
+    return `Reference: Product ID ${productId}`;
+  }, [searchParams]);
+
   return (
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
@@ -263,6 +431,7 @@ export default function BuyerMessagesPage() {
                   )}
                   {filteredConversations.map(conv => {
                     const isSelected = selectedConvId === conv.id;
+                    const label = vendorLabels[String(conv.vendor_user_id ?? '').trim()];
 
                     return (
                       <button
@@ -275,7 +444,9 @@ export default function BuyerMessagesPage() {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium text-sm">{`Vendor ${String(conv.vendor_user_id).slice(-6)}`}</div>
+                          <div className="font-medium text-sm">
+                            {label || `Vendor ${String(conv.vendor_user_id).slice(-6)}`}
+                          </div>
                           {isSelected && unreadSelected > 0 ? (
                             <Badge className="rounded-full bg-background/20 text-inherit border border-primary-foreground/20">
                               {unreadSelected > 99 ? '99+' : unreadSelected}
@@ -305,13 +476,26 @@ export default function BuyerMessagesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        {`Vendor ${String(selectedConv.vendor_user_id).slice(-6)}`}
+                        {vendorLabels[String(selectedConv.vendor_user_id ?? '').trim()] ||
+                          `Vendor ${String(selectedConv.vendor_user_id).slice(-6)}`}
                       </CardTitle>
                       <p className="text-xs text-muted-foreground mt-1">
                         {unreadSelected > 0 ? `${unreadSelected} unread` : 'All caught up'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={vendorPhoneLoading || !vendorPhone}
+                        onClick={() => {
+                          if (!vendorPhone) return;
+                          window.location.href = `tel:${vendorPhone}`;
+                        }}
+                      >
+                        <Phone className="w-4 h-4 mr-2" />
+                        Call supplier
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -356,6 +540,61 @@ export default function BuyerMessagesPage() {
 
                 {/* Input */}
                 <CardContent className="p-4 border-t border-border/50">
+                  {!buyerPhoneLoaded ? (
+                    <div className="mb-3 text-xs text-muted-foreground">Loading your contact details…</div>
+                  ) : !buyerPhone.trim() ? (
+                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="flex-1">
+                          <Label htmlFor="buyer-phone" className="text-xs text-amber-900">
+                            Add your phone number (so suppliers can call you)
+                          </Label>
+                          <Input
+                            id="buyer-phone"
+                            placeholder="e.g. +234 801 234 5678"
+                            value={buyerPhone}
+                            onChange={(e) => setBuyerPhone(e.target.value)}
+                            className="mt-1 bg-background"
+                          />
+                          {buyerPhoneError ? (
+                            <div className="text-xs text-destructive mt-1">{buyerPhoneError}</div>
+                          ) : null}
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={buyerPhoneSaving}
+                          onClick={saveBuyerPhone}
+                          className="sm:ml-3"
+                        >
+                          {buyerPhoneSaving ? 'Saving…' : 'Save phone'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-secondary/20 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Your phone</p>
+                        <p className="text-sm font-medium truncate">{buyerPhone}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBuyerPhone('');
+                          setBuyerPhoneError(null);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  )}
+
+                  {referenceLine ? (
+                    <div className="mb-3 rounded-lg border border-border/50 bg-secondary/10 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">{referenceLine}</p>
+                    </div>
+                  ) : null}
+
                   <div className="flex gap-2">
                     <Input
                       placeholder="Type your message..."

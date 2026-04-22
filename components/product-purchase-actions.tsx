@@ -21,6 +21,8 @@ export type ProductPurchaseActionsProps = {
   unit: string;
   inStock: boolean;
   vendorLabel: string;
+  /** Supabase auth user id for the vendor that owns this product */
+  vendorUserId?: string;
   imageUrl?: string;
   /** False for platform-owned SKUs without a vendor auth id */
   rfqEnabled?: boolean;
@@ -34,6 +36,7 @@ export function ProductPurchaseActions({
   unit,
   inStock,
   vendorLabel,
+  vendorUserId,
   imageUrl,
   rfqEnabled = true,
 }: ProductPurchaseActionsProps) {
@@ -135,6 +138,31 @@ export function ProductPurchaseActions({
     }
   };
 
+  const handleContactSupplier = () => {
+    if (authLoading) return;
+    if (!vendorUserId) {
+      toast.error('This product does not have a supplier messaging inbox yet.');
+      return;
+    }
+
+    const qs = new URLSearchParams();
+    qs.set('vendorUserId', vendorUserId);
+    qs.set('vendorLabel', vendorLabel);
+    qs.set('productId', productId);
+    qs.set('productName', name);
+    const next = `/buyer/messages?${qs.toString()}`;
+
+    if (user?.role === 'buyer') {
+      router.push(next);
+      return;
+    }
+
+    const loginQs = new URLSearchParams();
+    loginQs.set('role', 'buyer');
+    loginQs.set('next', next);
+    router.push(`/login?${loginQs.toString()}`);
+  };
+
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
       <div className="space-y-2">
@@ -194,8 +222,14 @@ export function ProductPurchaseActions({
         >
           Request quotation
         </Button>
-        <Button asChild variant="outline" className="rounded-full px-5 border-slate-300">
-          <Link href="/login">Contact supplier</Link>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-full px-5 border-slate-300"
+          disabled={authLoading}
+          onClick={handleContactSupplier}
+        >
+          Contact supplier
         </Button>
       </div>
 
