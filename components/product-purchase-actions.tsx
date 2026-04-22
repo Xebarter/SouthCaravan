@@ -26,6 +26,8 @@ export type ProductPurchaseActionsProps = {
   imageUrl?: string;
   /** False for platform-owned SKUs without a vendor auth id */
   rfqEnabled?: boolean;
+  /** Render an always-available bottom CTA bar on mobile. */
+  showMobileStickyBar?: boolean;
 };
 
 export function ProductPurchaseActions({
@@ -39,6 +41,7 @@ export function ProductPurchaseActions({
   vendorUserId,
   imageUrl,
   rfqEnabled = true,
+  showMobileStickyBar = true,
 }: ProductPurchaseActionsProps) {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
@@ -163,81 +166,156 @@ export function ProductPurchaseActions({
     router.push(`/login?${loginQs.toString()}`);
   };
 
+  const focusQuantity = () => {
+    const el = document.getElementById('order-qty') as HTMLInputElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus();
+      el.select?.();
+    }
+  };
+
   return (
-    <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
-      <div className="space-y-2">
-        <Label htmlFor="order-qty" className="text-slate-700">
-          Order quantity ({unit})
-        </Label>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            id="order-qty"
-            type="number"
-            min={minimumOrder}
-            step={1}
-            value={quantity}
-            disabled={!inStock}
-            onChange={(e) => setQuantity(clampQty(parseInt(e.target.value, 10) || minimumOrder))}
-            className="max-w-[140px]"
-          />
-          <span className="text-xs text-slate-500">Minimum {minimumOrder} {unit}</span>
+    <>
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Quantity</p>
+            <Label htmlFor="order-qty" className="sr-only">
+              Order quantity ({unit})
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                id="order-qty"
+                type="number"
+                min={minimumOrder}
+                step={1}
+                value={quantity}
+                disabled={!inStock}
+                onChange={(e) => setQuantity(clampQty(parseInt(e.target.value, 10) || minimumOrder))}
+                className="h-10 max-w-[160px]"
+              />
+              <span className="text-xs text-slate-500">
+                Min {minimumOrder} {unit}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-xs text-slate-500">Selected</p>
+            <p className="text-sm font-semibold text-slate-900">
+              {clampQty(quantity)} {unit}
+            </p>
+          </div>
         </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            className="h-11 rounded-xl"
+            disabled={!inStock || busy}
+            onClick={handleBuyNow}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                Redirecting…
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="mr-2 h-4 w-4" aria-hidden />
+                Buy now
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-xl border-slate-300"
+            disabled={!inStock}
+            onClick={handleAddToCart}
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" aria-hidden />
+            Add to cart
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-xl border-slate-300"
+            disabled={!inStock || !rfqEnabled || authLoading}
+            onClick={handleRequestQuote}
+          >
+            Request quotation
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-xl border-slate-300"
+            disabled={authLoading}
+            onClick={handleContactSupplier}
+          >
+            Contact supplier
+          </Button>
+        </div>
+
+        {!inStock && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            This SKU is not available for immediate purchase. Use quotation or contact the supplier.
+          </p>
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-full border-slate-300 px-5"
-          disabled={!inStock}
-          onClick={handleAddToCart}
-        >
-          <ShoppingCart className="mr-2 h-4 w-4" aria-hidden />
-          Add to cart
-        </Button>
-        <Button
-          type="button"
-          className="rounded-full px-5"
-          disabled={!inStock || busy}
-          onClick={handleBuyNow}
-        >
-          {busy ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-              Redirecting…
-            </>
-          ) : (
-            <>
-              <ShoppingBag className="mr-2 h-4 w-4" aria-hidden />
-              Buy now
-            </>
-          )}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-full px-5 border-slate-300"
-          disabled={!inStock || !rfqEnabled || authLoading}
-          onClick={handleRequestQuote}
-        >
-          Request quotation
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-full px-5 border-slate-300"
-          disabled={authLoading}
-          onClick={handleContactSupplier}
-        >
-          Contact supplier
-        </Button>
-      </div>
+      {showMobileStickyBar ? (
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/80">
+          <div className="mx-auto flex max-w-[1500px] items-center gap-2 px-4 py-3">
+            <button
+              type="button"
+              onClick={focusQuantity}
+              className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left"
+              aria-label="Adjust quantity"
+            >
+              <p className="text-[11px] font-medium text-slate-500">Qty</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {clampQty(quantity)} {unit}
+              </p>
+            </button>
 
-      {!inStock && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-          This SKU is not available for immediate purchase. Use quotation or contact the supplier.
-        </p>
-      )}
-    </div>
+            <Button
+              type="button"
+              className="h-11 flex-1 rounded-xl"
+              disabled={!inStock || busy}
+              onClick={handleBuyNow}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Redirecting…
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="mr-2 h-4 w-4" aria-hidden />
+                  Buy now
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-xl border-slate-300"
+              disabled={!inStock}
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" aria-hidden />
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

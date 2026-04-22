@@ -1,190 +1,109 @@
-============================================================
-DPO Pay by Network — Payment Integration Documentation
-SouthCaravan Marketplace
-============================================================
-
-OVERVIEW
---------
-Payments at checkout are processed by DPO Pay by Network (formerly 3G Direct Pay),
-an African-focused payment gateway. The integration uses DPO's API v6 XML interface.
-The buyer is redirected to DPO's hosted payment page; card/mobile-money details never
-touch SouthCaravan's servers.
-
-
-ENVIRONMENT VARIABLES (add to .env.local / deployment env)
------------------------------------------------------------
-DPO_COMPANY_TOKEN       — Merchant token from DPO onboarding dashboard
-DPO_SERVICE_TYPE        — Service type code assigned during onboarding (e.g. 111455)
-DPO_PAYMENT_CURRENCY    — ISO 4217 currency code (e.g. USD, KES, ZAR, UGX)
-DPO_SANDBOX             — "true" to use sandbox, "false" (or absent) for live
-NEXT_PUBLIC_SITE_URL    — Full public URL (e.g. https://southcaravan.com)
-                          Used to build absolute RedirectURL and BackURL for DPO.
-
-
-FILES CREATED / MODIFIED
--------------------------
-
-lib/dpo.ts
-  Server-side DPO API client. Never imported in client components.
-  Exports:
-    dpoCreateToken(params)  — POSTs XML to DPO /API/v6/ to open a payment session.
-                              Returns { transToken, transRef }.
-    dpoVerifyToken(token)   — POSTs XML to verify payment status after redirect.
-                              Returns { result, resultExplanation, customerName,
-                                        transactionAmount, transactionCurrency }.
-    dpoBuildCheckoutUrl(t)  — Returns the DPO hosted checkout URL for a given token:
-                              https://secure.3gdirectpay.com/pay.asp?ID={token}
-    getDpoConfig()          — Reads env vars; throws if DPO_COMPANY_TOKEN or
-                              DPO_SERVICE_TYPE are missing.
-  Sandbox URL: https://secure1.sandbox.directpay.online/API/v6/
-  Live URL:    https://secure.3gdirectpay.com/API/v6/
-
-app/api/payments/dpo/create-token/route.ts   [POST]
-  Called by the checkout page when the buyer clicks "Pay with DPO".
-  Flow:
-    1. Authenticates the buyer via getAuthedBuyer().
-    2. Validates request body: items[], shippingAddress, optional customerName/email.
-    3. Computes order total using checkoutTotals() from lib/checkout-session.ts.
-    4. Looks up vendor_user_id from the first product's vendor_id (if it's a UUID);
-       falls back to the buyer's own ID to satisfy the DB NOT NULL constraint
-       before the payments-dpo.sql migration is applied.
-    5. Inserts a pending order into public.orders (tries with payment_status column
-       first; auto-retries without it if the column doesn't exist yet, i.e. migration
-       pending).
-    6. Inserts order line items into public.order_items.
-    7. Calls dpoCreateToken() with:
-         companyRef  = the new order UUID (used to look up the order on return)
-         redirectUrl = {NEXT_PUBLIC_SITE_URL}/checkout/payment-return
-         backUrl     = {NEXT_PUBLIC_SITE_URL}/api/payments/dpo/callback
-         amount      = total (2 decimal places)
-         currency    = DPO_PAYMENT_CURRENCY
-    8. Saves transToken and transRef back onto the order row.
-    9. Returns { orderId, transToken, checkoutUrl } to the client.
-  On any DPO or DB error the order is deleted (best-effort cleanup) and an
-  error JSON is returned with the raw detail message for debugging.
-
-app/api/payments/dpo/verify/route.ts   [GET ?token=&orderId=]
-  Called by /checkout/payment-return after DPO redirects the buyer back.
-  Flow:
-    1. Authenticates the buyer.
-    2. Looks up the order by dpo_trans_token = token AND buyer_id = auth user.
-       Falls back to looking up by orderId param (= CompanyRef echoed by DPO)
-       if the dpo_trans_token column doesn't exist yet (pre-migration).
-    3. Returns immediately with { paid: true } if the order is already confirmed
-       (idempotent).
-    4. Calls dpoVerifyToken() with the transToken.
-    5. On result "000" (paid): sets order.status = 'confirmed',
-                                       order.payment_status = 'paid'.
-       On any other result:    sets order.payment_status = 'failed'.
-    6. Returns { orderId, paid, result, resultExplanation, customerName,
-                 transactionAmount }.
-
-app/api/payments/dpo/callback/route.ts   [POST + GET]
-  Server-to-server BackURL that DPO calls directly after payment (push notification).
-  This endpoint is unauthenticated (DPO calls it, not the browser).
-  Flow:
-    1. Reads TransactionToken (or TransID) and CompanyRef from query params
-       or form-encoded body.
-    2. Looks up the order by id = CompanyRef.
-    3. Skips silently if order not found or already paid.
-    4. Calls dpoVerifyToken() to confirm before trusting the callback.
-    5. Updates order.payment_status and order.status accordingly.
-    6. Always returns HTTP 200 OK (required by DPO).
-
-app/checkout/page.tsx   [modified]
-  The checkout page was simplified from 3 steps (shipping → payment → review)
-  to 2 steps (shipping → payment).
-  Auth guard: uses useAuth() to detect unauthenticated visitors and redirects
-  them to /auth?role=buyer&next=/checkout before they can proceed.
-  Payment step:
-    - Shows order total, shipping summary, and DPO trust badge.
-    - "Pay with DPO" button calls POST /api/payments/dpo/create-token.
-    - On success, sets window.location.href = checkoutUrl to redirect the buyer
-      to DPO's hosted checkout page.
-    - Fake card form (name, number, expiry, CVC) has been removed entirely.
-
-app/checkout/payment-return/page.tsx   [new]
-  The RedirectURL DPO sends the buyer back to after payment.
-  DPO appends query params: TransID, CCDapproval, PnrID, CompanyRef.
-  Flow:
-    1. Reads TransID (= transToken) and CompanyRef (= orderId) from URL.
-    2. Calls GET /api/payments/dpo/verify?token=...&orderId=... .
-    3. Shows one of three states:
-         paid    — CheckCircle, order reference, auto-redirects to /buyer/orders.
-         failed  — XCircle, DPO result explanation, links to retry or back to cart.
-         error   — AlertCircle, error message, links to orders or marketplace.
-    4. On success, clears the sessionStorage checkout session.
-
-supabase/payments-dpo.sql   [new]
-  Database migration (run once in Supabase SQL Editor):
-    ALTER TABLE public.orders ALTER COLUMN vendor_user_id DROP NOT NULL;
-    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS dpo_trans_token text;
-    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS dpo_trans_ref   text;
-    ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_status  text
-      NOT NULL DEFAULT 'pending'
-      CHECK (payment_status IN ('pending', 'paid', 'failed'));
-    CREATE INDEX ON public.orders (dpo_trans_token) WHERE dpo_trans_token IS NOT NULL;
-
-supabase/setup.sql   [new]
-  Single combined file that creates the entire database schema in correct
-  dependency order and ends with the DPO migration. Run this once on a
-  fresh Supabase project instead of running each file individually.
-
-lib/api/buyer-auth.ts   [modified]
-  getAuthedBuyer() now checks three sources for the buyer role (in order):
-    1. app_metadata.role / app_metadata.roles  (set by admin/service role)
-    2. user_metadata.role                      (set during client-side signUp)
-    3. public.user_roles table                 (set by POST /api/auth/portal-access)
-  Previously only source 1 was checked, causing 401 errors for all users
-  who signed up via the UI (their role is in user_metadata, not app_metadata).
-
-
-FULL PAYMENT FLOW (happy path)
-------------------------------
-1.  Buyer adds items to cart and proceeds to /checkout.
-2.  Checkout page auth-guards: if not logged in, redirect to /auth?role=buyer&next=/checkout.
-3.  Buyer fills the Shipping step (name, email, address) and clicks "Continue to payment".
-4.  Payment step shows the order total and a "Pay with DPO" button.
-5.  Buyer clicks "Pay with DPO":
-      → POST /api/payments/dpo/create-token
-      ← { orderId, transToken, checkoutUrl }
-      → window.location.href = checkoutUrl
-6.  Buyer is on DPO's hosted page and completes payment (card, mobile money, etc.).
-7.  DPO redirects buyer to:
-      https://southcaravan.com/checkout/payment-return
-        ?TransID={transToken}&CompanyRef={orderId}&CCDapproval=...
-8.  payment-return page calls:
-      GET /api/payments/dpo/verify?token={TransID}&orderId={CompanyRef}
-9.  Server calls DPO verifyToken; if Result = "000":
-      orders.status        → 'confirmed'
-      orders.payment_status → 'paid'
-10. payment-return page shows "Payment confirmed!" and redirects to /buyer/orders.
-11. DPO also calls BackURL server-to-server:
-      POST /api/payments/dpo/callback?TransactionToken=...&CompanyRef=...
-    This independently verifies and updates the order (handles cases where the
-    browser redirect was interrupted).
-
-
-DPO RESULT CODES (key ones)
-----------------------------
-000 — Transaction Paid (success)
-001 — Authorized
-900 — Transaction not paid yet
-901 — Transaction declined
-902 — Reverse
-904 — Invalid currency code
-
-
-NOTES & CONSTRAINTS
--------------------
-- Card details never pass through SouthCaravan servers (DPO hosted page).
-- The integration is resilient to the payments-dpo.sql migration not yet being
-  applied: the create-token route retries the DB insert without the payment_status
-  column, and the verify route falls back to orderId lookup if dpo_trans_token
-  column is missing.
-- A single checkout order may span multiple vendors; vendor_user_id is nullable
-  post-migration for this reason.
-- Prices are stored and sent to DPO in USD (DPO_PAYMENT_CURRENCY=USD). The
-  Money component converts display amounts to the buyer's preferred currency
-  using live FX rates, but the DPO charge is always in the configured currency.
-- PTL (payment token lifetime) defaults to 5 hours; configurable in lib/dpo.ts.
+1. Business & Professional Services
+Accounting, Bookkeeping & Financial Reporting
+Auditing & Assurance
+Tax Advisory & Compliance
+Legal Advisory & Corporate Law
+Business Registration & Licensing
+Company Secretarial Services
+Business Consulting & Strategy
+Risk & Compliance Consulting
+Procurement & Supply Consulting
+2. Technology & Digital Services
+Website Design & Development
+Mobile App Development (Android & iOS)
+Custom Software Development
+E-commerce Development & Management
+IT Support & Helpdesk Services
+Network Setup & Administration
+Cybersecurity & Data Protection
+Cloud Computing & DevOps
+Data Analytics & AI Solutions
+System Integration & API Development
+3. Marketing & Creative Services
+Digital Marketing (SEO, SEM, Social Media Ads)
+Social Media Management
+Branding & Identity Design
+Graphic Design (Logos, Flyers, UI/UX)
+Content Creation & Copywriting
+Video Production & Editing
+Photography Services
+Public Relations (PR)
+Influencer & Campaign Management
+Market Research & Consumer Insights
+4. Logistics & Supply Chain
+Transportation & Haulage
+Fleet Management
+Warehousing & Inventory Management
+Freight Forwarding (Air, Sea, Land)
+Customs Clearing & Documentation
+Last-Mile Delivery & Courier Services
+Packaging & Distribution
+Cold Chain Logistics
+Import & Export Consultancy
+5. Construction & Engineering
+Building Construction (Residential & Commercial)
+Civil Engineering Projects
+Architectural Design & Planning
+Quantity Surveying
+Electrical Installation & Maintenance
+Plumbing & Water Systems
+HVAC (Heating, Ventilation, Air Conditioning)
+Interior Design & Fit-outs
+Renovation & Property Maintenance
+Surveying & Land Mapping
+6. Human Resources & Training
+Recruitment & Talent Acquisition
+Temporary & Outsourced Staffing
+HR Consulting & Policy Development
+Payroll Processing & Management
+Employee Training & Development
+Corporate Workshops & Seminars
+Performance Management Systems
+Organizational Development
+Occupational Health & Safety Training
+7. Financial Services
+Insurance Brokerage & Advisory
+Financial Planning & Advisory
+Investment Consulting
+Wealth Management
+Loan Facilitation & Credit Services
+Microfinance Services
+Payment Processing & Fintech Solutions
+Asset Financing & Leasing
+Grant Writing & Fundraising Support
+8. Sales & Customer Support
+Sales Outsourcing & Field Sales Teams
+Lead Generation & Prospecting
+Telemarketing Services
+Customer Support (Call Centers, Live Chat)
+CRM Setup & Management
+After-Sales Support Services
+Market Expansion & Distribution Support
+9. Facility & Operational Services
+Cleaning & Janitorial Services
+Security & Guard Services
+Pest Control & Fumigation
+Waste Collection & Recycling
+Landscaping & Gardening
+Building & Office Maintenance
+Office Setup & Space Management
+Utilities Management (Water, Power)
+Laundry & Office Hygiene Services
+10. Hospitality, Events & Lifestyle Services
+Event Planning & Management
+Catering & Corporate Catering
+Conference & Exhibition Services
+Travel Management & Corporate Travel
+Hotel & Accommodation Booking
+Car Hire & Transport Services
+Corporate Gifting & Merchandise
+11. Agriculture & Specialized Services
+Agricultural Consultancy & Advisory
+Farm Management Services
+Irrigation System Design & Installation
+Agro-input Supply & Distribution
+Veterinary Services
+Agribusiness Training
+Produce Handling & Post-Harvest Services
+Food Processing & Packaging
+Environmental & Sustainability Consulting

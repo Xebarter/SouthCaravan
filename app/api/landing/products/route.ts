@@ -3,22 +3,6 @@ import { getLandingCategoryFeedSections } from '@/lib/landing-data';
 
 export const revalidate = 60;
 
-type LandingFeedProduct = {
-  id: string;
-  vendor_id: string | null;
-  name: string;
-  description: string;
-  category: string;
-  subcategory: string;
-  sub_subcategory: string;
-  price: number;
-  minimum_order: number;
-  unit: string;
-  images: string[];
-  in_stock: boolean;
-  is_featured: boolean;
-};
-
 const MAX_PAGE_SIZE = 6;
 const MAX_PER_CATEGORY = 6;
 
@@ -39,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        sections: sections as LandingFeedProduct[],
+        sections,
         hasMore,
         page,
       },

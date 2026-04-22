@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Package, Star } from 'lucide-react';
+import { Loader2, Package, Sparkles, Star } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import type { FeedSection } from '@/lib/landing-data';
 
@@ -123,10 +124,14 @@ export default function CategoryInfiniteFeed({
               </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 sm:gap-4">
-              {section.products.slice(0, 4).map((product, index) => (
+              {section.products.slice(0, 4).map((product, index) => {
+                const isService = product.item_kind === 'service';
+                const href = product.href ?? `/product/${product.id}`;
+                const baseCurrency = (product.price_currency ?? 'USD').toUpperCase();
+                return (
                 <Link
-                  key={product.id}
-                  href={`/product/${product.id}`}
+                  key={`${isService ? 'svc' : 'prd'}-${product.id}`}
+                  href={href}
                   className={['block', index >= 3 ? 'lg:hidden' : ''].join(' ')}
                 >
                   <Card className="border border-slate-200 shadow-none rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow py-0 gap-0 h-full">
@@ -143,35 +148,63 @@ export default function CategoryInfiniteFeed({
                           />
                         ) : (
                           <div className="h-full w-full bg-slate-100 flex items-center justify-center">
-                            <Package className="w-8 h-8 text-slate-400" />
+                            {isService ? (
+                              <Sparkles className="w-8 h-8 text-sky-600" />
+                            ) : (
+                              <Package className="w-8 h-8 text-slate-400" />
+                            )}
                           </div>
                         )}
                       </div>
 
                       <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2 flex-1">
-                        <p className="text-sm text-slate-900 line-clamp-2 min-h-10">{product.name}</p>
-                        <div className="flex items-baseline justify-between">
-                          <p className="text-base sm:text-lg font-bold text-slate-900">
-                            <Money amountUSD={Number(product.price)} />
-                          </p>
-                          <span className="text-[11px] text-slate-500">{product.minimum_order} {product.unit} min</span>
+                        <div className="flex items-start gap-1.5 min-h-10">
+                          {isService ? (
+                            <Badge variant="secondary" className="text-[10px] shrink-0 px-1.5 py-0 h-5">
+                              Service
+                            </Badge>
+                          ) : null}
+                          <p className="text-sm text-slate-900 line-clamp-2 flex-1">{product.name}</p>
                         </div>
-                        <p className="text-xs text-slate-500 line-clamp-1">{getVendorName(product.vendor_id)}</p>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-base sm:text-lg font-bold text-slate-900">
+                            <Money amount={Number(product.price)} baseCurrency={baseCurrency} />
+                          </p>
+                          <span className="text-[11px] text-slate-500 text-right">
+                            {isService
+                              ? product.unit === 'hour'
+                                ? 'per hour'
+                                : 'starting at'
+                              : `${product.minimum_order} ${product.unit} min`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 line-clamp-1">
+                          {isService ? product.subcategory : getVendorName(product.vendor_id)}
+                        </p>
                       </div>
 
                       <div className="mt-auto px-2 sm:px-3 py-2 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between">
                         <div className="flex items-center gap-1 text-[11px] text-amber-500">
                           <Star className="w-3 h-3 fill-current" />
-                          <span>{product.is_featured ? 'Spotlight' : 'Verified'}</span>
+                          <span>
+                            {product.is_featured ? 'Spotlight' : isService ? 'Service provider' : 'Verified'}
+                          </span>
                         </div>
                         <span className={`text-xs font-medium ${product.in_stock ? 'text-sky-700' : 'text-slate-400'}`}>
-                          {product.in_stock ? 'View product' : 'Out of stock'}
+                          {isService
+                            ? product.in_stock
+                              ? 'View service'
+                              : 'Unavailable'
+                            : product.in_stock
+                              ? 'View product'
+                              : 'Out of stock'}
                         </span>
                       </div>
                     </CardContent>
                   </Card>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
           );

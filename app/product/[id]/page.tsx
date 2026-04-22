@@ -48,7 +48,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   );
 
   return (
-    <div className="bg-background px-4 md:px-6 py-6 md:py-8">
+    <div className="bg-background px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-8">
       {criticalPreloadUrls.map((url) => (
         <link key={url} rel="preload" as="image" href={url} />
       ))}
@@ -58,7 +58,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           Back to marketplace
         </Link>
 
-        <div className="grid gap-5 lg:grid-cols-12">
+        {/* One column on small screens (gallery → buy → overview → supplier). On lg, two rows: [media|buy] then [overview|supplier] so long copy never scrolls under the sticky buy box. */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
           <Card className="lg:col-span-7 border-slate-200 shadow-sm">
             <CardContent className="p-4 md:p-5 space-y-3">
               {product.images?.length ? (
@@ -71,7 +72,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 lg:sticky lg:top-20 lg:self-start">
             <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-5 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -79,29 +80,29 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <Badge variant="outline">{product.subcategory}</Badge>
                   <Badge variant="outline">{product.in_stock ? 'In production' : 'Temporarily unavailable'}</Badge>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{product.name}</h1>
-                <ProductRichText html={product.description} />
 
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div>
-                    <p className="text-xs text-slate-500">Reference Unit Price</p>
-                    <p className="text-xl font-bold text-slate-900">
-                      <Money amountUSD={Number(product.price)} />
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Minimum Order</p>
-                    <p className="text-xl font-bold text-slate-900">{product.minimum_order} {product.unit}</p>
-                  </div>
+                <div className="space-y-1">
+                  <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
+                  <p className="text-sm text-slate-600">
+                    Sold by <span className="font-semibold text-slate-900">{vendorDisplay}</span>
+                  </p>
                 </div>
 
-                <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-                  <p className="text-sm font-semibold text-slate-900">B2B Trade Snapshot</p>
-                  <ul className="space-y-1 text-sm text-slate-600">
-                    <li>Lead time: 7-21 days depending on volume</li>
-                    <li>Payment terms: T/T, L/C (negotiable)</li>
-                    <li>Packaging: Export-grade carton/pallet</li>
-                  </ul>
+                <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Reference unit price</p>
+                    <p className="mt-0.5 text-xl font-bold text-slate-900">
+                      <Money amountUSD={Number(product.price)} />
+                    </p>
+                    <p className="text-xs text-slate-500">Per {product.unit}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Minimum order</p>
+                    <p className="mt-0.5 text-xl font-bold text-slate-900">
+                      {product.minimum_order} {product.unit}
+                    </p>
+                    <p className="text-xs text-slate-500">MOQ</p>
+                  </div>
                 </div>
 
                 <ProductPurchaseActions
@@ -115,27 +116,46 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   vendorUserId={messagingRecipientUserId}
                   imageUrl={product.images?.[0]}
                   rfqEnabled={productIsRfqRoutable(product)}
+                  showMobileStickyBar
                 />
               </CardContent>
             </Card>
-
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-sky-700" />
-                  Supplier
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-              <p className="text-sm font-semibold text-slate-900">{vendorDisplay}</p>
-                <p className="text-sm text-slate-600">Focused on export-ready supply for wholesale and repeat B2B procurement.</p>
-                <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  Basic profile verification completed
-                </p>
-              </CardContent>
-            </Card>
           </div>
+
+          <Card className="lg:col-span-7 border-slate-200 shadow-sm">
+            <CardContent className="p-5 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-900">Overview</p>
+                <ProductRichText html={product.description} />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <p className="text-sm font-semibold text-slate-900">B2B trade snapshot</p>
+                <ul className="space-y-1 text-sm text-slate-600">
+                  <li>Lead time: 7–21 days depending on volume</li>
+                  <li>Payment terms: T/T, L/C (negotiable)</li>
+                  <li>Packaging: Export-grade carton/pallet</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-5 border-slate-200 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-sky-700" />
+                Supplier
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm font-semibold text-slate-900">{vendorDisplay}</p>
+              <p className="text-sm text-slate-600">Focused on export-ready supply for wholesale and repeat B2B procurement.</p>
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                Basic profile verification completed
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-12">

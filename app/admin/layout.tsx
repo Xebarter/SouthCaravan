@@ -32,6 +32,7 @@ const adminNavItems = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/quotes', label: 'RFQ Quotes', icon: FileText },
   { href: '/admin/adds', label: 'Adds', icon: Megaphone },
+  { href: '/admin/services', label: 'Services', icon: Boxes },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/blog', label: 'Blog', icon: NotebookPen },
   { href: '/admin/careers', label: 'Careers', icon: Briefcase },

@@ -26,13 +26,13 @@ function getInitials(name: string): string {
 function getDashboardHref(role: string): string {
   if (role === 'admin') return '/admin';
   if (role === 'vendor') return '/vendor';
-  if (role === 'services') return '/services/orders';
+  if (role === 'services') return '/services/dashboard';
   return '/buyer';
 }
 
 function getMessagesHref(role: string): string {
   if (role === 'vendor') return '/vendor/messages';
-  if (role === 'services') return '/services/orders';
+  if (role === 'services') return '/services/messages';
   return '/buyer/messages';
 }
 
@@ -233,7 +233,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
             Login as Vendor
           </Link>
           <Link
-            href="/auth?role=services&next=/services/orders"
+            href="/auth?role=services&next=/services/dashboard"
             className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
             onClick={closeProfileMenu}
           >
@@ -265,7 +265,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
             Join as Vendor
           </Link>
           <Link
-            href="/auth?role=services&next=/services/orders&mode=signup"
+            href="/auth?role=services&next=/services/dashboard&mode=signup"
             className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
             onClick={closeProfileMenu}
           >

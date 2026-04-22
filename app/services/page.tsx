@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
 export default function ServicesIndexPage() {
-  redirect('/services/orders')
+  redirect('/services/dashboard')
 }
 
