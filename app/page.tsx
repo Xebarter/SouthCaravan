@@ -19,9 +19,10 @@ import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedLandingProducts(5);
-  const fallbackProducts = featuredProducts.length > 0 ? [] : await getLandingProducts(5);
+  const featuredProducts = await getFeaturedLandingProducts(60);
+  const fallbackProducts = featuredProducts.length > 0 ? [] : await getLandingProducts(12);
   const heroProducts = (featuredProducts.length > 0 ? featuredProducts : fallbackProducts).slice(0, 5);
+  const extraFeaturedProducts = featuredProducts.slice(5);
   const sponsoredItems = await getSponsoredProducts();
   const initialCategoryFeed = await getLandingCategoryFeedSections({ page: 0, pageSize: 3, perCategory: 4 });
   const menuSections = await getMarketplaceMenuSections();
@@ -117,6 +118,56 @@ export default async function HomePage() {
               </div>
             </div>
           </div>
+
+          {extraFeaturedProducts.length > 0 && (
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-end justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">More featured picks</p>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/categories">Browse marketplace</Link>
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
+                {extraFeaturedProducts.map((product) => (
+                  <Link key={product.id} href={`/product/${product.id}`} className="block">
+                    <Card className="border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all bg-white h-full">
+                      <CardContent className="p-3 sm:p-4 space-y-2">
+                        {product.images?.[0] ? (
+                          <div className="relative w-full overflow-hidden rounded-md h-[120px] sm:h-[140px]">
+                            <Image
+                              src={product.images[0]}
+                              alt={product.name}
+                              fill
+                              unoptimized
+                              sizes="(min-width: 1280px) 20vw, (min-width: 768px) 33vw, 50vw"
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="rounded-md bg-slate-100 flex items-center justify-center h-[120px] sm:h-[140px]">
+                            <Package className="w-7 h-7 text-slate-500" />
+                          </div>
+                        )}
+                        <p className="font-semibold text-sm text-slate-900 line-clamp-1">{product.name}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] border-slate-300 bg-slate-50 max-w-[70%] truncate"
+                            title={product.subcategory || product.category}
+                          >
+                            {product.subcategory || product.category}
+                          </Badge>
+                          <p className="text-sm font-bold text-slate-900 whitespace-nowrap">
+                            <Money amountUSD={Number(product.price)} />
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <PostMyRfqButton size="lg" className="rounded-full px-5 sm:px-6" showArrow />

@@ -1,11 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   MessageSquare,
   Eye,
@@ -16,6 +20,8 @@ import {
   ArrowRight,
   Clock3,
   Wallet,
+  Search,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -108,12 +114,14 @@ function statusMeta(kind: 'order' | 'quote', status: string) {
 }
 
 export function BuyerDashboard({ buyerId }: { buyerId: string }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<ApiOrderRow[]>([]);
   const [quotes, setQuotes] = useState<ApiQuoteRow[]>([]);
   const [conversations, setConversations] = useState<ApiConversationRow[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [conversationPreview, setConversationPreview] = useState<Record<string, { unread: number; last?: ApiMessageRow }>>({});
+  const [catalogQuery, setCatalogQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -251,11 +259,99 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
   }, [normalizedQuotes]);
 
   return (
-    <main className="flex-1 overflow-auto bg-linear-to-b from-background via-background to-muted/30">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* KPI row */}
+    <div className="flex-1 bg-linear-to-b from-background via-background to-muted/30">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 md:py-10 space-y-8">
+        {/* Page header */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground">Buyer workspace</p>
+            <h1 className="mt-1 text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+              Dashboard
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Track orders, review quotes, and keep conversations moving.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => router.push('/buyer/messages')}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Inbox
+              {unreadMessages > 0 ? (
+                <Badge variant="secondary" className="ml-2 rounded-full">
+                  {unreadMessages > 99 ? '99+' : unreadMessages}
+                </Badge>
+              ) : null}
+            </Button>
+            <Button
+              type="button"
+              className="rounded-2xl"
+              onClick={() => router.push('/catalog')}
+            >
+              <Sparkles className="w-4 h-4" />
+              Browse catalog
+            </Button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Find products faster</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Search the catalog by product, category, or vendor.
+                </p>
+              </div>
+
+              <div className="w-full lg:max-w-xl">
+                <InputGroup className="rounded-2xl bg-secondary">
+                  <InputGroupAddon align="inline-start" className="text-muted-foreground">
+                    <InputGroupText>
+                      <Search className="w-4 h-4" />
+                    </InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    value={catalogQuery}
+                    onChange={(e) => setCatalogQuery(e.target.value)}
+                    placeholder="Search the catalog…"
+                    aria-label="Search catalog"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const q = catalogQuery.trim();
+                        router.push(q ? `/catalog?query=${encodeURIComponent(q)}` : '/catalog');
+                      }
+                    }}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => {
+                        const q = catalogQuery.trim();
+                        router.push(q ? `/catalog?query=${encodeURIComponent(q)}` : '/catalog');
+                      }}
+                    >
+                      Search
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </InputGroupAddon>
+                </InputGroup>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm">
             <CardContent className="pt-5">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground">Total spend</p>
@@ -263,14 +359,14 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   <Wallet className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold text-foreground">
+              <p className="mt-2 text-2xl font-semibold text-foreground tabular-nums">
                 {loading ? '—' : formatCurrencyUGX(stats.totalSpent)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">All-time across orders</p>
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm">
             <CardContent className="pt-5">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground">Active orders</p>
@@ -278,12 +374,12 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   <ShoppingCart className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold text-foreground">{loading ? '—' : stats.activeOrders}</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground tabular-nums">{loading ? '—' : stats.activeOrders}</p>
               <p className="mt-1 text-xs text-muted-foreground">Pending, processing, or in transit</p>
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm">
             <CardContent className="pt-5">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground">Pending quotes</p>
@@ -291,12 +387,12 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   <FileText className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold text-foreground">{loading ? '—' : stats.pendingQuotes}</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground tabular-nums">{loading ? '—' : stats.pendingQuotes}</p>
               <p className="mt-1 text-xs text-muted-foreground">Awaiting vendor response</p>
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm hover:shadow-md transition-shadow">
+          <Card className="rounded-2xl border-border/70 bg-card/70 backdrop-blur shadow-sm">
             <CardContent className="pt-5">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground">Unread messages</p>
@@ -304,8 +400,8 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   <MessageSquare className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold text-foreground">{loading ? '—' : unreadMessages}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Across recent conversations</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground tabular-nums">{loading ? '—' : unreadMessages}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Across recent threads</p>
             </CardContent>
           </Card>
         </div>
@@ -313,7 +409,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
         {/* Main grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Recent orders */}
-          <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur shadow-sm xl:col-span-2">
+          <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur shadow-sm xl:col-span-2 overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -321,7 +417,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                     <ShoppingCart className="w-4 h-4 text-primary" />
                     Recent orders
                   </CardTitle>
-                  <CardDescription>Latest purchase orders and status</CardDescription>
+                  <CardDescription>Latest purchase orders and their current status</CardDescription>
                 </div>
                 <Link href="/buyer/orders">
                   <Button variant="outline" size="sm" className="rounded-xl">
@@ -332,49 +428,78 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
               </div>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="pt-0">
               {loading ? (
-                <div className="rounded-xl border border-border/60 bg-muted/20 p-6 text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-6 text-sm text-muted-foreground">
                   Loading orders…
                 </div>
               ) : recentOrders.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-border/60 bg-muted/20 p-10 text-center">
-                  <p className="text-sm text-muted-foreground">No orders yet.</p>
-                  <Link href="/catalog">
-                    <Button className="mt-4 rounded-2xl">Browse catalog</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentOrders.map((o) => {
-                    const meta = statusMeta('order', o.status);
-                    return (
-                      <Link
-                        key={o.id}
-                        href={`/buyer/orders/${o.id}`}
-                        className="block rounded-2xl border border-border/60 bg-card/50 p-4 hover:bg-accent/40 hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">
-                              Order <span className="font-mono text-muted-foreground">#{formatShortId(o.id)}</span>
-                            </p>
-                            <p className="mt-1 text-sm text-muted-foreground truncate">
-                              Vendor <span className="font-mono">{formatShortId(o.vendor_user_id)}</span> • {o.createdAt.toLocaleDateString()}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge variant="outline" className={cn('rounded-full border px-3 py-1', meta.className)}>
-                              <Clock3 className="w-4 h-4" />
-                              {meta.label}
-                            </Badge>
-                            <p className="text-sm font-semibold text-foreground">{formatCurrencyUGX(o.total)}</p>
-                          </div>
-                        </div>
+                <Empty className="border-border/60 bg-muted/15 rounded-2xl">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <ShoppingCart className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No orders yet</EmptyTitle>
+                    <EmptyDescription>
+                      When you place an order, it’ll show up here with real-time status updates.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
+                      <Link href="/catalog" className="w-full">
+                        <Button className="w-full rounded-2xl">Browse catalog</Button>
                       </Link>
-                    );
-                  })}
+                      <Link href="/buyer/quotes" className="w-full">
+                        <Button variant="outline" className="w-full rounded-2xl">
+                          Request a quote
+                        </Button>
+                      </Link>
+                    </div>
+                  </EmptyContent>
+                </Empty>
+              ) : (
+                <div className="rounded-2xl border border-border/60 overflow-hidden bg-card/40">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentOrders.map((o) => {
+                        const meta = statusMeta('order', o.status);
+                        return (
+                          <TableRow key={o.id} className="cursor-pointer" onClick={() => router.push(`/buyer/orders/${o.id}`)}>
+                            <TableCell className="min-w-0">
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">
+                                  #{formatShortId(o.id)}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {o.createdAt.toLocaleDateString()}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-muted-foreground">
+                              {formatShortId(o.vendor_user_id)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn('rounded-full border px-3 py-1 gap-1.5', meta.className)}>
+                                <Clock3 className="w-3.5 h-3.5" />
+                                {meta.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold tabular-nums">
+                              {formatCurrencyUGX(o.total)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
@@ -382,30 +507,64 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
 
           {/* Right column */}
           <div className="space-y-6">
-            {/* Quotes attention */}
-            <Card className="rounded-2xl border-border/70">
+            {/* Quotes */}
+            <Card className="rounded-2xl border-border/70 overflow-hidden">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  Quotes to review
-                </CardTitle>
-                <CardDescription>Pending and expiring soon</CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Quotes
+                    </CardTitle>
+                    <CardDescription>Pending, expiring soon, and recent activity</CardDescription>
+                  </div>
+                  <Link href="/buyer/quotes">
+                    <Button variant="outline" size="sm" className="rounded-xl">
+                      View all
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="pt-0 space-y-3">
                 {loading ? (
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
                     Loading quotes…
                   </div>
-                ) : expiringQuotes.length > 0 ? (
+                ) : recentQuotes.length === 0 ? (
+                  <Empty className="border-border/60 bg-muted/15 rounded-2xl">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <FileText className="size-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>No quotes yet</EmptyTitle>
+                      <EmptyDescription>
+                        Request a quote to compare vendors before placing an order.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <Link href="/buyer/quotes" className="w-full">
+                        <Button variant="outline" className="w-full rounded-2xl">
+                          Request a quote
+                        </Button>
+                      </Link>
+                    </EmptyContent>
+                  </Empty>
+                ) : (
                   <div className="space-y-2">
-                    {expiringQuotes.map((q) => {
+                    {(expiringQuotes.length > 0 ? expiringQuotes : recentQuotes.slice(0, 3)).map((q) => {
                       const meta = statusMeta('quote', q.status);
-                      const daysLeft = q.validUntil ? Math.max(0, Math.ceil((q.validUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+                      const daysLeft =
+                        q.validUntil ? Math.max(0, Math.ceil((q.validUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+                      const subtitle =
+                        expiringQuotes.length > 0 && q.validUntil
+                          ? `${daysLeft}d left • Vendor ${formatShortId(q.vendor_user_id)}`
+                          : `${q.createdAt.toLocaleDateString()} • Vendor ${formatShortId(q.vendor_user_id)}`;
+
                       return (
                         <Link
                           key={q.id}
                           href={`/buyer/quotes/${q.id}`}
-                          className="block rounded-xl border border-border/60 bg-card/60 p-3 hover:bg-accent/40 transition-colors"
+                          className="block rounded-2xl border border-border/60 bg-card/60 p-3 hover:bg-accent/40 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -413,51 +572,18 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                                 Quote <span className="font-mono text-muted-foreground">#{formatShortId(q.id)}</span>
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground truncate">
-                                Vendor <span className="font-mono">{formatShortId(q.vendor_user_id)}</span>
-                                {daysLeft !== null ? ` • ${daysLeft}d left` : ''}
+                                {subtitle}
                               </p>
                             </div>
-                            <Badge variant="outline" className={cn('rounded-full border px-3 py-1', meta.className)}>
-                              {meta.label}
-                            </Badge>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className={cn('rounded-full border px-3 py-1', meta.className)}>
+                                {meta.label}
+                              </Badge>
+                            </div>
                           </div>
                         </Link>
                       );
                     })}
-                  </div>
-                ) : recentQuotes.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentQuotes.slice(0, 3).map((q) => {
-                      const meta = statusMeta('quote', q.status);
-                      return (
-                        <Link
-                          key={q.id}
-                          href={`/buyer/quotes/${q.id}`}
-                          className="block rounded-xl border border-border/60 bg-card/60 p-3 hover:bg-accent/40 transition-colors"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">
-                                Quote <span className="font-mono text-muted-foreground">#{formatShortId(q.id)}</span>
-                              </p>
-                              <p className="mt-1 text-xs text-muted-foreground truncate">{q.createdAt.toLocaleDateString()}</p>
-                            </div>
-                            <Badge variant="outline" className={cn('rounded-full border px-3 py-1', meta.className)}>
-                              {meta.label}
-                            </Badge>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border-2 border-dashed border-border/60 bg-muted/20 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">No quotes yet.</p>
-                    <Link href="/buyer/quotes">
-                      <Button variant="outline" size="sm" className="mt-3 rounded-xl">
-                        Request a quote
-                      </Button>
-                    </Link>
                   </div>
                 )}
               </CardContent>
@@ -467,7 +593,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
             <Card className="rounded-2xl border-border/70">
               <CardHeader className="pb-3">
                 <CardTitle>Quick actions</CardTitle>
-                <CardDescription>Jump to common tasks</CardDescription>
+                <CardDescription>Common tasks, one click away</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-2">
                 <Link href="/buyer/orders" className="block">
@@ -520,21 +646,28 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
                     Loading conversations…
                   </div>
                 ) : conversations.length === 0 ? (
-                  <div className="rounded-xl border-2 border-dashed border-border/60 bg-muted/20 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">No conversations yet.</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Send a message from an order or vendor page.</p>
-                  </div>
+                  <Empty className="border-border/60 bg-muted/15 rounded-2xl">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <MessageSquare className="size-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>No conversations yet</EmptyTitle>
+                      <EmptyDescription>
+                        Messages appear when you contact a vendor from a quote or order.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 ) : (
                   <div className="space-y-2">
                     {conversations.slice(0, 5).map((c) => (
                       <Link
                         key={c.id}
                         href="/buyer/messages"
-                        className="block rounded-xl border border-border/60 bg-card/60 p-3 hover:bg-accent/40 transition-colors"
+                        className="block rounded-2xl border border-border/60 bg-card/60 p-3 hover:bg-accent/40 transition-colors"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -549,7 +682,9 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {conversationPreview[c.id]?.unread ? (
-                              <Badge className="rounded-full">{conversationPreview[c.id]?.unread > 99 ? '99+' : conversationPreview[c.id]?.unread}</Badge>
+                              <Badge className="rounded-full">
+                                {conversationPreview[c.id]?.unread > 99 ? '99+' : conversationPreview[c.id]?.unread}
+                              </Badge>
                             ) : null}
                             <Eye className="w-4 h-4 text-muted-foreground" />
                           </div>
@@ -563,6 +698,6 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -171,7 +171,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
 
   const handleLogout = () => {
     logout();
-    router.push('/auth?role=vendor&next=/vendor');
+    router.push('/');
   };
 
   return (

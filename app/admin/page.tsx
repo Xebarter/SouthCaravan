@@ -255,7 +255,7 @@ export default function AdminOverviewPage() {
               </div>
             ))}
             <Button variant="ghost" asChild className="w-full">
-              <Link href="/admin/featured-products">Open featured products manager</Link>
+              <Link href="/admin/products">Open products manager</Link>
             </Button>
           </CardContent>
         </Card>

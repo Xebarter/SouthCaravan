@@ -50,12 +50,14 @@ function categoryBrowseHrefForProduct(product: SearchProduct): string {
 export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const cacheRef = useRef<Map<string, SearchResponse>>(new Map());
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<SearchProduct[]>([]);
   const [categories, setCategories] = useState<CategorySuggestion[]>([]);
+  const [mobileDropdownTop, setMobileDropdownTop] = useState<number>(56);
 
   const normalizeCategories = (raw: SearchResponse['categories'] | undefined): CategorySuggestion[] => {
     if (!raw) return [];
@@ -138,6 +140,35 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   }, []);
 
   useEffect(() => {
+    if (!mobile || !open) return;
+
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      // Anchor the dropdown to the input's bottom, so it stays correct whether the
+      // mobile header is in 1-row or 2-row state and across device sizes.
+      setMobileDropdownTop(Math.max(0, Math.round(rect.bottom)));
+    };
+
+    const schedule = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener('resize', schedule);
+    // Use capture so we respond even when scrolling within nested containers.
+    window.addEventListener('scroll', schedule, true);
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('scroll', schedule, true);
+    };
+  }, [mobile, open]);
+
+  useEffect(() => {
     const trimmed = query.trim();
     const cacheKey = trimmed.toLowerCase();
     const cached = cacheRef.current.get(cacheKey);
@@ -189,7 +220,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       {/* Backdrop — dims the page when the mobile dropdown is open */}
       {mobile && showDropdown && (
         <div
-          className="fixed inset-0 z-[69] bg-black/30 md:hidden"
+          className="fixed inset-0 z-69 bg-black/30 md:hidden"
           aria-hidden
           onMouseDown={() => setOpen(false)}
           onTouchStart={() => setOpen(false)}
@@ -199,6 +230,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       <div ref={rootRef} className="relative flex-1">
         <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 z-10" />
         <Input
+          ref={inputRef}
           type="search"
           placeholder={mobile ? 'Search products...' : 'Search products, vendors, categories...'}
           className={mobile ? 'pl-9 bg-secondary h-9' : 'pl-9 bg-secondary'}
@@ -227,16 +259,17 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
               mobile
                 ? [
                     // Fixed panel that spans the full viewport width, sitting just below the sticky nav (h-14 = 3.5rem).
-                    'fixed top-14 left-0 right-0 z-[70]',
+                    'fixed left-0 right-0 z-70',
                     'bg-background border-t border-border shadow-2xl',
                     // Use dynamic viewport height so the panel respects the on-screen keyboard.
                     'max-h-[calc(100dvh-3.5rem)]',
                     'overflow-y-auto overscroll-contain',
                     // Smooth momentum scrolling on iOS.
-                    '[scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]',
+                    'scroll-smooth [-webkit-overflow-scrolling:touch]',
                   ].join(' ')
-                : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[70] rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
+                : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-70 rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
             }
+            style={mobile ? { top: `${mobileDropdownTop}px` } : undefined}
           >
             {/* Status / header row */}
             <div
@@ -295,7 +328,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                         href={`/catalog?${params.toString()}`}
                         onClick={() => setOpen(false)}
                         className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                          mobile ? 'p-3 min-h-[3.25rem]' : 'p-2'
+                          mobile ? 'p-3 min-h-13' : 'p-2'
                         }`}
                       >
                         <div
@@ -340,7 +373,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                       href={categoryBrowseHrefForProduct(product)}
                       onClick={() => setOpen(false)}
                       className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                        mobile ? 'p-3 min-h-[4rem]' : 'p-2'
+                        mobile ? 'p-3 min-h-16' : 'p-2'
                       }`}
                     >
                       <div

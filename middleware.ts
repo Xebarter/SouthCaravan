@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 const PROTECTED_PREFIXES = ['/buyer', '/vendor', '/services']
 const ADMIN_PREFIX = '/admin'
+const SUPABASE_AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
 
 const ADMIN_AUTH_DISABLED =
   process.env.DISABLE_ADMIN_AUTH === 'true' || process.env.DISABLE_ADMIN_AUTH === '1'
@@ -85,7 +86,18 @@ export async function middleware(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         for (const cookie of cookiesToSet) {
-          response.cookies.set(cookie.name, cookie.value, cookie.options)
+          const maxAge = cookie.options?.maxAge
+          // Supabase will set `maxAge: 0` when clearing cookies (sign-out). Preserve that.
+          // Otherwise, force a persistent cookie so users remain signed in across restarts.
+          const enhancedOptions =
+            typeof maxAge === 'number' && maxAge <= 0
+              ? cookie.options
+              : {
+                  ...cookie.options,
+                  maxAge: SUPABASE_AUTH_COOKIE_MAX_AGE_SECONDS,
+                }
+
+          response.cookies.set(cookie.name, cookie.value, enhancedOptions)
         }
       },
     },

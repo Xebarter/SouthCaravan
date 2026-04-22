@@ -173,13 +173,13 @@ export default function BuyerConsoleLayout({
   const handleLogout = () => {
     // Auth context clears the expected buyer portal keys and signs out via Supabase.
     logout();
-    router.replace('/auth?role=buyer&next=/buyer');
+    router.replace('/');
   };
 
   return (
     <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-linear-to-b from-background via-background to-muted/30">
       {/* Mobile header + hamburger */}
-      <div className="md:hidden sticky top-14 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/70">
+      <div className="md:hidden w-full border-b border-border/70 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/70">
         <div className="h-14 px-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium tracking-wide text-muted-foreground truncate">Buyer</p>

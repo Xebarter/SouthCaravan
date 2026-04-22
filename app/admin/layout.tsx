@@ -31,7 +31,6 @@ const adminNavItems = [
   { href: '/admin/vendors', label: 'Vendor Approvals', icon: ShieldCheck },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/quotes', label: 'RFQ Quotes', icon: FileText },
-  { href: '/admin/featured-products', label: 'Featured Products', icon: Sparkles },
   { href: '/admin/adds', label: 'Adds', icon: Megaphone },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/blog', label: 'Blog', icon: NotebookPen },
@@ -58,7 +57,7 @@ function AdminSidebar({
     try {
       logout();
       onNavigate?.();
-      router.push('/auth');
+      router.push('/');
     } finally {
       setSigningOut(false);
     }

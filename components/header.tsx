@@ -36,7 +36,7 @@ function getMessagesHref(role: string): string {
   return '/buyer/messages';
 }
 
-export function Header() {
+export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
   const { user, logout } = useAuth();
 
   const [pinned, setPinned] = useState(false);
@@ -288,6 +288,9 @@ export function Header() {
     ? getMessagesHref(user.role)
     : '/auth?role=buyer&next=/buyer/messages';
 
+  type MobileVariant = 'full' | 'compact';
+  const mobileVariant: MobileVariant = showMobile === true ? 'full' : 'compact';
+
   return (
     <>
       {/* Desktop (md+) */}
@@ -348,83 +351,137 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile: top row (non-persistent) */}
-      <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-        <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
-          <Link
-            href={user ? getDashboardHref(user.role) : '/'}
-            aria-label="SouthCaravan home"
-            className="shrink-0 inline-flex items-center gap-2 min-w-0"
-          >
-            <SiteLogoMark />
-            <span className="font-semibold text-sm tracking-tight truncate">SouthCaravan</span>
-          </Link>
-
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" aria-label="Messages" asChild>
-              <Link href={messagesHref}>
-                <MessagesSquare className="h-5 w-5" />
-              </Link>
-            </Button>
-
-            <Button size="sm" asChild className="shrink-0">
-              <Link href={user ? getDashboardHref(user.role) : '/auth?role=buyer&next=/buyer'}>
-                {user ? 'Dashboard' : 'Post RFQ'}
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile: lower row (persistent) */}
-      <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-        <div className="flex h-14 items-center gap-2 px-4 max-w-7xl mx-auto">
-          <button
-            aria-label="Open categories"
-            aria-expanded={open}
-            onMouseEnter={handleHoverOpen}
-            onMouseLeave={scheduleHoverClose}
-            onClick={togglePinned}
-            className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition shrink-0"
-            type="button"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            <HeaderSearch mobile />
-          </div>
-
-          <CartNavButton mobile className="shrink-0" />
-
-          <div
-            ref={mobileProfileMenuRef}
-            className="relative shrink-0"
-            onMouseEnter={handleProfileHoverOpen}
-            onMouseLeave={scheduleProfileHoverClose}
-          >
-            <button
-              aria-label="Open profile menu"
-              aria-expanded={profileMenuOpen}
-              onClick={toggleProfileMenu}
-              className="inline-flex h-10 items-center justify-center gap-1 rounded-md px-2 hover:bg-accent hover:text-accent-foreground transition"
-              type="button"
-            >
-              <ProfileTrigger size="sm" />
-              <ChevronDown className="h-4 w-4" aria-hidden />
-            </button>
-
-            {profileMenuOpen ? (
-              <div
-                ref={mobileProfilePopoverRef}
-                className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50"
+      {showMobile ? (
+        <>
+          {/* Mobile: top row (non-persistent) */}
+          <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+            <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
+              <Link
+                href={user ? getDashboardHref(user.role) : '/'}
+                aria-label="SouthCaravan home"
+                className="shrink-0 inline-flex items-center gap-2 min-w-0"
               >
-                {user ? <SignedInDropdown /> : <SignedOutDropdown />}
+                <SiteLogoMark />
+                <span className="font-semibold text-sm tracking-tight truncate">SouthCaravan</span>
+              </Link>
+
+              <div className="flex items-center gap-1.5">
+                <Button variant="ghost" size="icon" aria-label="Messages" asChild>
+                  <Link href={messagesHref}>
+                    <MessagesSquare className="h-5 w-5" />
+                  </Link>
+                </Button>
+
+                <Button size="sm" asChild className="shrink-0">
+                  <Link href={user ? getDashboardHref(user.role) : '/auth?role=buyer&next=/buyer'}>
+                    {user ? 'Dashboard' : 'Post RFQ'}
+                  </Link>
+                </Button>
               </div>
-            ) : null}
+            </div>
+          </nav>
+
+          {/* Mobile: lower row (persistent) */}
+          <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+            <div className="flex h-14 items-center gap-2 px-4 max-w-7xl mx-auto">
+              <button
+                aria-label="Open categories"
+                aria-expanded={open}
+                onMouseEnter={handleHoverOpen}
+                onMouseLeave={scheduleHoverClose}
+                onClick={togglePinned}
+                className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition shrink-0"
+                type="button"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <HeaderSearch mobile />
+              </div>
+
+              <CartNavButton mobile className="shrink-0" />
+
+              <div
+                ref={mobileProfileMenuRef}
+                className="relative shrink-0"
+                onMouseEnter={handleProfileHoverOpen}
+                onMouseLeave={scheduleProfileHoverClose}
+              >
+                <button
+                  aria-label="Open profile menu"
+                  aria-expanded={profileMenuOpen}
+                  onClick={toggleProfileMenu}
+                  className="inline-flex h-10 items-center justify-center gap-1 rounded-md px-2 hover:bg-accent hover:text-accent-foreground transition"
+                  type="button"
+                >
+                  <ProfileTrigger size="sm" />
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                </button>
+
+                {profileMenuOpen ? (
+                  <div
+                    ref={mobileProfilePopoverRef}
+                    className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50"
+                  >
+                    {user ? <SignedInDropdown /> : <SignedOutDropdown />}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </nav>
+        </>
+      ) : mobileVariant === 'compact' ? (
+        // Compact mobile header for in-app consoles (e.g., Buyer) that already render their own
+        // mobile workspace header below. Keeps brand + key actions without duplicating menus.
+        <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+          <div className="flex h-14 items-center justify-between gap-2 px-4 max-w-7xl mx-auto">
+            <Link
+              href={user ? getDashboardHref(user.role) : '/'}
+              aria-label="SouthCaravan home"
+              className="shrink-0 inline-flex items-center gap-2 min-w-0"
+            >
+              <SiteLogoMark />
+              <span className="font-semibold text-sm tracking-tight truncate">SouthCaravan</span>
+            </Link>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button variant="ghost" size="icon" aria-label="Messages" asChild>
+                <Link href={messagesHref}>
+                  <MessagesSquare className="h-5 w-5" />
+                </Link>
+              </Button>
+              <CartNavButton mobile className="shrink-0" />
+              <div
+                ref={mobileProfileMenuRef}
+                className="relative shrink-0"
+                onMouseEnter={handleProfileHoverOpen}
+                onMouseLeave={scheduleProfileHoverClose}
+              >
+                <button
+                  aria-label="Open profile menu"
+                  aria-expanded={profileMenuOpen}
+                  onClick={toggleProfileMenu}
+                  className="inline-flex h-10 items-center justify-center gap-1 rounded-md px-2 hover:bg-accent hover:text-accent-foreground transition"
+                  type="button"
+                >
+                  <ProfileTrigger size="sm" />
+                  <ChevronDown className="h-4 w-4" aria-hidden />
+                </button>
+
+                {profileMenuOpen ? (
+                  <div
+                    ref={mobileProfilePopoverRef}
+                    className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50"
+                  >
+                    {user ? <SignedInDropdown /> : <SignedOutDropdown />}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      ) : null}
 
       {open ? (
         <div

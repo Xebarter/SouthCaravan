@@ -36,10 +36,7 @@ export function MainNav() {
 
   const handleLogout = () => {
     logout();
-    const role = user.role;
-    const next =
-      role === 'admin' ? '/admin' : role === 'vendor' ? '/vendor' : '/buyer';
-    router.push(`/auth?role=${encodeURIComponent(role)}&next=${encodeURIComponent(next)}`);
+    router.push('/');
   };
 
   const navItems = user.role === 'admin' 
