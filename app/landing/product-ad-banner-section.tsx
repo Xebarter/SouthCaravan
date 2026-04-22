@@ -144,6 +144,7 @@ export default function ProductAdBannerSection({ items }: { items: SponsoredItem
                       fill
                       priority={activeBannerIndex === 0}
                       fetchPriority={activeBannerIndex === 0 ? 'high' : undefined}
+                      unoptimized
                       sizes="(min-width: 1024px) 1500px, 100vw"
                       className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ease-in-out ${
                         bannerFading ? 'opacity-0' : 'opacity-100'

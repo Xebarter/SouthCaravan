@@ -49,6 +49,7 @@ export default async function HomePage() {
                           fill
                           priority
                           fetchPriority="high"
+                          unoptimized
                           sizes="(min-width: 1024px) 50vw, 100vw"
                           className="object-cover"
                         />
@@ -89,6 +90,7 @@ export default async function HomePage() {
                               src={product.images[0]}
                               alt={product.name}
                               fill
+                              unoptimized
                               // Only the hero image should be priority on the homepage.
                               sizes="(min-width: 640px) 25vw, 100vw"
                               className="object-cover"
