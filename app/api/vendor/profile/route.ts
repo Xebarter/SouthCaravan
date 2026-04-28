@@ -1,44 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-
-function hasVendorAccess(user: any) {
-  const meta = user?.app_metadata ?? {};
-  if (meta.role === 'vendor') return true;
-  const roles = Array.isArray(meta.roles) ? meta.roles : [];
-  return roles.includes('vendor');
-}
-
-async function getAuthedVendorId(): Promise<
-  | { ok: true; vendorId: string; email: string; name: string; company?: string }
-  | { ok: false; response: NextResponse }
-> {
-  const supabase = await getServerSupabaseClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  if (!hasVendorAccess(data.user)) {
-    return { ok: false, response: NextResponse.json({ error: 'Vendor role required' }, { status: 403 }) };
-  }
-
-  const email = typeof data.user.email === 'string' ? data.user.email : '';
-  const meta = data.user.user_metadata ?? {};
-  const name =
-    (typeof meta.name === 'string' && meta.name) ||
-    (typeof meta.full_name === 'string' && meta.full_name) ||
-    (email ? email.split('@')[0] : 'Vendor');
-  const company = typeof meta.company === 'string' ? meta.company : undefined;
-
-  return { ok: true, vendorId: data.user.id, email, name, company };
-}
+import { getAuthedVendor } from '@/lib/api/vendor-auth';
 
 function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
 }
 
 export async function GET() {
-  const auth = await getAuthedVendorId();
+  const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
 
   const { data: profile, error } = await supabaseAdmin
@@ -59,7 +28,7 @@ export async function GET() {
     .from('vendor_profiles')
     .insert({
       user_id: auth.vendorId,
-      company_name: auth.company || auth.name || 'Vendor',
+      company_name: auth.name || 'Vendor',
       public_email: auth.email,
       contact_email: auth.email,
     })
@@ -75,7 +44,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await getAuthedVendorId();
+  const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
 
   const body = await req.json().catch(() => null);
@@ -85,59 +54,58 @@ export async function PATCH(req: NextRequest) {
 
   const patch: Record<string, unknown> = {};
 
-  const companyName = asString((body as any).companyName).trim();
-  if (companyName) patch.company_name = companyName;
+  // Allow clearing fields (empty string) by setting them explicitly when provided.
+  if ('companyName' in (body as any)) patch.company_name = asString((body as any).companyName).trim();
 
-  const description = asString((body as any).description).trim();
-  if (description) patch.description = description;
+  if ('description' in (body as any)) patch.description = asString((body as any).description).trim();
 
-  const publicEmail = asString((body as any).publicEmail).trim();
-  if (publicEmail) patch.public_email = publicEmail;
+  if ('publicEmail' in (body as any)) patch.public_email = asString((body as any).publicEmail).trim();
 
-  const contactEmail = asString((body as any).contactEmail).trim();
-  if (contactEmail) patch.contact_email = contactEmail;
+  if ('contactEmail' in (body as any)) patch.contact_email = asString((body as any).contactEmail).trim();
 
-  const phone = asString((body as any).phone).trim();
-  patch.phone = phone;
+  if ('phone' in (body as any)) patch.phone = asString((body as any).phone).trim();
 
-  const website = asString((body as any).website).trim();
-  patch.website = website;
+  if ('website' in (body as any)) patch.website = asString((body as any).website).trim();
 
-  const address = asString((body as any).address).trim();
-  patch.address = address;
+  if ('address' in (body as any)) patch.address = asString((body as any).address).trim();
 
-  const city = asString((body as any).city).trim();
-  patch.city = city;
+  if ('city' in (body as any)) patch.city = asString((body as any).city).trim();
 
-  const state = asString((body as any).state).trim();
-  patch.state = state;
+  if ('state' in (body as any)) patch.state = asString((body as any).state).trim();
 
-  const zipCode = asString((body as any).zipCode).trim();
-  patch.zip_code = zipCode;
+  if ('zipCode' in (body as any)) patch.zip_code = asString((body as any).zipCode).trim();
 
-  const country = asString((body as any).country).trim();
-  patch.country = country;
+  if ('country' in (body as any)) patch.country = asString((body as any).country).trim();
 
-  const logoUrl = asString((body as any).logoUrl).trim();
-  patch.logo_url = logoUrl;
+  if ('logoUrl' in (body as any)) patch.logo_url = asString((body as any).logoUrl).trim();
+
+  const publicProfileEnabledRaw = (body as any).publicProfileEnabled;
+  if (typeof publicProfileEnabledRaw === 'boolean') patch.public_profile_enabled = publicProfileEnabledRaw;
+
+  const publicProfileRaw = (body as any).publicProfile;
+  if (publicProfileRaw != null) {
+    if (typeof publicProfileRaw !== 'object' || Array.isArray(publicProfileRaw)) {
+      return NextResponse.json({ error: 'publicProfile must be an object' }, { status: 422 });
+    }
+    patch.public_profile = publicProfileRaw;
+  }
 
   // Never allow changing ownership from the API.
   delete (patch as any).user_id;
   delete (patch as any).created_at;
   delete (patch as any).updated_at;
 
+  // Upsert so settings can be saved even if the profile row doesn't exist yet.
   const { data: profile, error } = await supabaseAdmin
     .from('vendor_profiles')
-    .update(patch)
-    .eq('user_id', auth.vendorId)
+    .upsert({ user_id: auth.vendorId, ...patch }, { onConflict: 'user_id' })
     .select('*')
-    .maybeSingle();
+    .single();
 
   if (error) {
     console.error('[vendor/profile PATCH]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!profile) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return NextResponse.json({ profile });
 }

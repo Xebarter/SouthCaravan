@@ -273,9 +273,15 @@ create table if not exists public.vendor_profiles (
   zip_code text not null default '',
   country text not null default '',
   logo_url text not null default '',
+  public_profile_enabled boolean not null default false,
+  public_profile jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Backward-compatible migrations
+alter table public.vendor_profiles add column if not exists public_profile_enabled boolean not null default false;
+alter table public.vendor_profiles add column if not exists public_profile jsonb not null default '{}'::jsonb;
 
 drop trigger if exists vendor_profiles_set_updated_at on public.vendor_profiles;
 create trigger vendor_profiles_set_updated_at
@@ -315,6 +321,74 @@ create table if not exists public.vendor_notification_prefs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- ============================================================
+-- Vendor public profile showcase images
+-- ============================================================
+
+create table if not exists public.vendor_profile_showcase_images (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  url text not null default '',
+  kind text not null default 'other', -- premises | machinery | storage | team | qa | packaging | logistics | other
+  caption text not null default '',
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists vendor_profile_showcase_images_user_idx
+  on public.vendor_profile_showcase_images (user_id, sort_order, created_at desc);
+
+drop trigger if exists vendor_profile_showcase_images_set_updated_at on public.vendor_profile_showcase_images;
+create trigger vendor_profile_showcase_images_set_updated_at
+  before update on public.vendor_profile_showcase_images
+  for each row execute function public.set_updated_at();
+
+alter table public.vendor_profile_showcase_images enable row level security;
+
+drop policy if exists "vendor_profile_showcase_images_select_owner" on public.vendor_profile_showcase_images;
+create policy "vendor_profile_showcase_images_select_owner"
+  on public.vendor_profile_showcase_images for select
+  using (auth.uid()::text = user_id);
+
+drop policy if exists "vendor_profile_showcase_images_insert_blocked" on public.vendor_profile_showcase_images;
+create policy "vendor_profile_showcase_images_insert_blocked"
+  on public.vendor_profile_showcase_images for insert
+  with check (false);
+
+drop policy if exists "vendor_profile_showcase_images_update_blocked" on public.vendor_profile_showcase_images;
+create policy "vendor_profile_showcase_images_update_blocked"
+  on public.vendor_profile_showcase_images for update
+  using (false);
+
+drop policy if exists "vendor_profile_showcase_images_delete_blocked" on public.vendor_profile_showcase_images;
+create policy "vendor_profile_showcase_images_delete_blocked"
+  on public.vendor_profile_showcase_images for delete
+  using (false);
+
+-- ============================================================
+-- vendor-showcase Storage bucket
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+values ('vendor-showcase', 'vendor-showcase', true)
+on conflict (id) do nothing;
+
+drop policy if exists "vendor_showcase_select_public" on storage.objects;
+create policy "vendor_showcase_select_public"
+  on storage.objects for select
+  using (bucket_id = 'vendor-showcase');
+
+drop policy if exists "vendor_showcase_insert_blocked" on storage.objects;
+create policy "vendor_showcase_insert_blocked"
+  on storage.objects for insert
+  with check (false);
+
+drop policy if exists "vendor_showcase_delete_blocked" on storage.objects;
+create policy "vendor_showcase_delete_blocked"
+  on storage.objects for delete
+  using (false);
 
 drop trigger if exists vendor_notification_prefs_set_updated_at on public.vendor_notification_prefs;
 create trigger vendor_notification_prefs_set_updated_at

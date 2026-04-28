@@ -1,28 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-
-function hasVendorAccess(user: any) {
-  const meta = user?.app_metadata ?? {};
-  if (meta.role === 'vendor') return true;
-  const roles = Array.isArray(meta.roles) ? meta.roles : [];
-  return roles.includes('vendor');
-}
-
-async function getAuthedVendorId(): Promise<
-  | { ok: true; vendorId: string; email: string }
-  | { ok: false; response: NextResponse }
-> {
-  const supabase = await getServerSupabaseClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  if (!hasVendorAccess(data.user)) {
-    return { ok: false, response: NextResponse.json({ error: 'Vendor role required' }, { status: 403 }) };
-  }
-  return { ok: true, vendorId: data.user.id, email: data.user.email ?? '' };
-}
+import { getAuthedVendor } from '@/lib/api/vendor-auth';
 
 function coerceBool(v: unknown, fallback: boolean) {
   if (typeof v === 'boolean') return v;
@@ -34,7 +12,7 @@ function coerceBool(v: unknown, fallback: boolean) {
 }
 
 export async function GET() {
-  const auth = await getAuthedVendorId();
+  const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
 
   const { data: prefs, error } = await supabaseAdmin
@@ -72,7 +50,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await getAuthedVendorId();
+  const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
 
   const body = await req.json().catch(() => null);
@@ -81,6 +59,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const patch = {
+    user_id: auth.vendorId,
     orders: coerceBool((body as any).orders, true),
     quotes: coerceBool((body as any).quotes, true),
     messages: coerceBool((body as any).messages, true),
@@ -88,18 +67,17 @@ export async function PATCH(req: NextRequest) {
     email: typeof (body as any).email === 'string' ? (body as any).email : auth.email,
   };
 
+  // Upsert so first-time vendors can save without a prior GET.
   const { data: prefs, error } = await supabaseAdmin
     .from('vendor_notification_prefs')
-    .update(patch)
-    .eq('user_id', auth.vendorId)
+    .upsert(patch, { onConflict: 'user_id' })
     .select('*')
-    .maybeSingle();
+    .single();
 
   if (error) {
     console.error('[vendor/notification-prefs PATCH]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!prefs) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return NextResponse.json({ prefs });
 }

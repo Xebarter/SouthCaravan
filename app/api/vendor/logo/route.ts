@@ -58,12 +58,12 @@ export async function POST(req: NextRequest) {
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(data.path);
   const logoUrl = urlData.publicUrl;
 
+  // Upsert to ensure profile row exists.
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('vendor_profiles')
-    .update({ logo_url: logoUrl })
-    .eq('user_id', auth.vendorId)
+    .upsert({ user_id: auth.vendorId, logo_url: logoUrl }, { onConflict: 'user_id' })
     .select('*')
-    .maybeSingle();
+    .single();
 
   if (profileError) {
     console.error('[vendor/logo POST] update profile', profileError);

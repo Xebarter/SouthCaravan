@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Building2, CheckCircle2, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { ProductImageGallery } from '@/components/product-image-gallery';
 import { ProductRichText } from '@/components/product-rich-text';
 import { ProductPurchaseActions } from '@/components/product-purchase-actions';
@@ -23,6 +24,42 @@ function normalizeSpecs(specs: Record<string, unknown> | null) {
       key: key.replace(/_/g, ' '),
       value: String(value),
     }));
+}
+
+function SupplierDetailsCard({
+  vendorDisplay,
+  rawVendorId,
+  titleClassName = 'text-base',
+  cardClassName,
+}: {
+  vendorDisplay: string;
+  rawVendorId: string;
+  titleClassName?: string;
+  cardClassName?: string;
+}) {
+  return (
+    <Card className={cardClassName ?? 'border-slate-200 shadow-sm'}>
+      <CardHeader className="pb-2">
+        <CardTitle className={`${titleClassName} flex items-center gap-2`}>
+          <Building2 className="h-4 w-4 text-sky-700" />
+          Supplier
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-sm font-semibold text-slate-900">{vendorDisplay}</p>
+        <p className="text-sm text-slate-600">Focused on export-ready supply for wholesale and repeat B2B procurement.</p>
+        <p className="text-xs text-slate-500 flex items-center gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          Basic profile verification completed
+        </p>
+        {rawVendorId && isUuid(rawVendorId) ? (
+          <Button asChild variant="outline" className="w-full mt-2">
+            <Link href={`/supplier/${rawVendorId}`}>View Supplier</Link>
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -140,22 +177,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-5 border-slate-200 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-sky-700" />
-                Supplier
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm font-semibold text-slate-900">{vendorDisplay}</p>
-              <p className="text-sm text-slate-600">Focused on export-ready supply for wholesale and repeat B2B procurement.</p>
-              <p className="text-xs text-slate-500 flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                Basic profile verification completed
-              </p>
-            </CardContent>
-          </Card>
+          <SupplierDetailsCard
+            vendorDisplay={vendorDisplay}
+            rawVendorId={rawVendorId}
+            cardClassName="lg:col-span-5 border-slate-200 shadow-sm"
+          />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-12">
@@ -181,16 +207,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-4 border-slate-200 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Compliance & Docs</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-slate-600">
-              <p>Commercial invoice and packing list available.</p>
-              <p>Certificate requests can be discussed during RFQ.</p>
-              <p>Sample policy and quality assurance terms shared before PO confirmation.</p>
-            </CardContent>
-          </Card>
+          <SupplierDetailsCard
+            vendorDisplay={vendorDisplay}
+            rawVendorId={rawVendorId}
+            titleClassName="text-lg"
+            cardClassName="lg:col-span-4 border-slate-200 shadow-sm"
+          />
         </div>
 
         {related.length > 0 && (

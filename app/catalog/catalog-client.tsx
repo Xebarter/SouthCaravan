@@ -168,9 +168,8 @@ export default function CatalogClient() {
                           <p className="text-xs text-muted-foreground mt-1">{product.category}</p>
                         </div>
                         <span
-                          className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2 ${
-                            product.inStock ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                          }`}
+                          className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2 ${product.inStock ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                            }`}
                         >
                           {product.inStock ? 'In Stock' : 'Out'}
                         </span>

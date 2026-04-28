@@ -19,6 +19,7 @@ const publicRoutePrefixes = [
   '/login',
   '/signup',
   '/product',
+  '/supplier',
   '/public',
   '/categories',
   '/cart',
