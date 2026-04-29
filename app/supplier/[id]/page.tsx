@@ -9,6 +9,7 @@ import { Money } from '@/components/money';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { isUuid } from '@/lib/is-uuid';
 import { ArrowLeft, Building2, Globe, Mail, MapPin, Package, Phone } from 'lucide-react';
+import { SupplierProductCard } from '@/components/supplier/supplier-product-card';
 
 function splitCommaList(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -40,7 +41,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
       .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('products')
-      .select('id,name,price,unit,images,in_stock,category,subcategory')
+      .select('id,name,price,minimum_order,unit,images,in_stock,category,subcategory')
       .eq('vendor_id', vendorUserId)
       .order('created_at', { ascending: false })
       .limit(24),
@@ -316,48 +317,21 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
             {supplierProducts.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {supplierProducts.map((p: any) => (
-                  <Link
+                  <SupplierProductCard
                     key={p.id}
-                    href={`/product/${p.id}`}
-                    className="rounded-xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow"
-                  >
-                    {Array.isArray(p.images) && p.images[0] ? (
-                      <div className="relative h-40 w-full bg-slate-100">
-                        <Image
-                          src={p.images[0]}
-                          alt={p.name || 'Product image'}
-                          fill
-                          unoptimized
-                          sizes="33vw"
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-40 w-full bg-slate-100 flex items-center justify-center">
-                        <Package className="h-10 w-10 text-slate-400" />
-                      </div>
-                    )}
-
-                    <div className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900 line-clamp-2">{p.name}</p>
-                        <Badge variant="outline" className="shrink-0">
-                          {p.in_stock ? 'In production' : 'Unavailable'}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        {String(p.category ?? '')}
-                        {p.subcategory ? ` · ${String(p.subcategory)}` : ''}
-                      </p>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="text-sm font-semibold text-slate-900">
-                          <Money amountUSD={Number(p.price ?? 0)} />
-                          <span className="text-xs font-medium text-slate-500"> / {String(p.unit ?? 'unit')}</span>
-                        </p>
-                        <span className="text-xs text-slate-500">View details</span>
-                      </div>
-                    </div>
-                  </Link>
+                    product={{
+                      id: String(p.id),
+                      name: String(p.name ?? ''),
+                      price: Number(p.price ?? 0),
+                      minimumOrder: Math.max(1, Number(p.minimum_order ?? 1)),
+                      unit: String(p.unit ?? 'unit'),
+                      imageUrl: Array.isArray(p.images) && p.images[0] ? String(p.images[0]) : '',
+                      inStock: Boolean(p.in_stock),
+                      category: String(p.category ?? ''),
+                      subcategory: String(p.subcategory ?? ''),
+                    }}
+                    vendorLabel={String(profile.company_name ?? 'Supplier')}
+                  />
                 ))}
               </div>
             ) : (

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   Building2,
+  ChevronDown,
+  ChevronUp,
   Eye,
   EyeOff,
   Globe,
@@ -67,6 +69,10 @@ const SHOWCASE_KINDS = [
   { value: 'logistics', label: 'Logistics' },
   { value: 'other', label: 'Other' },
 ] as const;
+
+type ShowcaseKind = (typeof SHOWCASE_KINDS)[number]['value'];
+
+type ShowcaseImage = { id: string; url: string; kind: string; caption: string; sort_order: number };
 
 function getInitials(name: string) {
   return name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2);
@@ -138,11 +144,13 @@ export default function VendorSettingsPage() {
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputId = 'vendor-logo-input';
   const showcaseInputId = 'vendor-showcase-input';
-  const [showcaseUploading, setShowcaseUploading] = useState(false);
-  const [showcaseImages, setShowcaseImages] = useState<
-    { id: string; url: string; kind: string; caption: string; sort_order: number }[]
-  >([]);
+  const [showcaseUploadKind, setShowcaseUploadKind] = useState<ShowcaseKind>('premises');
+  const [showcaseBusy, setShowcaseBusy] = useState(false);
+  const [showcaseImages, setShowcaseImages] = useState<ShowcaseImage[]>([]);
   const [pendingShowcaseDeleteId, setPendingShowcaseDeleteId] = useState<string | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingReplaceIdRef = useRef<string>('');
+  const captionUpdateTimersRef = useRef<Record<string, ReturnType<typeof window.setTimeout> | undefined>>({});
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
     orders: true,
     quotes: true,
@@ -321,38 +329,87 @@ export default function VendorSettingsPage() {
     }
   };
 
+  const uploadShowcaseImage = async (opts: {
+    file: File;
+    kind?: string;
+    caption?: string;
+    replaceId?: string;
+  }): Promise<ShowcaseImage> => {
+    const formData = new FormData();
+    formData.append('file', opts.file);
+    if (opts.kind) formData.append('kind', opts.kind);
+    if (opts.caption) formData.append('caption', opts.caption);
+    if (opts.replaceId) formData.append('replaceId', opts.replaceId);
+
+    const res = await fetch('/api/vendor/showcase-images', { method: 'POST', body: formData });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error ?? 'Failed to upload image');
+    if (!json?.image) throw new Error(json?.error ?? 'Failed to upload image');
+    return json.image as ShowcaseImage;
+  };
+
   const handleShowcasePicked = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setError('');
-    setShowcaseUploading(true);
+    const toUpload = Array.from(files);
+    if (toUpload.length === 0) return;
+
+    setShowcaseBusy(true);
     try {
-      const next: typeof showcaseImages = [];
-      for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('kind', 'premises');
-        formData.append('caption', '');
-        const res = await fetch('/api/vendor/showcase-images', { method: 'POST', body: formData });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json?.error ?? 'Failed to upload image');
-        if (json?.image) next.push(json.image);
-      }
+      const uploadedImages = await Promise.all(
+        toUpload.map((file) =>
+          uploadShowcaseImage({
+            file,
+            kind: showcaseUploadKind,
+            caption: '',
+          }),
+        ),
+      );
+
       setShowcaseImages((prev) => {
-        const merged = [...prev, ...next];
+        const merged = [...prev, ...uploadedImages];
         merged.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
         return merged;
       });
-      toast.success('Showcase images uploaded');
+
+      toast.success(toUpload.length === 1 ? 'Showcase image uploaded' : 'Showcase images uploaded');
     } catch (e: any) {
       setError(e?.message || 'Failed to upload image(s)');
       toast.error(e?.message || 'Failed to upload image(s)');
     } finally {
-      setShowcaseUploading(false);
+      setShowcaseBusy(false);
+    }
+  };
+
+  const handleReplaceShowcaseImage = async (replaceId: string, file: File | null) => {
+    if (!replaceId) return;
+    if (!file) return;
+    setError('');
+    setShowcaseBusy(true);
+    try {
+      const updated = await uploadShowcaseImage({
+        file,
+        replaceId,
+      });
+      setShowcaseImages((prev) => {
+        const next = prev.map((img) => (img.id === updated.id ? updated : img));
+        next.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        return next;
+      });
+      toast.success('Image replaced');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to replace image');
+      toast.error(e?.message || 'Failed to replace image');
+    } finally {
+      setShowcaseBusy(false);
     }
   };
 
   const handleDeleteShowcaseImage = async (id: string) => {
     setError('');
+    const existingTimer = captionUpdateTimersRef.current[id];
+    if (existingTimer) clearTimeout(existingTimer);
+    delete captionUpdateTimersRef.current[id];
     try {
       const res = await fetch(`/api/vendor/showcase-images?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       const json = await res.json().catch(() => ({}));
@@ -375,6 +432,72 @@ export default function VendorSettingsPage() {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error ?? 'Failed to update images');
+  };
+
+  const scheduleCaptionUpdate = (id: string, caption: string) => {
+    const nextCaption = (caption ?? '').slice(0, 140);
+
+    // Optimistic UI update: captions feel instant.
+    setShowcaseImages((prev) => prev.map((img) => (img.id === id ? { ...img, caption: nextCaption } : img)));
+
+    const existingTimer = captionUpdateTimersRef.current[id];
+    if (existingTimer) clearTimeout(existingTimer);
+
+    captionUpdateTimersRef.current[id] = window.setTimeout(() => {
+      void persistShowcasePatch([{ id, caption: nextCaption }]).catch((e: any) => {
+        toast.error(e?.message || 'Failed to update caption');
+      });
+      delete captionUpdateTimersRef.current[id];
+    }, 650);
+  };
+
+  const flushCaptionUpdate = async (id: string, caption: string) => {
+    const nextCaption = (caption ?? '').slice(0, 140);
+
+    const existingTimer = captionUpdateTimersRef.current[id];
+    if (existingTimer) clearTimeout(existingTimer);
+    delete captionUpdateTimersRef.current[id];
+
+    try {
+      await persistShowcasePatch([{ id, caption: nextCaption }]);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update caption');
+    }
+  };
+
+  const handleMoveShowcaseImage = async (id: string, direction: 'up' | 'down') => {
+    const idx = showcaseImages.findIndex((img) => img.id === id);
+    if (idx < 0) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= showcaseImages.length) return;
+
+    const a = showcaseImages[idx]!;
+    const b = showcaseImages[targetIdx]!;
+
+    const prevSnapshot = showcaseImages.map((img) => ({ ...img }));
+    const nextAOrder = b.sort_order;
+    const nextBOrder = a.sort_order;
+
+    // Optimistic swap.
+    setShowcaseImages((prev) => {
+      const swapped = prev.map((img) => {
+        if (img.id === a.id) return { ...img, sort_order: nextAOrder };
+        if (img.id === b.id) return { ...img, sort_order: nextBOrder };
+        return img;
+      });
+      swapped.sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));
+      return swapped;
+    });
+
+    try {
+      await persistShowcasePatch([
+        { id: a.id, sortOrder: nextAOrder },
+        { id: b.id, sortOrder: nextBOrder },
+      ]);
+    } catch (e: any) {
+      setShowcaseImages(prevSnapshot);
+      toast.error(e?.message || 'Failed to reorder image');
+    }
   };
 
   const updateShowcaseImage = async (
@@ -836,28 +959,68 @@ export default function VendorSettingsPage() {
                   void handleShowcasePicked(files);
                 }}
               />
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  disabled={showcaseUploading}
-                  onClick={() => document.getElementById(showcaseInputId)?.click()}
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {showcaseUploading ? 'Uploading…' : 'Upload images'}
-                </Button>
+              <input
+                ref={replaceFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  e.target.value = '';
+                  const replaceId = pendingReplaceIdRef.current;
+                  pendingReplaceIdRef.current = '';
+                  void handleReplaceShowcaseImage(replaceId, file);
+                }}
+              />
+              <div
+                className="rounded-xl border border-dashed border-slate-300/80 bg-secondary/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (showcaseBusy) return;
+                  void handleShowcasePicked(e.dataTransfer.files);
+                }}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    disabled={showcaseBusy}
+                    onClick={() => document.getElementById(showcaseInputId)?.click()}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {showcaseBusy ? 'Uploading…' : 'Upload images'}
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Default category</Label>
+                    <Select value={showcaseUploadKind} onValueChange={(v) => setShowcaseUploadKind(v as ShowcaseKind)}>
+                      <SelectTrigger size="sm" className="h-8 w-[170px]">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHOWCASE_KINDS.map((k) => (
+                          <SelectItem key={k.value} value={k.value}>
+                            {k.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   Tip: Use wide, well-lit photos (clean backgrounds, branded safety gear, clear equipment shots).
                 </p>
               </div>
 
               {showcaseImages.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {showcaseImages.map((img) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {showcaseImages.map((img, idx) => (
                     <div key={img.id} className="rounded-xl border border-border/60 overflow-hidden bg-card">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.url} alt={img.caption || 'Showcase image'} className="h-40 w-full object-cover" />
+                      <img src={img.url} alt={img.caption || 'Showcase image'} className="h-44 w-full object-cover" />
                       <div className="p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <Label className="text-xs text-muted-foreground">Category</Label>
@@ -876,13 +1039,54 @@ export default function VendorSettingsPage() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <div className="ml-auto flex items-center gap-2">
+                          <div className="ml-auto flex items-center gap-1.5">
+                            <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums">#{idx + 1}</span>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={showcaseBusy || idx === 0}
+                              onClick={() => void handleMoveShowcaseImage(img.id, 'up')}
+                              aria-label="Move image up"
+                              title="Move up"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={showcaseBusy || idx === showcaseImages.length - 1}
+                              onClick={() => void handleMoveShowcaseImage(img.id, 'down')}
+                              aria-label="Move image down"
+                              title="Move down"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8"
+                              disabled={showcaseBusy}
+                              onClick={() => {
+                                pendingReplaceIdRef.current = img.id;
+                                replaceFileInputRef.current?.click();
+                              }}
+                            >
+                              Replace
+                            </Button>
                             <AlertDialog
                               open={pendingShowcaseDeleteId === img.id}
                               onOpenChange={(open) => setPendingShowcaseDeleteId(open ? img.id : null)}
                             >
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8">
+                                <Button variant="ghost" size="sm" className="h-8" disabled={showcaseBusy}>
                                   Remove
                                 </Button>
                               </AlertDialogTrigger>
@@ -912,10 +1116,16 @@ export default function VendorSettingsPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Caption</Label>
+                          <div className="flex items-center justify-between gap-3">
+                            <Label className="text-xs text-muted-foreground">Caption</Label>
+                            <p className="text-[11px] text-muted-foreground tabular-nums">
+                              {(img.caption ?? '').length}/140
+                            </p>
+                          </div>
                           <Input
                             value={img.caption ?? ''}
-                            onChange={(e) => void updateShowcaseImage(img.id, { caption: e.target.value })}
+                            onChange={(e) => scheduleCaptionUpdate(img.id, e.target.value)}
+                            onBlur={(e) => void flushCaptionUpdate(img.id, e.target.value)}
                             placeholder="e.g. Finished goods warehouse (FIFO storage)"
                           />
                           <p className="text-xs text-muted-foreground">Keep it short and factual (max 140 characters).</p>
@@ -926,7 +1136,10 @@ export default function VendorSettingsPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-border/60 bg-secondary/10 px-4 py-6 text-sm text-muted-foreground">
-                  No showcase images yet. Upload a few high-quality photos to build buyer confidence.
+                  <p className="font-medium text-slate-900">No showcase images yet</p>
+                  <p className="mt-1">
+                    Upload 3-6 professional photos to help buyers trust your facilities, equipment, and QC process.
+                  </p>
                 </div>
               )}
             </CardContent>

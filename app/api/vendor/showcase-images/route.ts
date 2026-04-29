@@ -9,9 +9,19 @@ function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
 }
 
-function asInt(v: unknown, fallback = 0) {
-  const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10);
-  return Number.isFinite(n) ? n : fallback;
+function asIntStrict(v: unknown): number | null {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v) || !Number.isInteger(v)) return null;
+    return v;
+  }
+
+  const raw = typeof v === 'string' ? v.trim() : String(v ?? '').trim();
+  if (!raw) return null;
+  if (!/^-?\d+$/.test(raw)) return null;
+
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return null;
+  return n;
 }
 
 function asKind(v: unknown) {
@@ -218,7 +228,13 @@ export async function PATCH(req: NextRequest) {
     const patch: Record<string, unknown> = {};
     if (u?.kind != null) patch.kind = asKind(u.kind);
     if (u?.caption != null) patch.caption = asString(u.caption).trim().slice(0, 140);
-    if (u?.sortOrder != null) patch.sort_order = asInt(u.sortOrder, 0);
+    if (u?.sortOrder != null) {
+      const sortOrder = asIntStrict(u.sortOrder);
+      if (sortOrder === null || sortOrder < 0) {
+        return NextResponse.json({ error: 'sortOrder must be a non-negative integer' }, { status: 422 });
+      }
+      patch.sort_order = sortOrder;
+    }
     if (Object.keys(patch).length === 0) continue;
 
     const { data, error } = await supabaseAdmin
@@ -232,7 +248,12 @@ export async function PATCH(req: NextRequest) {
       console.error('[vendor/showcase-images PATCH]', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    if (data) results.push(data);
+
+    if (!data) {
+      return NextResponse.json({ error: `Image not found: ${id}` }, { status: 404 });
+    }
+
+    results.push(data);
   }
 
   return NextResponse.json({ ok: true, images: results });
