@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { VendorConsoleShell } from '@/components/vendor/vendor-console-shell';
+import { PortalVerificationGate } from '@/components/portal/portal-verification-gate'
 import { isVendorConsolePath } from '@/lib/vendor-console-path';
 
 export default function VendorSegmentLayout({ children }: { children: React.ReactNode }) {
@@ -11,5 +12,9 @@ export default function VendorSegmentLayout({ children }: { children: React.Reac
     return <>{children}</>;
   }
 
-  return <VendorConsoleShell>{children}</VendorConsoleShell>;
+  return (
+    <VendorConsoleShell>
+      <PortalVerificationGate portal="vendor">{children}</PortalVerificationGate>
+    </VendorConsoleShell>
+  )
 }

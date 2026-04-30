@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
+import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
 
 const BUCKET = 'product-images';
-
-function hasVendorAccess(user: any) {
-  const meta = user?.app_metadata ?? {};
-  if (meta.role === 'vendor') return true;
-  const roles = Array.isArray(meta.roles) ? meta.roles : [];
-  return roles.includes('vendor');
-}
 
 async function getAuthedVendorId(): Promise<
   | { ok: true; vendorId: string }
@@ -21,10 +15,15 @@ async function getAuthedVendorId(): Promise<
   if (error || !data.user) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
-  if (!hasVendorAccess(data.user)) {
-    return { ok: false, response: NextResponse.json({ error: 'Vendor role required' }, { status: 403 }) };
+  const vendorId = data.user.id
+  const verification = await getVendorVerificationStatus(vendorId)
+  if (!verification.isVerified) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Vendor account pending verification' }, { status: 403 }),
+    }
   }
-  return { ok: true, vendorId: data.user.id };
+  return { ok: true, vendorId };
 }
 
 async function ensureBucket() {

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedVendor } from '@/lib/api/vendor-auth';
+import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
+
+  const verification = await getVendorVerificationStatus(auth.vendorId)
+  if (!verification.isVerified) {
+    return NextResponse.json({ error: 'Vendor account pending verification' }, { status: 403 })
+  }
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status')?.trim() ?? '';

@@ -334,33 +334,28 @@ export default function AuthClient() {
           return
         }
 
-        let hasAccess = await fetchHasPortalAccess(role)
-        if (cancelled) return
-        if (hasAccess) {
-          router.replace(next)
-          return
-        }
-
-        // If the user originally requested this portal during sign-up (via
-        // user_metadata.role), grant it automatically on their first session.
-        // This fixes the "vendor signed up but no vendor access yet" loop that
-        // can happen after email confirmation.
-        if (userRequestedPortalAtSignup(user, role)) {
+        // Portal access is not exclusive: a single account can enter any dashboard.
+        // Grant the requested portal membership automatically (idempotent).
+        if (role !== 'auto') {
           const granted = await grantPortalAccess(role)
           if (cancelled) return
-          if (granted.ok) {
-            hasAccess = await fetchHasPortalAccess(role)
-            if (cancelled) return
-            if (hasAccess) {
-              router.replace(next)
-              return
-            }
+          if (!granted.ok) {
+            setError(granted.error || 'Failed to enable dashboard access.')
+            return
           }
         }
 
-        // Signed in but no role for this portal: offer to add it. This is
-        // the same path used after a fresh password sign-in.
-        setNeedsRoleUpgrade({ email: user.email ?? '', portal: role })
+        if (role === 'buyer') {
+          const gate = await gateBuyerPhoneIfNeeded(user.email ?? '')
+          if (cancelled) return
+          if (gate.needsPhone) {
+            setBuyerCustomer(gate.customer ?? null)
+            setNeedsBuyerPhone(true)
+            return
+          }
+        }
+
+        router.replace(next)
       } catch {
         // Ignore (treat as not signed in)
       }
@@ -433,31 +428,10 @@ export default function AuthClient() {
           return { ok: false as const }
         }
       } else {
-        const hasAccess = await fetchHasPortalAccess(role)
-        if (!hasAccess) {
-          if (role === 'buyer') {
-            // Buyer access is granted automatically on successful sign-in:
-            // the user proved their identity and chose the buyer portal.
-            const granted = await grantPortalAccess('buyer')
-            if (!granted.ok) {
-              setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
-              return { ok: false as const }
-            }
-          } else {
-            // If they requested this portal during sign-up (user_metadata.role),
-            // grant it automatically on sign-in; otherwise require explicit
-            // upgrade confirmation.
-            if (userRequestedPortalAtSignup(user, role)) {
-              const granted = await grantPortalAccess(role)
-              if (!granted.ok) {
-                setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
-                return { ok: false as const }
-              }
-            } else {
-              setNeedsRoleUpgrade({ email: trimmedEmail, portal: role })
-              return { ok: false as const }
-            }
-          }
+        const granted = await grantPortalAccess(role)
+        if (!granted.ok) {
+          setError(granted.error || 'Failed to enable dashboard access.')
+          return { ok: false as const }
         }
       }
 
@@ -500,11 +474,10 @@ export default function AuthClient() {
     if (status.authExists) {
       // Email owns a SouthCaravan account that does NOT include this portal.
       // We must not silently sign them up — that would create a duplicate
-      // auth record (impossible) or a fake confirmation (misleading). Tell
-      // the user to sign in with their real password; the role-upgrade flow
-      // will then kick in automatically.
+      // auth record (impossible). They just need to sign in with the right
+      // password; portal access will be enabled after sign-in.
       setError(
-        `This email already has a SouthCaravan account. Sign in with your correct password to add ${portalLabel(role)} access.`
+        'This email already has a SouthCaravan account. Sign in with your correct password to continue.'
       )
       return { ok: false as const }
     }
@@ -851,14 +824,12 @@ export default function AuthClient() {
                   id="role-upgrade-title"
                   className="text-[15px] font-semibold text-foreground"
                 >
-                  Create your {portalLabel(needsRoleUpgrade.portal)} account
+                  Enable {portalLabel(needsRoleUpgrade.portal)} dashboard
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>{' '}
-                  is registered with SouthCaravan, but it doesn’t have{' '}
-                  {portalLabel(needsRoleUpgrade.portal)} access yet. A separate{' '}
-                  {portalLabel(needsRoleUpgrade.portal)} account is required — having one
-                  role doesn’t grant access to others.
+                  is registered with SouthCaravan. Add access for the{' '}
+                  {portalLabel(needsRoleUpgrade.portal)} dashboard to this same account.
                 </p>
               </div>
             </div>
@@ -872,7 +843,7 @@ export default function AuthClient() {
               >
                 {busy
                   ? 'Creating…'
-                  : `Create ${portalTitleCase(needsRoleUpgrade.portal)} account`}
+                  : `Enable ${portalTitleCase(needsRoleUpgrade.portal)} dashboard`}
               </button>
               <button
                 type="button"

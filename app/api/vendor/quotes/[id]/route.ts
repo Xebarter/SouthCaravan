@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedVendor } from '@/lib/api/vendor-auth';
+import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
 
 function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
@@ -9,6 +10,11 @@ function asString(v: unknown) {
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
+
+  const verification = await getVendorVerificationStatus(auth.vendorId)
+  if (!verification.isVerified) {
+    return NextResponse.json({ error: 'Vendor account pending verification' }, { status: 403 })
+  }
 
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
@@ -66,6 +72,11 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await getAuthedVendor();
   if (!auth.ok) return auth.response;
+
+  const verification = await getVendorVerificationStatus(auth.vendorId)
+  if (!verification.isVerified) {
+    return NextResponse.json({ error: 'Vendor account pending verification' }, { status: 403 })
+  }
 
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });

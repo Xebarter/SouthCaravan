@@ -22,9 +22,8 @@ export async function POST(request: Request) {
     const emailPrefix = email.split('@')[0] || 'Vendor'
     const company = typeof user.user_metadata?.company === 'string' ? user.user_metadata.company : ''
 
-    // The caller must already be registered for the requested portal role.
-    // We do NOT auto-grant roles here — that happens only through
-    // /api/auth/portal-access which requires a deliberate user action.
+    // Any signed-in user can access Vendor/Services dashboards. We auto-provision
+    // portal membership + vendor profile on first visit (idempotent).
     let requestedPortal: VendorPortal = 'vendor'
     try {
       const body = await request.json()
@@ -33,23 +32,13 @@ export async function POST(request: Request) {
       requestedPortal = 'vendor'
     }
 
-    const { data: hasRole, error: roleErr } = await supabaseAdmin.rpc('user_has_portal_role', {
-      p_user_id: user.id,
-      p_portal: requestedPortal,
-    })
-    if (roleErr) {
-      return NextResponse.json({ error: roleErr.message }, { status: 500 })
-    }
-    if (!hasRole) {
-      return NextResponse.json(
-        { error: `No ${requestedPortal} access for this account.` },
-        { status: 403 }
-      )
-    }
+    await supabaseAdmin
+      .from('user_roles')
+      .upsert({ user_id: user.id, role: requestedPortal }, { onConflict: 'user_id,role' })
 
     const { data: existing, error: selectError } = await supabaseAdmin
       .from('vendors')
-      .select('id')
+      .select('id,is_verified,verified_at')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -58,10 +47,24 @@ export async function POST(request: Request) {
     }
 
     if (existing?.id) {
-      return NextResponse.json({ ok: true, existed: true }, { status: 200 })
+      return NextResponse.json(
+        {
+          ok: true,
+          portal: requestedPortal,
+          vendor: {
+            id: String(existing.id),
+            is_verified: Boolean((existing as any).is_verified),
+            verified_at: (existing as any).verified_at ?? null,
+          },
+          existed: true,
+        },
+        { status: 200 },
+      )
     }
 
-    const { error: insertError } = await supabaseAdmin.from('vendors').insert({
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('vendors')
+      .insert({
       id: user.id,
       name: emailPrefix,
       email,
@@ -69,12 +72,26 @@ export async function POST(request: Request) {
       is_verified: false,
       verified_at: null,
     })
+      .select('id,is_verified,verified_at')
+      .single()
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, created: true }, { status: 201 })
+    return NextResponse.json(
+      {
+        ok: true,
+        portal: requestedPortal,
+        vendor: {
+          id: String(inserted?.id ?? user.id),
+          is_verified: Boolean(inserted?.is_verified),
+          verified_at: inserted?.verified_at ?? null,
+        },
+        created: true,
+      },
+      { status: 201 },
+    )
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Bootstrap failed' }, { status: 500 })
   }

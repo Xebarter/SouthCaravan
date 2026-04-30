@@ -74,9 +74,6 @@ export default function BuyerConsoleLayout({
       router.replace(`/auth?role=buyer&next=${encodeURIComponent(next)}`);
       return;
     }
-
-    if (user.role === 'vendor') router.replace('/vendor');
-    if (user.role === 'admin') router.replace('/dashboard');
   }, [isLoading, user, router, pathname]);
 
   useEffect(() => {

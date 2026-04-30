@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-function hasVendorAccess(user: any) {
-  const meta = user?.app_metadata ?? {}
-  if (meta.role === 'vendor') return true
-  const roles = Array.isArray(meta.roles) ? meta.roles : []
-  return roles.includes('vendor')
-}
+import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
 
 async function getAuthedVendorId(): Promise<
   | { ok: true; vendorId: string }
@@ -18,10 +12,15 @@ async function getAuthedVendorId(): Promise<
   if (error || !data.user) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
-  if (!hasVendorAccess(data.user)) {
-    return { ok: false, response: NextResponse.json({ error: 'Vendor role required' }, { status: 403 }) }
+  const vendorId = data.user.id
+  const verification = await getVendorVerificationStatus(vendorId)
+  if (!verification.isVerified) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Vendor account pending verification' }, { status: 403 }),
+    }
   }
-  return { ok: true, vendorId: data.user.id }
+  return { ok: true, vendorId }
 }
 
 function monthKey(date: Date) {
