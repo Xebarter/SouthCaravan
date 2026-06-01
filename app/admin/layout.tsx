@@ -65,14 +65,14 @@ function AdminSidebar({
   }
 
   return (
-    <aside className="h-full border-r border-border bg-card/40 flex flex-col">
-      <div className="h-16 border-b border-border px-5 flex items-center">
+    <aside className="h-full min-h-0 border-r border-border bg-card/40 flex flex-col">
+      <div className="h-16 shrink-0 border-b border-border px-5 flex items-center">
         <div>
           <p className="text-xs text-muted-foreground">SouthCaravan</p>
           <h2 className="font-semibold">Admin Console</h2>
         </div>
       </div>
-      <nav className="p-3 space-y-1 flex-1">
+      <nav className="p-3 space-y-1 flex-1 min-h-0 overflow-y-auto">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -96,16 +96,17 @@ function AdminSidebar({
           );
         })}
       </nav>
-      <div className="p-3 border-t border-border">
+      <div className="mt-auto shrink-0 p-3 border-t border-border bg-card/60">
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-start gap-3 rounded-xl"
+          className="w-full justify-start gap-3 rounded-xl border-border/70 hover:bg-muted/30"
           onClick={onSignOut}
           disabled={signingOut}
+          aria-label="Log out of admin console"
         >
-          <LogOut className="w-4 h-4" />
-          {signingOut ? 'Signing out…' : 'Sign out'}
+          <LogOut className="w-4 h-4 shrink-0" />
+          {signingOut ? 'Signing out…' : 'Log out'}
         </Button>
       </div>
     </aside>
@@ -137,8 +138,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </header>
 
       <div className="flex min-h-[calc(100vh-4rem)]">
-        <div className="hidden lg:block w-72">
-          <AdminSidebar pathname={pathname} />
+        <div className="hidden lg:block w-72 shrink-0">
+          <div className="sticky top-16 h-[calc(100dvh-4rem)]">
+            <AdminSidebar pathname={pathname} />
+          </div>
         </div>
 
         <div className="flex-1 min-w-0 p-4 sm:p-6">{children}</div>
@@ -151,8 +154,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setMenuOpen(false)}
             aria-label="Close admin menu"
           />
-          <div className="absolute left-0 top-0 h-full w-[82vw] max-w-sm bg-background shadow-xl">
-            <div className="h-16 border-b border-border px-4 flex items-center justify-between">
+          <div className="absolute left-0 top-0 flex h-full w-[82vw] max-w-sm flex-col bg-background shadow-xl">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-4">
               <p className="font-semibold">Admin Menu</p>
               <Button
                 variant="ghost"
@@ -163,7 +166,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            <AdminSidebar pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+            <div className="min-h-0 flex-1">
+              <AdminSidebar pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+            </div>
           </div>
         </div>
       )}

@@ -136,13 +136,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    const supabase = getBrowserSupabaseClient();
-    setUser(null);
     clearPortalHints();
-    void supabase.auth.signOut().finally(() => {
-      // Avoid landing on a protected page (which would redirect to /auth).
-      window.location.assign('/');
-    });
+    // Navigate immediately so console headers never re-render as signed-out
+    // (which briefly showed mock vendor identity + a Sign in button).
+    window.location.assign('/');
+    const supabase = getBrowserSupabaseClient();
+    void supabase.auth.signOut();
   };
 
   const value = useMemo(

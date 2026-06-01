@@ -1,10 +1,10 @@
-import * as React from 'react'
 import { Suspense } from 'react'
 import AuthClient from '@/app/auth/auth-client'
+import { AuthPageLoading } from '@/components/auth-chrome'
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AuthPageLoading />}>
       <AuthClient />
     </Suspense>
   )

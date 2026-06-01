@@ -14,14 +14,14 @@ import {
 } from 'lucide-react';
 
 const SUBJECTS = [
-  { value: 'general',         label: 'General Enquiry' },
-  { value: 'support',         label: 'Support Request' },
-  { value: 'sales',           label: 'Sales & Pricing' },
-  { value: 'vendor_inquiry',  label: 'Vendor / Supplier Enquiry' },
-  { value: 'partnership',     label: 'Partnership Opportunity' },
-  { value: 'billing',         label: 'Billing Question' },
-  { value: 'careers',         label: 'Careers' },
-  { value: 'other',           label: 'Other' },
+  { value: 'general', label: 'General Enquiry' },
+  { value: 'support', label: 'Support Request' },
+  { value: 'sales', label: 'Sales & Pricing' },
+  { value: 'vendor_inquiry', label: 'Vendor / Supplier Enquiry' },
+  { value: 'partnership', label: 'Partnership Opportunity' },
+  { value: 'billing', label: 'Billing Question' },
+  { value: 'careers', label: 'Careers' },
+  { value: 'other', label: 'Other' },
 ];
 
 const FAQS = [
@@ -63,10 +63,10 @@ const EMPTY: FormState = {
 };
 
 export default function ContactPage() {
-  const [form, setForm]       = useState<FormState>(EMPTY);
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const set = (k: keyof FormState, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -153,10 +153,10 @@ export default function ContactPage() {
             <h3 className="font-semibold text-sm mb-3">Quick Help</h3>
             <ul className="space-y-2 text-sm">
               {[
-                { label: 'Browse FAQs',         href: '/faq' },
+                { label: 'Browse FAQs', href: '/faq' },
                 { label: 'Check System Status', href: '/status' },
-                { label: 'View open roles',     href: '/careers' },
-                { label: 'Start as a Vendor',   href: '/signup' },
+                { label: 'View open roles', href: '/careers' },
+                { label: 'Start as a Vendor', href: '/signup' },
               ].map((l) => (
                 <li key={l.href}>
                   <Link href={l.href} className="text-primary hover:underline flex items-center gap-1.5">

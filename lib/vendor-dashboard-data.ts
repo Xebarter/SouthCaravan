@@ -8,19 +8,17 @@ import {
 } from '@/lib/mock-data';
 import type { Order, Product, Quote, User, VendorProfile } from '@/lib/types';
 
-/** Demo vendor user when visiting the console without signing in (sarah@vendor.com). */
-export const VENDOR_CONSOLE_DEMO_USER_ID = 'user-2';
-
-export function getVendorConsoleUserId(user: User | null | undefined): string {
+export function getVendorConsoleUserId(user: User | null | undefined): string | null {
   if (user?.role === 'vendor') {
     return user.id;
   }
-  return VENDOR_CONSOLE_DEMO_USER_ID;
+  return null;
 }
 
 export function getVendorProfileForConsole(user: User | null | undefined): VendorProfile | null {
   const uid = getVendorConsoleUserId(user);
-  return mockVendors.find((v) => v.userId === uid) ?? mockVendors[0] ?? null;
+  if (!uid) return null;
+  return mockVendors.find((v) => v.userId === uid) ?? null;
 }
 
 export type VendorMonthlyPoint = { month: string; revenue: number };

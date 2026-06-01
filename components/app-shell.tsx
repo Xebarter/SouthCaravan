@@ -5,13 +5,13 @@ import { usePathname } from 'next/navigation';
 import { MainNav } from '@/components/main-nav';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
+import { DashboardNavProvider } from '@/components/dashboard-nav-context';
+import { isAnyDashboardConsolePath } from '@/lib/dashboard-console-path';
 import { Toaster } from '@/components/ui/sonner';
 import {
   DEFAULT_MARKETPLACE_TAXONOMY,
   type DefaultMarketplaceSection,
 } from '@/lib/default-marketplace-taxonomy';
-import { isVendorConsolePath } from '@/lib/vendor-console-path';
-import { isServicesConsolePath } from '@/lib/services-console-path';
 
 const publicRoutePrefixes = [
   '/',
@@ -62,23 +62,12 @@ export function AppShell({
     () => pathname === '/admin' || pathname.startsWith('/admin/'),
     [pathname],
   );
-  const vendorConsolePage = useMemo(() => isVendorConsolePath(pathname), [pathname]);
-  const buyerConsolePage = useMemo(() => pathname === '/buyer' || pathname.startsWith('/buyer/'), [pathname]);
-  const servicesConsolePage = useMemo(() => isServicesConsolePath(pathname), [pathname]);
-  const marketplacePortalConsole = buyerConsolePage || servicesConsolePage;
+  const dashboardConsolePage = useMemo(() => isAnyDashboardConsolePath(pathname), [pathname]);
 
   if (!publicPage) {
-    if (vendorConsolePage) {
+    if (dashboardConsolePage) {
       return (
-        <main data-vendor-console className="flex-1 min-h-screen">
-          {children}
-        </main>
-      );
-    }
-
-    if (marketplacePortalConsole) {
-      return (
-        <>
+        <DashboardNavProvider>
           <Header />
           <div className="flex flex-1 min-h-0">
             <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -87,7 +76,7 @@ export function AppShell({
             </div>
           </div>
           <Toaster richColors closeButton position="top-center" />
-        </>
+        </DashboardNavProvider>
       );
     }
 

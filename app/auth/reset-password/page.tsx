@@ -3,13 +3,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
-import { AuthPageBackground, authCardClassName } from '@/components/auth-chrome';
+import {
+  AuthAlert,
+  AuthBrandBanner,
+  AuthCard,
+  AuthCardBody,
+  AuthFooterLinks,
+  AuthPageBackground,
+  AuthPageHeader,
+  AuthPasswordField,
+  authPrimaryButtonClassName,
+  authTextButtonClassName,
+} from '@/components/auth-chrome';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -26,31 +33,31 @@ export default function ResetPasswordPage() {
     setError('');
 
     if (!password || !confirmPassword) {
-      setError('Please fill in all fields');
+      setError('Fill in both password fields.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      setError('Use at least 8 characters.');
       return;
     }
 
     setLoading(true);
     try {
       const supabase = getBrowserSupabaseClient();
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
       setSuccess(true);
       setTimeout(() => {
         router.push('/auth');
       }, 2000);
-    } catch (err) {
-      setError('Failed to reset password. Please try again.');
+    } catch {
+      setError('Could not reset password. Try again.');
     } finally {
       setLoading(false);
     }
@@ -59,104 +66,74 @@ export default function ResetPasswordPage() {
   if (success) {
     return (
       <AuthPageBackground>
-        <Card className={`${authCardClassName} max-w-md`}>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <CheckCircle2 className="w-12 h-12 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground">Password Reset Successful</h2>
-              <p className="text-muted-foreground">
-                Your password has been reset. Redirecting you to login...
-              </p>
+        <AuthCard>
+          <AuthBrandBanner />
+          <AuthCardBody className="flex flex-col items-center gap-4 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CheckCircle2 className="h-6 w-6" aria-hidden />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Password updated</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Redirecting to sign in…</p>
+            </div>
+          </AuthCardBody>
+        </AuthCard>
       </AuthPageBackground>
     );
   }
 
   return (
     <AuthPageBackground>
-      <Card className={`${authCardClassName} max-w-md`}>
-        <CardHeader>
-          <CardTitle>Create New Password</CardTitle>
-          <CardDescription>
-            Enter a new password for your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="flex gap-3 p-3 bg-destructive/10 border border-destructive/30 rounded">
-                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
+      <AuthCard>
+        <AuthBrandBanner />
+        <AuthCardBody>
+          <AuthPageHeader title="New password" subtitle="Choose a strong password for your account." />
 
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition disabled:opacity-60"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Minimum 8 characters
-              </p>
-            </div>
+          {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition disabled:opacity-60"
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                  disabled={loading}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </Button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              <Link href="/auth" className="text-primary hover:underline">
-                Back to sign in
-              </Link>
-            </p>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <AuthPasswordField
+              id="new-password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              show={showPassword}
+              onToggleShow={() => setShowPassword((v) => !v)}
+              autoComplete="new-password"
+              disabled={loading}
+            />
+            <AuthPasswordField
+              id="confirm-password"
+              label="Confirm"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              show={showConfirmPassword}
+              onToggleShow={() => setShowConfirmPassword((v) => !v)}
+              autoComplete="new-password"
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+            <button type="submit" className={authPrimaryButtonClassName} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                'Update password'
+              )}
+            </button>
           </form>
-        </CardContent>
-      </Card>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link href="/auth" className={authTextButtonClassName}>
+              Back to sign in
+            </Link>
+          </p>
+
+          <AuthFooterLinks />
+        </AuthCardBody>
+      </AuthCard>
     </AuthPageBackground>
   );
 }

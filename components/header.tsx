@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, LayoutDashboard, LogOut, Menu, MessageSquare, MessagesSquare, UserCircle2 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ChevronDown, LayoutGrid, Menu, MessagesSquare, UserCircle2 } from 'lucide-react';
 import { CartNavButton } from '@/components/cart-nav-button';
 import { Button } from '@/components/ui/button';
 import { HeaderSearch } from '@/components/header-search';
@@ -10,7 +11,19 @@ import { AddItemsSidebar } from '@/components/additems-sidebar';
 import { SiteLogoMark } from '@/components/site-logo';
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  ProfileMenuPanel,
+  SignedInProfileMenu,
+  SignedOutProfileMenu,
+} from '@/components/header-profile-menu';
+import { useDashboardNav } from '@/components/dashboard-nav-context';
 import { useAuth } from '@/lib/auth-context';
+import { getDashboardConsoleKind, getMessagesHrefForPath } from '@/lib/dashboard-console-path';
+import {
+  isPortalSellConfirmOpen,
+  isPortalSellConfirmTarget,
+} from '@/lib/portal-sell-confirm-guard';
+import { cn } from '@/lib/utils';
 
 const HOVER_CLOSE_DELAY_MS = 150;
 
@@ -30,13 +43,38 @@ function getDashboardHref(role: string): string {
   return '/buyer';
 }
 
-function getMessagesHref(role: string): string {
-  if (role === 'vendor') return '/vendor/messages';
-  if (role === 'services') return '/services/messages';
-  return '/buyer/messages';
+function getDashboardHrefForContext(pathname: string, role: string): string {
+  const kind = getDashboardConsoleKind(pathname);
+  if (kind === 'buyer') return '/buyer';
+  if (kind === 'vendor') return '/vendor';
+  if (kind === 'services') return '/services/dashboard';
+  return getDashboardHref(role);
+}
+
+function WorkspaceMenuButton({ className }: { className?: string }) {
+  const dashboardNav = useDashboardNav();
+  const pathname = usePathname();
+  const consoleKind = getDashboardConsoleKind(pathname);
+
+  if (!consoleKind || !dashboardNav) return null;
+
+  return (
+    <button
+      type="button"
+      aria-label="Open workspace menu"
+      className={cn(
+        'inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition shrink-0',
+        className,
+      )}
+      onClick={() => dashboardNav.openNav()}
+    >
+      <LayoutGrid className="h-5 w-5" />
+    </button>
+  );
 }
 
 export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
+  const pathname = usePathname();
   const { user, logout } = useAuth();
 
   const [pinned, setPinned] = useState(false);
@@ -125,9 +163,11 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
   };
 
   const scheduleProfileHoverClose = () => {
+    if (isPortalSellConfirmOpen()) return;
     clearProfileCloseTimer();
     profileCloseTimerRef.current = window.setTimeout(() => {
       profileCloseTimerRef.current = null;
+      if (isPortalSellConfirmOpen()) return;
       setProfileMenuOpen(false);
       setProfileMenuMode('login');
     }, HOVER_CLOSE_DELAY_MS);
@@ -141,6 +181,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
       if (!profileMenuOpen) return;
+      if (isPortalSellConfirmOpen() || isPortalSellConfirmTarget(e.target)) return;
       const target = e.target as Node | null;
       if (!target) return;
 
@@ -174,122 +215,11 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
     return <UserCircle2 className="h-5 w-5" />;
   };
 
-  // Dropdown content when the user IS signed in.
-  const SignedInDropdown = () => (
-    <>
-      <div className="px-3 py-2.5">
-        <p className="text-sm font-semibold truncate">{user!.name}</p>
-        <p className="text-xs text-muted-foreground truncate">{user!.email}</p>
-      </div>
-      <div className="my-1 h-px bg-border" />
-      <Link
-        href={getDashboardHref(user!.role)}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-        onClick={closeProfileMenu}
-      >
-        <LayoutDashboard className="h-4 w-4 shrink-0" />
-        My Dashboard
-      </Link>
-      <Link
-        href={getMessagesHref(user!.role)}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-        onClick={closeProfileMenu}
-      >
-        <MessageSquare className="h-4 w-4 shrink-0" />
-        Messages
-      </Link>
-      <div className="my-1 h-px bg-border" />
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition"
-        onClick={() => {
-          logout();
-          closeProfileMenu();
-        }}
-      >
-        <LogOut className="h-4 w-4 shrink-0" />
-        Sign Out
-      </button>
-    </>
-  );
-
-  // Dropdown content when the user is NOT signed in.
-  const SignedOutDropdown = () => (
-    <>
-      {profileMenuMode === 'login' ? (
-        <>
-          <Link
-            href="/auth?role=buyer&next=/buyer"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Login as Buyer
-          </Link>
-          <Link
-            href="/auth?role=vendor&next=/vendor"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Login as Vendor
-          </Link>
-          <Link
-            href="/auth?role=services&next=/services/dashboard"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Login as Service Provider
-          </Link>
-          <div className="my-1 h-px bg-border" />
-          <button
-            type="button"
-            className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-primary hover:bg-accent transition"
-            onClick={() => setProfileMenuMode('join')}
-          >
-            Join SouthCaravan
-          </button>
-        </>
-      ) : (
-        <>
-          <Link
-            href="/auth?role=buyer&next=/buyer&mode=signup"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Join as Buyer
-          </Link>
-          <Link
-            href="/auth?role=vendor&next=/vendor&mode=signup"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Join as Vendor
-          </Link>
-          <Link
-            href="/auth?role=services&next=/services/dashboard&mode=signup"
-            className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition"
-            onClick={closeProfileMenu}
-          >
-            Join as Service Provider
-          </Link>
-          <div className="my-1 h-px bg-border" />
-          <button
-            type="button"
-            className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-primary hover:bg-accent transition"
-            onClick={() => setProfileMenuMode('login')}
-          >
-            My Account
-          </button>
-        </>
-      )}
-    </>
-  );
-
   const messagesHref = user
-    ? getMessagesHref(user.role)
+    ? getMessagesHrefForPath(pathname, user.role)
     : '/auth?role=buyer&next=/buyer/messages';
 
-  type MobileVariant = 'full' | 'compact';
-  const mobileVariant: MobileVariant = showMobile === true ? 'full' : 'compact';
+  const homeHref = user ? getDashboardHrefForContext(pathname, user.role) : '/';
 
   return (
     <>
@@ -297,6 +227,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
       <nav className="hidden md:block border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
         <div className="flex h-16 items-center justify-between gap-4 px-6 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
+            <WorkspaceMenuButton />
             <button
               aria-label="Open categories"
               aria-expanded={open}
@@ -309,7 +240,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href={user ? getDashboardHref(user.role) : '/'} className="flex items-center gap-2 font-bold text-lg" aria-label="SouthCaravan home">
+            <Link href={homeHref} className="flex items-center gap-2 font-bold text-lg" aria-label="SouthCaravan home">
               <SiteLogoMark />
               <span className="hidden sm:inline">SouthCaravan</span>
             </Link>
@@ -334,16 +265,38 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                 aria-label="Open profile menu"
                 aria-expanded={profileMenuOpen}
                 onClick={toggleProfileMenu}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition"
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1.5 text-sm text-foreground transition',
+                  profileMenuOpen
+                    ? 'border-primary/30 bg-background shadow-sm ring-2 ring-primary/15'
+                    : 'hover:bg-accent hover:text-accent-foreground',
+                )}
                 type="button"
               >
                 <ProfileTrigger />
-                <ChevronDown className="h-4 w-4" aria-hidden />
+                <ChevronDown
+                  className={cn('h-4 w-4 transition-transform', profileMenuOpen && 'rotate-180')}
+                  aria-hidden
+                />
               </button>
 
               {profileMenuOpen ? (
-                <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50">
-                  {user ? <SignedInDropdown /> : <SignedOutDropdown />}
+                <div className="absolute right-0 mt-2 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+                  <ProfileMenuPanel>
+                    {user ? (
+                      <SignedInProfileMenu
+                        user={user}
+                        onClose={closeProfileMenu}
+                        onLogout={logout}
+                      />
+                    ) : (
+                      <SignedOutProfileMenu
+                        mode={profileMenuMode}
+                        onModeChange={setProfileMenuMode}
+                        onClose={closeProfileMenu}
+                      />
+                    )}
+                  </ProfileMenuPanel>
                 </div>
               ) : null}
             </div>
@@ -357,7 +310,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
           <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
             <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
               <Link
-                href={user ? getDashboardHref(user.role) : '/'}
+                href={homeHref}
                 aria-label="SouthCaravan home"
                 className="shrink-0 inline-flex items-center gap-2 min-w-0"
               >
@@ -371,12 +324,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                     <MessagesSquare className="h-5 w-5" />
                   </Link>
                 </Button>
-
-                <Button size="sm" asChild className="shrink-0">
-                  <Link href={user ? getDashboardHref(user.role) : '/auth?role=buyer&next=/buyer'}>
-                    {user ? 'Dashboard' : 'Post RFQ'}
-                  </Link>
-                </Button>
+                <PostMyRfqButton size="sm" className="shrink-0 h-8 px-2.5 text-xs" />
               </div>
             </div>
           </nav>
@@ -384,6 +332,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
           {/* Mobile: lower row (persistent) */}
           <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
             <div className="flex h-14 items-center gap-2 px-4 max-w-7xl mx-auto">
+              <WorkspaceMenuButton />
               <button
                 aria-label="Open categories"
                 aria-expanded={open}
@@ -400,6 +349,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                 <HeaderSearch mobile />
               </div>
 
+              <PostMyRfqButton size="sm" className="shrink-0 h-8 px-2.5 text-xs hidden min-[480px]:inline-flex" />
               <CartNavButton mobile className="shrink-0" />
 
               <div
@@ -412,75 +362,47 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                   aria-label="Open profile menu"
                   aria-expanded={profileMenuOpen}
                   onClick={toggleProfileMenu}
-                  className="inline-flex h-10 items-center justify-center gap-1 rounded-md px-2 hover:bg-accent hover:text-accent-foreground transition"
+                  className={cn(
+                    'inline-flex h-10 items-center justify-center gap-1 rounded-lg border px-2 transition',
+                    profileMenuOpen
+                      ? 'border-primary/30 bg-background shadow-sm ring-2 ring-primary/15'
+                      : 'border-transparent hover:bg-accent hover:text-accent-foreground',
+                  )}
                   type="button"
                 >
                   <ProfileTrigger size="sm" />
-                  <ChevronDown className="h-4 w-4" aria-hidden />
+                  <ChevronDown
+                    className={cn('h-4 w-4 transition-transform', profileMenuOpen && 'rotate-180')}
+                    aria-hidden
+                  />
                 </button>
 
                 {profileMenuOpen ? (
                   <div
                     ref={mobileProfilePopoverRef}
-                    className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50"
+                    className="absolute right-0 mt-2 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
                   >
-                    {user ? <SignedInDropdown /> : <SignedOutDropdown />}
+                    <ProfileMenuPanel>
+                      {user ? (
+                        <SignedInProfileMenu
+                          user={user}
+                          onClose={closeProfileMenu}
+                          onLogout={logout}
+                        />
+                      ) : (
+                        <SignedOutProfileMenu
+                          mode={profileMenuMode}
+                          onModeChange={setProfileMenuMode}
+                          onClose={closeProfileMenu}
+                        />
+                      )}
+                    </ProfileMenuPanel>
                   </div>
                 ) : null}
               </div>
             </div>
           </nav>
         </>
-      ) : mobileVariant === 'compact' ? (
-        // Compact mobile header for in-app consoles (e.g., Buyer) that already render their own
-        // mobile workspace header below. Keeps brand + key actions without duplicating menus.
-        <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-          <div className="flex h-14 items-center justify-between gap-2 px-4 max-w-7xl mx-auto">
-            <Link
-              href={user ? getDashboardHref(user.role) : '/'}
-              aria-label="SouthCaravan home"
-              className="shrink-0 inline-flex items-center gap-2 min-w-0"
-            >
-              <SiteLogoMark />
-              <span className="font-semibold text-sm tracking-tight truncate">SouthCaravan</span>
-            </Link>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Button variant="ghost" size="icon" aria-label="Messages" asChild>
-                <Link href={messagesHref}>
-                  <MessagesSquare className="h-5 w-5" />
-                </Link>
-              </Button>
-              <CartNavButton mobile className="shrink-0" />
-              <div
-                ref={mobileProfileMenuRef}
-                className="relative shrink-0"
-                onMouseEnter={handleProfileHoverOpen}
-                onMouseLeave={scheduleProfileHoverClose}
-              >
-                <button
-                  aria-label="Open profile menu"
-                  aria-expanded={profileMenuOpen}
-                  onClick={toggleProfileMenu}
-                  className="inline-flex h-10 items-center justify-center gap-1 rounded-md px-2 hover:bg-accent hover:text-accent-foreground transition"
-                  type="button"
-                >
-                  <ProfileTrigger size="sm" />
-                  <ChevronDown className="h-4 w-4" aria-hidden />
-                </button>
-
-                {profileMenuOpen ? (
-                  <div
-                    ref={mobileProfilePopoverRef}
-                    className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg z-50"
-                  >
-                    {user ? <SignedInDropdown /> : <SignedOutDropdown />}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </nav>
       ) : null}
 
       {open ? (

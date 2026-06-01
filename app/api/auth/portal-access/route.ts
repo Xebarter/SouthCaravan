@@ -9,6 +9,23 @@ function isGrantablePortal(value: unknown): value is GrantablePortal {
   return typeof value === 'string' && (GRANTABLE_PORTALS as readonly string[]).includes(value)
 }
 
+function jwtIncludesPortal(user: { app_metadata?: Record<string, unknown> }, portal: GrantablePortal) {
+  const meta = user.app_metadata ?? {}
+  if (meta.role === portal) return true
+  const roles = Array.isArray(meta.roles) ? meta.roles : []
+  return roles.includes(portal)
+}
+
+function successPayload(user: { id: string; email: string }, portal: GrantablePortal, alreadyGranted = false) {
+  return NextResponse.json({
+    ok: true,
+    portal,
+    email: user.email,
+    userId: user.id,
+    alreadyGranted,
+  })
+}
+
 /**
  * GET /api/auth/portal-access?portal=<buyer|vendor|services>
  *
@@ -46,7 +63,7 @@ export async function GET(request: Request) {
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || 'Failed to check portal access' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -83,67 +100,97 @@ export async function POST(request: Request) {
 
     const user = userData.user
     const admin = createAdminClient()
-
-    // 1. Record role membership (idempotent via composite primary key).
-    const { error: roleErr } = await admin
-      .from('user_roles')
-      .upsert(
-        { user_id: user.id, role: portal },
-        { onConflict: 'user_id,role' }
-      )
-    if (roleErr) throw roleErr
-
-    // 2. Sync the role into app_metadata.roles so the middleware's JWT-based
-    //    access checks (e.g. hasVendorAccess) see it immediately.
-    const { data: existingUserData } = await admin.auth.admin.getUserById(user.id)
-    const existingMeta = existingUserData?.user?.app_metadata ?? {}
+    const existingMeta = user.app_metadata ?? {}
     const existingRoles: string[] = Array.isArray(existingMeta.roles) ? existingMeta.roles : []
-    if (!existingRoles.includes(portal)) {
-      await admin.auth.admin.updateUserById(user.id, {
-        app_metadata: {
-          ...existingMeta,
-          roles: [...existingRoles, portal],
-        },
-      })
+    const jwtHasPortal = jwtIncludesPortal(user, portal)
+
+    const { data: roleRow } = await admin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', portal)
+      .maybeSingle()
+
+    const dbHasPortal = Boolean(roleRow)
+
+    // Already fully granted — skip admin + profile work.
+    if (dbHasPortal && jwtHasPortal) {
+      return successPayload(user, portal, true)
     }
 
-    // 3. Ensure the profile row exists for this portal.
+    const tasks: Promise<unknown>[] = []
+
+    if (!dbHasPortal) {
+      tasks.push(
+        admin
+          .from('user_roles')
+          .upsert({ user_id: user.id, role: portal }, { onConflict: 'user_id,role' })
+          .then(({ error }) => {
+            if (error) throw error
+          }),
+      )
+    }
+
+    if (!jwtHasPortal) {
+      tasks.push(
+        admin.auth.admin.updateUserById(user.id, {
+          app_metadata: {
+            ...existingMeta,
+            roles: [...new Set([...existingRoles, portal])],
+          },
+        }),
+      )
+    }
+
+    // JWT-only gap: role is in DB but claims are stale — no profile/bootstrap needed.
+    if (dbHasPortal && !jwtHasPortal) {
+      await Promise.all(tasks)
+      return successPayload(user, portal)
+    }
+
     if (portal === 'buyer') {
       const name =
         (typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
         user.email.split('@')[0] ||
         'Buyer'
-      const { error: profileErr } = await admin
-        .from('customers')
-        .upsert(
-          { id: user.id, email: user.email, name },
-          { onConflict: 'id' }
-        )
-      if (profileErr) throw profileErr
+      tasks.push(
+        admin
+          .from('customers')
+          .upsert({ id: user.id, email: user.email, name }, { onConflict: 'id' })
+          .then(({ error }) => {
+            if (error) throw error
+          }),
+      )
     } else if (portal === 'vendor' || portal === 'services') {
       const emailPrefix = user.email.split('@')[0] || 'Account'
       const company =
         (typeof user.user_metadata?.company === 'string' && user.user_metadata.company.trim()) ||
         emailPrefix
-      const { error: profileErr } = await admin
-        .from('vendors')
-        .upsert(
-          {
-            id: user.id,
-            email: user.email,
-            name: emailPrefix,
-            company_name: company,
-          },
-          { onConflict: 'id' }
-        )
-      if (profileErr) throw profileErr
+      tasks.push(
+        admin
+          .from('vendors')
+          .upsert(
+            {
+              id: user.id,
+              email: user.email,
+              name: emailPrefix,
+              company_name: company,
+            },
+            { onConflict: 'id' },
+          )
+          .then(({ error }) => {
+            if (error) throw error
+          }),
+      )
     }
 
-    return NextResponse.json({ ok: true, portal })
+    await Promise.all(tasks)
+
+    return successPayload(user, portal)
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || 'Failed to grant portal access' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

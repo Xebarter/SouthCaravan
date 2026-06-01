@@ -1,20 +1,31 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, MailCheck, UserPlus } from 'lucide-react'
+import { Loader2, UserPlus } from 'lucide-react'
 
 import {
+  AuthAlert,
   AuthBrandBanner,
+  AuthCard,
+  AuthCardBody,
+  AuthField,
+  AuthFooterLinks,
+  AuthModeToggle,
   AuthPageBackground,
-  authCardClassName,
-  authFieldClassName,
+  AuthPageHeader,
+  AuthPasswordField,
+  AuthPortalBadge,
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
   authTextButtonClassName,
 } from '@/components/auth-chrome'
 import { getBrowserSupabaseClient } from '@/lib/supabase/client'
+import {
+  grantPortalAccess,
+  persistPortalSession,
+  type GrantablePortal,
+} from '@/lib/portal-session'
 
 type PortalRole = 'buyer' | 'vendor' | 'services' | 'admin' | 'auto'
 type Mode = 'signin' | 'signup' | 'forgot'
@@ -118,26 +129,8 @@ async function fetchEmailStatus(
   }
 }
 
-async function grantPortalAccess(
-  role: PortalRole
-): Promise<{ ok: boolean; error?: string }> {
-  if (role === 'admin') {
-    return { ok: false, error: 'Admin access cannot be granted through this flow.' }
-  }
-  try {
-    const res = await fetch('/api/auth/portal-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ portal: role }),
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok || !json?.ok) {
-      return { ok: false, error: json?.error || 'Failed to add portal access.' }
-    }
-    return { ok: true }
-  } catch (e: any) {
-    return { ok: false, error: e?.message || 'Failed to add portal access.' }
-  }
+function isGrantablePortal(role: PortalRole): role is GrantablePortal {
+  return role === 'buyer' || role === 'vendor' || role === 'services'
 }
 
 function inferPortalFromLocalStorage(): PortalMatch {
@@ -148,7 +141,7 @@ function inferPortalFromLocalStorage(): PortalMatch {
     if (service) return 'services'
     const buyer = localStorage.getItem('currentBuyerName')
     if (buyer) return 'buyer'
-  } catch {}
+  } catch { }
   return 'unknown'
 }
 
@@ -167,79 +160,8 @@ function clearPortalHints() {
   for (const key of keys) {
     try {
       localStorage.removeItem(key)
-    } catch {}
+    } catch { }
   }
-}
-
-async function persistSessionProfile(role: PortalRole, email: string) {
-  const emailPrefix = email.split('@')[0] || 'user'
-
-  if (role === 'vendor') {
-    try {
-      const supabase = getBrowserSupabaseClient()
-      const { data } = await supabase.auth.getUser()
-      if (data.user?.id) localStorage.setItem('currentVendorId', data.user.id)
-    } catch {
-      localStorage.setItem('currentVendorId', 'self')
-    }
-    localStorage.setItem('currentVendorName', `${emailPrefix} (vendor)`)
-    try {
-      await fetch('/api/vendor/bootstrap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portal: 'vendor' }),
-      })
-    } catch {}
-    return
-  }
-
-  if (role === 'services') {
-    localStorage.setItem('currentServiceProviderName', `${emailPrefix} (service provider)`)
-    try {
-      const supabase = getBrowserSupabaseClient()
-      const { data } = await supabase.auth.getUser()
-      if (data.user?.id) localStorage.setItem('currentVendorId', data.user.id)
-    } catch {
-      localStorage.setItem('currentVendorId', 'self')
-    }
-    localStorage.setItem('currentVendorName', `${emailPrefix} (service provider)`)
-    try {
-      await fetch('/api/vendor/bootstrap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portal: 'services' }),
-      })
-    } catch {}
-    return
-  }
-
-  if (role === 'buyer') {
-    localStorage.setItem('currentBuyerName', `${emailPrefix} (buyer)`)
-    localStorage.setItem('currentBuyerEmail', email)
-    try {
-      const res = await fetch(`/api/customers?email=${encodeURIComponent(email)}`)
-      if (res.ok) {
-        const json = await res.json().catch(() => ({}))
-        const customer = json?.customer
-        if (customer?.id) localStorage.setItem('currentBuyerId', String(customer.id))
-        if (customer?.phone) localStorage.setItem('currentBuyerPhone', String(customer.phone))
-      }
-    } catch {}
-    return
-  }
-}
-
-function countDigits(value: string) {
-  return (value.match(/\d/g) ?? []).length
-}
-
-async function gateBuyerPhoneIfNeeded(email: string): Promise<{ needsPhone: boolean; customer?: any }> {
-  const res = await fetch(`/api/customers?email=${encodeURIComponent(email)}`)
-  const json = await res.json().catch(() => ({}))
-  const customer = json?.customer
-  const phone = typeof customer?.phone === 'string' ? customer.phone : ''
-  const valid = countDigits(phone) >= 9
-  return { needsPhone: !valid, customer }
 }
 
 export default function AuthClient() {
@@ -258,10 +180,6 @@ export default function AuthClient() {
   const [busy, setBusy] = React.useState(false)
   const [message, setMessage] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
-  const [needsBuyerPhone, setNeedsBuyerPhone] = React.useState(false)
-  const [buyerPhone, setBuyerPhone] = React.useState('')
-  const [buyerCustomer, setBuyerCustomer] = React.useState<any>(null)
-  const [accountCreated, setAccountCreated] = React.useState(false)
   const [needsRoleUpgrade, setNeedsRoleUpgrade] = React.useState<{
     email: string
     portal: PortalRole
@@ -270,22 +188,12 @@ export default function AuthClient() {
     activePortal: PortalMatch
     requestedPortal: PortalRole
   } | null>(null)
-
-  /** Preserves role/next (and other params) when opening sign-in after email verification prompt. */
-  const signInAfterVerifyHref = React.useMemo(() => {
-    const p = new URLSearchParams(searchParams.toString())
-    p.set('mode', 'signin')
-    return `/auth?${p.toString()}`
-  }, [searchParams])
+  const [existingSession, setExistingSession] = React.useState<boolean | null>(null)
 
   React.useEffect(() => {
     setError('')
     setMessage('')
-    setNeedsBuyerPhone(false)
-    setBuyerPhone('')
-    setBuyerCustomer(null)
     setSessionConflict(null)
-    setAccountCreated(false)
     setNeedsRoleUpgrade(null)
   }, [mode])
 
@@ -308,63 +216,63 @@ export default function AuthClient() {
 
   React.useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      try {
-        const supabase = getBrowserSupabaseClient()
-        const { data } = await supabase.auth.getUser()
-        if (cancelled) return
-        const user = data.user
-        if (!user) return
-
-        // Generic login: if already signed in, route to the right portal/dashboard.
-        if (role === 'auto') {
-          const primary = inferPrimaryPortal(user)
-          router.replace(next || getDefaultNext(primary))
-          return
-        }
-
-        // Admin uses auth metadata; everyone else uses user_roles.
-        if (role === 'admin') {
-          if (hasAdminAccess(user)) {
-            router.replace(next)
-            return
-          }
-          const active = inferPortalFromLocalStorage()
-          setSessionConflict({ activePortal: active, requestedPortal: role })
-          return
-        }
-
-        // Portal access is not exclusive: a single account can enter any dashboard.
-        // Grant the requested portal membership automatically (idempotent).
-        if (role !== 'auto') {
-          const granted = await grantPortalAccess(role)
+      ; (async () => {
+        try {
+          const supabase = getBrowserSupabaseClient()
+          const { data } = await supabase.auth.getUser()
           if (cancelled) return
-          if (!granted.ok) {
-            setError(granted.error || 'Failed to enable dashboard access.')
+          const user = data.user
+          if (!user) {
+            setExistingSession(false)
             return
           }
-        }
 
-        if (role === 'buyer') {
-          const gate = await gateBuyerPhoneIfNeeded(user.email ?? '')
-          if (cancelled) return
-          if (gate.needsPhone) {
-            setBuyerCustomer(gate.customer ?? null)
-            setNeedsBuyerPhone(true)
+          setExistingSession(true)
+
+          // Generic login: if already signed in, route to the right portal/dashboard.
+          if (role === 'auto') {
+            const primary = inferPrimaryPortal(user)
+            router.replace(next || getDefaultNext(primary))
             return
           }
-        }
 
-        router.replace(next)
-      } catch {
-        // Ignore (treat as not signed in)
-      }
-    })()
+          // Admin uses auth metadata; everyone else uses user_roles.
+          if (role === 'admin') {
+            if (hasAdminAccess(user)) {
+              router.replace(next)
+              return
+            }
+            const active = inferPortalFromLocalStorage()
+            setSessionConflict({ activePortal: active, requestedPortal: role })
+            return
+          }
+
+          // Portal access is not exclusive: a single account can enter any dashboard.
+          // Grant the requested portal membership automatically (idempotent).
+          if (isGrantablePortal(role)) {
+            const granted = await grantPortalAccess(role)
+            if (cancelled) return
+            if (!granted.ok) {
+              setExistingSession(false)
+              setError(granted.error || 'Failed to enable dashboard access.')
+              return
+            }
+            await supabase.auth.refreshSession().catch(() => {})
+            if (user.email) {
+              await persistPortalSession(role, user.email)
+            }
+          }
+
+          router.replace(next)
+        } catch {
+          setExistingSession(false)
+        }
+      })()
 
     return () => {
       cancelled = true
     }
-  }, [role, next])
+  }, [role, next, router])
 
   const handleSignOutAndContinue = async () => {
     setBusy(true)
@@ -427,7 +335,7 @@ export default function AuthClient() {
           setError('Admin access denied. This account is not an admin.')
           return { ok: false as const }
         }
-      } else {
+      } else if (isGrantablePortal(role)) {
         const granted = await grantPortalAccess(role)
         if (!granted.ok) {
           setError(granted.error || 'Failed to enable dashboard access.')
@@ -435,24 +343,11 @@ export default function AuthClient() {
         }
       }
 
-      if (role === 'buyer') {
-        const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
-        if (gate.needsPhone) {
-          setBuyerCustomer(gate.customer ?? null)
-          setNeedsBuyerPhone(true)
-          return { ok: false as const }
-        }
+      if (isGrantablePortal(role)) {
+        await persistPortalSession(role, trimmedEmail)
       }
-
-      await persistSessionProfile(role, trimmedEmail)
       router.replace(next)
       return { ok: true as const }
-    }
-
-    const msg = (signIn.error.message || '').toLowerCase()
-    if (msg.includes('email') && msg.includes('confirm')) {
-      setError('Email not confirmed. Please verify your email and try again.')
-      return { ok: false as const }
     }
 
     if (role === 'admin') {
@@ -460,6 +355,7 @@ export default function AuthClient() {
       return { ok: false as const }
     }
 
+    const msg = (signIn.error.message || '').toLowerCase()
     if (!msg.includes('invalid login credentials')) {
       setError(signIn.error.message)
       return { ok: false as const }
@@ -483,43 +379,33 @@ export default function AuthClient() {
     }
 
     // No auth user exists for this email — seamlessly create one.
-    const origin = window.location.origin
     const signUp = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: {
-        emailRedirectTo:
-          role === 'buyer'
-            ? `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`
-            : undefined,
-        data: { role },
-      },
+      options: { data: { role } },
     })
 
     if (signUp.error) throw signUp.error
 
     if (!signUp.data.session) {
-      setAccountCreated(true)
+      setMode('signin')
+      setMessage('Account created. Sign in with your email and password to continue.')
       return { ok: false as const }
     }
 
     // Session established: record the portal role before continuing.
+    if (!isGrantablePortal(role)) {
+      router.replace(next)
+      return { ok: true as const }
+    }
+
     const granted = await grantPortalAccess(role)
     if (!granted.ok) {
       setError(granted.error || 'Failed to add portal access.')
       return { ok: false as const }
     }
 
-    if (role === 'buyer') {
-      const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
-      if (gate.needsPhone) {
-        setBuyerCustomer(gate.customer ?? null)
-        setNeedsBuyerPhone(true)
-        return { ok: false as const }
-      }
-    }
-
-    await persistSessionProfile(role, trimmedEmail)
+    await persistPortalSession(role, trimmedEmail)
     router.replace(next)
     return { ok: true as const }
   }
@@ -539,16 +425,7 @@ export default function AuthClient() {
       const upgradedEmail = needsRoleUpgrade.email
       setNeedsRoleUpgrade(null)
 
-      if (upgradedRole === 'buyer') {
-        const gate = await gateBuyerPhoneIfNeeded(upgradedEmail)
-        if (gate.needsPhone) {
-          setBuyerCustomer(gate.customer ?? null)
-          setNeedsBuyerPhone(true)
-          return
-        }
-      }
-
-      await persistSessionProfile(upgradedRole, upgradedEmail)
+      await persistPortalSession(upgradedRole, upgradedEmail)
       router.replace(next)
     } catch (e: any) {
       setError(e?.message || 'Failed to add portal access.')
@@ -600,44 +477,29 @@ export default function AuthClient() {
     }
 
     const supabase = getBrowserSupabaseClient()
-    const origin = window.location.origin
     const signUp = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: {
-        emailRedirectTo:
-          role === 'buyer'
-            ? `${origin}/auth?role=buyer&next=${encodeURIComponent(next)}`
-            : undefined,
-        data: { role },
-      },
+      options: { data: { role } },
     })
 
     if (signUp.error) throw signUp.error
 
     if (!signUp.data.session) {
-      setAccountCreated(true)
+      setMode('signin')
+      setMessage('Account created. Sign in with your email and password to continue.')
       return { ok: false as const }
     }
 
-    // Session established (email confirmations disabled, or already verified
-    // on re-use). Record the portal role before redirecting.
-    const granted = await grantPortalAccess(role)
-    if (!granted.ok) {
-      setError(granted.error || 'Failed to add portal access.')
-      return { ok: false as const }
-    }
-
-    if (role === 'buyer') {
-      const gate = await gateBuyerPhoneIfNeeded(trimmedEmail)
-      if (gate.needsPhone) {
-        setBuyerCustomer(gate.customer ?? null)
-        setNeedsBuyerPhone(true)
+    if (isGrantablePortal(role)) {
+      const granted = await grantPortalAccess(role)
+      if (!granted.ok) {
+        setError(granted.error || 'Failed to add portal access.')
         return { ok: false as const }
       }
+      await persistPortalSession(role, trimmedEmail)
     }
 
-    await persistSessionProfile(role, trimmedEmail)
     router.replace(next)
     return { ok: true as const }
   }
@@ -666,260 +528,186 @@ export default function AuthClient() {
     }
   }
 
-  const handleSaveBuyerPhone = async () => {
-    setError('')
-    setMessage('')
-    const phone = buyerPhone.trim()
-    if (countDigits(phone) < 9) {
-      setError('Enter a valid phone number (at least 9 digits).')
-      return
-    }
-    setBusy(true)
-    try {
-      const supabase = getBrowserSupabaseClient()
-      const { data } = await supabase.auth.getUser()
-      const user = data.user
-      if (!user?.id || !user.email) {
-        setError('You must be signed in to save your phone number.')
-        return
-      }
+  const showModeToggle =
+    role !== 'admin' && !sessionConflict && !needsRoleUpgrade && mode !== 'forgot'
 
-      if (buyerCustomer?.id) {
-        const res = await fetch(`/api/customers/${encodeURIComponent(String(buyerCustomer.id))}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        })
-        if (!res.ok) throw new Error('Failed to save phone number.')
-      } else {
-        const res = await fetch('/api/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.name ?? user.email.split('@')[0],
-            phone,
-          }),
-        })
-        if (!res.ok) throw new Error('Failed to create customer profile.')
-      }
+  const pageTitle =
+    mode === 'forgot'
+      ? 'Reset password'
+      : mode === 'signup'
+        ? 'Create account'
+        : 'Sign in'
 
-      await persistSessionProfile('buyer', user.email)
-      router.replace(next)
-    } catch (e: any) {
-      setError(e?.message || 'Failed to save your phone number.')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const pageSubtitle =
+    mode === 'forgot'
+      ? 'Enter your email for a reset link.'
+      : mode === 'signup'
+        ? 'One account for all workspaces.'
+        : undefined
 
-  if (accountCreated) {
+  if (existingSession === null) {
     return (
       <AuthPageBackground>
-        <div
-          className={authCardClassName}
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex flex-col items-center text-center">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-8 ring-primary/5">
-              <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />
-            </div>
-            <p className="text-[17px] font-medium leading-relaxed text-foreground">
-              Account created. Please verify your email to proceed.
-            </p>
-            <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center">
-              <Link
-                href="/"
-                className={`${authPrimaryButtonClassName} w-full sm:w-auto sm:min-w-[220px]`}
-              >
-                Return to Shop
-              </Link>
-              <Link
-                href={signInAfterVerifyHref}
-                className={`${authSecondaryButtonClassName} w-full sm:w-auto sm:min-w-[220px]`}
-              >
-                Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
+        <AuthCard>
+          <AuthBrandBanner />
+          <AuthCardBody className="flex flex-col items-center gap-3 py-10">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden />
+            <p className="text-sm text-muted-foreground">Checking session…</p>
+          </AuthCardBody>
+        </AuthCard>
+      </AuthPageBackground>
+    )
+  }
+
+  if (existingSession && !sessionConflict && mode !== 'forgot') {
+    return (
+      <AuthPageBackground>
+        <AuthCard>
+          <AuthBrandBanner />
+          <AuthCardBody className="flex flex-col items-center gap-3 py-10">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden />
+            <p className="text-sm text-muted-foreground">Opening dashboard…</p>
+          </AuthCardBody>
+        </AuthCard>
       </AuthPageBackground>
     )
   }
 
   return (
     <AuthPageBackground>
-      <div className={authCardClassName}>
+      <AuthCard>
         <AuthBrandBanner />
+        <AuthCardBody>
+          <AuthPageHeader
+            title={pageTitle}
+            subtitle={pageSubtitle}
+            portal={role}
+            action={
+              mode === 'forgot' ? (
+                <button type="button" className={authTextButtonClassName} onClick={() => setMode('signin')}>
+                  Back
+                </button>
+              ) : null
+            }
+          />
 
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {mode === 'forgot' ? 'Reset password' : mode === 'signup' ? 'Create account' : 'Sign in'}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {mode === 'forgot'
-                ? 'We’ll email you a reset link.'
-                : mode === 'signup'
-                  ? 'Create a SouthCaravan account in seconds.'
-                  : 'Use your SouthCaravan account'}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Portal: <span className="font-medium text-foreground">{role}</span>
-            </p>
-          </div>
-          {mode === 'forgot' ? (
-            <button type="button" className={authTextButtonClassName} onClick={() => setMode('signin')}>
-              Back
-            </button>
+          {showModeToggle ? (
+            <AuthModeToggle
+              mode={mode === 'signup' ? 'signup' : 'signin'}
+              onSignIn={() => setMode('signin')}
+              onSignUp={() => setMode('signup')}
+              disabled={busy}
+            />
+          ) : role === 'admin' ? (
+            <div className="mb-6">
+              <AuthPortalBadge portal="admin" />
+            </div>
           ) : null}
-        </div>
 
-        {role !== 'admin' &&
-        !sessionConflict &&
-        !needsBuyerPhone &&
-        !needsRoleUpgrade &&
-        mode !== 'forgot' ? (
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setMode('signin')}
-              className={mode === 'signin' ? authPrimaryButtonClassName : authSecondaryButtonClassName}
-              disabled={busy}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('signup')}
-              className={mode === 'signup' ? authPrimaryButtonClassName : authSecondaryButtonClassName}
-              disabled={busy}
-            >
-              Sign up
-            </button>
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
-        ) : null}
-        {message ? (
-          <div className="mb-3 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
-            {message}
-          </div>
-        ) : null}
+          {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
+          {message ? <AuthAlert variant="success">{message}</AuthAlert> : null}
 
         {needsRoleUpgrade ? (
           <div className="space-y-4" role="group" aria-labelledby="role-upgrade-title">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-4 ring-primary/5">
-                <UserPlus className="h-5 w-5 text-primary" aria-hidden="true" />
+            <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/30 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <UserPlus className="h-5 w-5" aria-hidden />
               </div>
               <div className="min-w-0">
-                <h2
-                  id="role-upgrade-title"
-                  className="text-[15px] font-semibold text-foreground"
-                >
-                  Enable {portalLabel(needsRoleUpgrade.portal)} dashboard
+                <h2 id="role-upgrade-title" className="text-sm font-semibold text-foreground">
+                  Add {portalTitleCase(needsRoleUpgrade.portal)} access
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>{' '}
-                  is registered with SouthCaravan. Add access for the{' '}
-                  {portalLabel(needsRoleUpgrade.portal)} dashboard to this same account.
+                  <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>
                 </p>
               </div>
             </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                className={`${authPrimaryButtonClassName} w-full sm:flex-1`}
-                disabled={busy}
-                onClick={handleConfirmRoleUpgrade}
-              >
-                {busy
-                  ? 'Creating…'
-                  : `Enable ${portalTitleCase(needsRoleUpgrade.portal)} dashboard`}
-              </button>
-              <button
-                type="button"
-                className={`${authSecondaryButtonClassName} w-full sm:w-auto`}
-                disabled={busy}
-                onClick={handleCancelRoleUpgrade}
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="button"
+              className={authPrimaryButtonClassName}
+              disabled={busy}
+              onClick={handleConfirmRoleUpgrade}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enabling…
+                </>
+              ) : (
+                'Continue'
+              )}
+            </button>
+            <button
+              type="button"
+              className={authSecondaryButtonClassName}
+              disabled={busy}
+              onClick={handleCancelRoleUpgrade}
+            >
+              Cancel
+            </button>
           </div>
         ) : sessionConflict ? (
           <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
-              You’re already signed in{sessionConflict.activePortal !== 'unknown' ? (
-                <> to the <span className="font-semibold">{sessionConflict.activePortal}</span> portal</>
-              ) : null}
-              . To continue to <span className="font-semibold">{sessionConflict.requestedPortal}</span>, sign out first.
-            </div>
+            <AuthAlert variant="info">
+              Signed in as <span className="font-semibold">{sessionConflict.activePortal}</span>.
+              Sign out to open <span className="font-semibold">{sessionConflict.requestedPortal}</span>.
+            </AuthAlert>
             <button
               className={authPrimaryButtonClassName}
               disabled={busy}
               onClick={handleSignOutAndContinue}
               type="button"
             >
-              {busy ? 'Signing out…' : 'Sign out and continue'}
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing out…
+                </>
+              ) : (
+                'Sign out & continue'
+              )}
             </button>
             {sessionConflict.activePortal !== 'unknown' ? (
               <button
                 type="button"
                 className={authSecondaryButtonClassName}
                 disabled={busy}
-                onClick={() => window.location.replace(getDefaultNext(sessionConflict.activePortal as PortalRole))}
+                onClick={() =>
+                  window.location.replace(getDefaultNext(sessionConflict.activePortal as PortalRole))
+                }
               >
-                Stay in current portal
+                Stay here
               </button>
             ) : null}
           </div>
-        ) : needsBuyerPhone ? (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
-              Add your mobile number so service providers can contact you.
-            </div>
-            <input
-              className={authFieldClassName}
-              type="tel"
-              placeholder="e.g. +233 55 123 4567"
-              value={buyerPhone}
-              onChange={(e) => setBuyerPhone(e.target.value)}
+        ) : mode === 'forgot' ? (
+          <div className="space-y-4">
+            <AuthField
+              id="auth-email-forgot"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
             />
-            <button className={authPrimaryButtonClassName} disabled={busy} onClick={handleSaveBuyerPhone} type="button">
-              {busy ? 'Saving…' : 'Save and continue'}
+            <button className={authPrimaryButtonClassName} disabled={busy} onClick={handleForgot} type="button">
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                'Send reset link'
+              )}
             </button>
           </div>
-        ) : mode === 'forgot' ? (
-          <div className="space-y-3">
-            <input
-              className={authFieldClassName}
-              type="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={busy}
-            />
-            <div className="flex items-center justify-end">
-              <button className={authPrimaryButtonClassName} disabled={busy} onClick={handleForgot} type="button">
-                {busy ? 'Sending…' : 'Send'}
-              </button>
-            </div>
-          </div>
         ) : (
-          <form className="space-y-3" onSubmit={handleSubmit}>
-            <input
-              className={authFieldClassName}
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <AuthField
+              id="auth-email"
+              label="Email"
               type="email"
               autoComplete="email"
               placeholder="you@company.com"
@@ -927,50 +715,46 @@ export default function AuthClient() {
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
             />
-            <div className="relative">
-              <input
-                className={`${authFieldClassName} pr-10`}
-                type={showPassword ? 'text' : 'password'}
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={busy}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition disabled:opacity-60"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                disabled={busy}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button type="button" className={authTextButtonClassName} disabled={busy} onClick={() => setMode('forgot')}>
-                Forgot password?
-              </button>
-              <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
-                {busy ? 'Working…' : mode === 'signup' ? 'Create account' : 'Next'}
-              </button>
-            </div>
+            <AuthPasswordField
+              id="auth-password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              show={showPassword}
+              onToggleShow={() => setShowPassword((v) => !v)}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              disabled={busy}
+            />
+            {mode === 'signin' ? (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className={authTextButtonClassName}
+                  disabled={busy}
+                  onClick={() => setMode('forgot')}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            ) : null}
+            <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {mode === 'signup' ? 'Creating…' : 'Signing in…'}
+                </>
+              ) : mode === 'signup' ? (
+                'Create account'
+              ) : (
+                'Sign in'
+              )}
+            </button>
           </form>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-          <Link href="/privacy" className="hover:text-foreground hover:underline underline-offset-4">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-foreground hover:underline underline-offset-4">
-            Terms
-          </Link>
-          <Link href="/help" className="hover:text-foreground hover:underline underline-offset-4">
-            Help
-          </Link>
-        </div>
-      </div>
+          <AuthFooterLinks />
+        </AuthCardBody>
+      </AuthCard>
     </AuthPageBackground>
   )
 }

@@ -1,27 +1,24 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   LayoutGrid,
   ShoppingCart,
   FileText,
   MessageSquare,
   Heart,
-  Menu,
   User,
   CircleHelp,
   ArrowLeft,
-  LogOut,
   MapPin,
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  DashboardConsoleChrome,
+  type SidebarNavItem,
+} from '@/components/dashboard/dashboard-workspace-sidebar';
 import { useAuth } from '@/lib/auth-context';
-import { cn } from '@/lib/utils';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 
 const navItems = [
@@ -65,7 +62,6 @@ export default function BuyerConsoleLayout({
   const [buyerName, setBuyerName] = useState<string | null>(null);
   const [buyerEmail, setBuyerEmail] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
-
   useEffect(() => {
     if (isLoading) return;
 
@@ -173,165 +169,30 @@ export default function BuyerConsoleLayout({
     router.replace('/');
   };
 
+  const sidebarNavItems = useMemo((): SidebarNavItem[] => {
+    return navItems.map((item) => ({
+      href: item.href,
+      label: item.label,
+      icon: item.icon,
+      ...(item.href === '/buyer/messages' && unreadMessages > 0
+        ? { badge: unreadMessages }
+        : {}),
+    }));
+  }, [unreadMessages]);
+
   return (
-    <div className="flex flex-col md:flex-row flex-1 min-h-0 bg-linear-to-b from-background via-background to-muted/30">
-      {/* Mobile header + hamburger */}
-      <div className="md:hidden w-full border-b border-border/70 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/70">
-        <div className="h-14 px-4 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground truncate">Buyer</p>
-            <p className="text-sm font-semibold text-foreground truncate">{buyerName ?? 'Account'}</p>
-          </div>
-
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0" aria-label="Open menu">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0">
-              <div className="h-full flex flex-col">
-                <div className="px-5 py-4 border-b border-border/70 bg-linear-to-b from-card/60 to-transparent">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground">Menu</p>
-                  <p className="mt-1 text-base font-semibold text-foreground truncate">{buyerName ?? '—'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{buyerEmail ?? '—'}</p>
-                </div>
-
-                <nav className="p-2 space-y-1 overflow-auto">
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          'group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                          isActive
-                            ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/10'
-                            : 'text-foreground/90 hover:bg-accent/60 hover:text-foreground'
-                        )}
-                      >
-                        <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
-                        <span className="truncate">{item.label}</span>
-                        {item.href === '/buyer/messages' && unreadMessages > 0 ? (
-                          <Badge className="ml-auto rounded-full bg-background/20 text-inherit border border-primary-foreground/20">
-                            {unreadMessages > 99 ? '99+' : unreadMessages}
-                          </Badge>
-                        ) : null}
-                      </Link>
-                    );
-                  })}
-                </nav>
-
-                <div className="mt-auto p-3 border-t border-border/70 space-y-2">
-                  <Link
-                    href="/"
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-foreground hover:bg-accent/70 transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4 shrink-0" />
-                    <span className="truncate">Back to Shop</span>
-                  </Link>
-
-                  <Button
-                    type="button"
-                    onClick={handleLogout}
-                    variant="outline"
-                    className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm border-border/70 hover:bg-muted/20"
-                  >
-                    <LogOut className="w-4 h-4 shrink-0" />
-                    Sign out
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          'hidden md:block w-72 p-4 bg-muted/20 shrink-0 md:w-80 lg:sticky lg:top-16 lg:bottom-auto lg:h-[calc(100dvh-5rem)]'
-        )}
-      >
-        <div className="w-full bg-card/70 backdrop-blur border border-border/70 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
-          {/* Desktop workspace header (hidden on mobile; mobile uses sticky header) */}
-          <div className="hidden md:block px-5 py-4 border-b border-border/70 bg-linear-to-b from-card/70 to-transparent">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground">Workspace</p>
-            <h2 className="mt-1 font-semibold text-foreground">MyGarage Buyer</h2>
-            <p className="text-sm text-muted-foreground truncate mt-2">{buyerName ?? '—'}</p>
-            <p className="text-xs text-muted-foreground truncate">{buyerEmail ?? '—'}</p>
-          </div>
-
-          <nav className="p-2 space-y-1 overflow-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'group relative flex items-center gap-3 rounded-2xl px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/10'
-                      : 'text-foreground/90 hover:bg-accent/60 hover:text-foreground'
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'absolute left-1 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-primary-foreground/80 transition-opacity',
-                      isActive ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-[1.04]')} />
-                  <span className="truncate">{item.label}</span>
-                  {item.href === '/buyer/messages' && unreadMessages > 0 ? (
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'ml-auto rounded-full px-2 py-0.5 text-xs',
-                        isActive ? 'bg-background/20 text-inherit' : 'bg-secondary text-foreground',
-                      )}
-                    >
-                      {unreadMessages > 99 ? '99+' : unreadMessages}
-                    </Badge>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-auto p-2 border-t border-border/70 space-y-2">
-            <Link
-              href="/"
-              className="flex items-center gap-3 rounded-2xl px-4 py-2 text-sm text-foreground hover:bg-accent/70 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 shrink-0" />
-              <span className="truncate">Back to Shop</span>
-            </Link>
-
-            <Button
-              type="button"
-              onClick={handleLogout}
-              variant="outline"
-              className="w-full flex items-center gap-3 rounded-2xl px-4 py-2 text-sm border-border/70 hover:bg-muted/20"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col md:pl-4">
-        <main className="flex flex-1 overflow-auto min-h-0 flex-col">{children}</main>
-      </div>
-    </div>
+    <DashboardConsoleChrome
+      portal="buyer"
+      sheetTitle="Buyer workspace menu"
+      displayName={buyerName ?? 'Account'}
+      displayEmail={buyerEmail ?? undefined}
+      pathname={pathname}
+      navItems={sidebarNavItems}
+      footerActions={[{ label: 'Shop', icon: ArrowLeft, href: '/' }]}
+      onSignOut={handleLogout}
+    >
+      {children}
+    </DashboardConsoleChrome>
   );
 }
 
