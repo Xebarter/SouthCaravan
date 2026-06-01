@@ -180,27 +180,27 @@ function StatCard({
 }) {
   return (
     <Card className="border-border/60 shadow-sm">
-      <CardContent className="pt-5 pb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl shadow-sm', iconBg)}>
-            <Icon className="h-5 w-5 text-white" />
+      <CardContent className="p-3">
+        {loading ? (
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
           </div>
-        </div>
-        <div className="mt-4">
-          {loading ? (
-            <>
-              <Skeleton className="h-8 w-24 mb-2" />
-              <Skeleton className="h-4 w-28 mb-1" />
-              <Skeleton className="h-3 w-36" />
-            </>
-          ) : (
-            <>
-              <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
-              <p className="mt-0.5 text-sm font-medium text-foreground/90">{title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
-            </>
-          )}
-        </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', iconBg)}>
+              <Icon className="h-4 w-4 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium leading-none text-muted-foreground">{title}</p>
+              <p className="mt-1 text-lg font-bold leading-none tracking-tight tabular-nums">{value}</p>
+              <p className="mt-1 truncate text-[10px] leading-tight text-muted-foreground">{sub}</p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -508,7 +508,7 @@ export default function AdminAnalyticsPage() {
 
         <TabsContent value="dashboard" className="mt-6 space-y-6">
           {/* KPI row */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             <StatCard
               title="Total GMV"
               value={<Money amountUSD={totals?.totalGMV ?? 0} notation="compact" />}
@@ -552,7 +552,7 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Insight status summary */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {(['open', 'investigating', 'resolved', 'dismissed'] as InsightStatus[]).map((status) => (
               <button
                 key={status}
@@ -561,10 +561,10 @@ export default function AdminAnalyticsPage() {
                   setInsightsStatus(status)
                   setActiveTab('insights')
                 }}
-                className="rounded-xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
+                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
               >
-                <p className="text-xs font-medium capitalize text-muted-foreground">{status}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: STATUS_COLORS[status] }}>
+                <p className="text-[11px] font-medium capitalize text-muted-foreground">{status}</p>
+                <p className="text-base font-bold tabular-nums leading-none" style={{ color: STATUS_COLORS[status] }}>
                   {insightsLoading ? '—' : insightStats.byStatus[status]}
                 </p>
               </button>
