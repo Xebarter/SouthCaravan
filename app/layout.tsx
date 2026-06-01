@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Inter } from 'next/font/google'
-import { AuthProvider } from '@/lib/auth-context'
 import { AppShellWithMenu } from '@/components/app-shell-with-menu'
 import './globals.css'
 
@@ -76,9 +75,7 @@ export default function RootLayout({
           'font-sans antialiased bg-background text-foreground flex flex-col min-h-screen',
         ].join(' ')}
       >
-        <AuthProvider>
-          <AppShellWithMenu>{children}</AppShellWithMenu>
-        </AuthProvider>
+        <AppShellWithMenu>{children}</AppShellWithMenu>
         <Analytics />
       </body>
     </html>

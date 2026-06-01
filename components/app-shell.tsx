@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { MainNav } from '@/components/main-nav';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { DashboardNavProvider } from '@/components/dashboard-nav-context';
+import { AuthProvider } from '@/lib/auth-context';
 import { isAnyDashboardConsolePath } from '@/lib/dashboard-console-path';
 import { Toaster } from '@/components/ui/sonner';
 import {
@@ -49,6 +50,18 @@ function isPublicRoute(pathname: string) {
   });
 }
 
+/** Sign-in entry routes: no footer so the form fits in the viewport below the header. */
+function isAuthEntryPath(pathname: string) {
+  return (
+    pathname === '/auth' ||
+    pathname.startsWith('/auth/') ||
+    pathname === '/login' ||
+    pathname.startsWith('/login/') ||
+    pathname === '/signup' ||
+    pathname.startsWith('/signup/')
+  );
+}
+
 export function AppShell({
   children,
   menuSections = DEFAULT_MARKETPLACE_TAXONOMY,
@@ -64,9 +77,11 @@ export function AppShell({
   );
   const dashboardConsolePage = useMemo(() => isAnyDashboardConsolePath(pathname), [pathname]);
 
+  let shell: ReactNode;
+
   if (!publicPage) {
     if (dashboardConsolePage) {
-      return (
+      shell = (
         <DashboardNavProvider>
           <Header />
           <div className="flex flex-1 min-h-0">
@@ -78,31 +93,39 @@ export function AppShell({
           <Toaster richColors closeButton position="top-center" />
         </DashboardNavProvider>
       );
+    } else if (adminPage) {
+      shell = <main className="flex-1 min-h-screen">{children}</main>;
+    } else {
+      shell = (
+        <>
+          <MainNav />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </>
+      );
     }
-
-    if (adminPage) {
-      return <main className="flex-1 min-h-screen">{children}</main>;
-    }
-
-    return (
+  } else if (isAuthEntryPath(pathname)) {
+    shell = (
       <>
-        <MainNav />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <Header />
+        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+        <Toaster richColors closeButton position="top-center" />
+      </>
+    );
+  } else {
+    shell = (
+      <>
+        <Header />
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 min-w-0 flex flex-col">
+            <main className="flex-1 min-w-0">{children}</main>
+            <Footer />
+          </div>
+        </div>
+        <Toaster richColors closeButton position="top-center" />
       </>
     );
   }
 
-  return (
-    <>
-      <Header />
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 min-w-0 flex flex-col">
-          <main className="flex-1 min-w-0">{children}</main>
-          <Footer />
-        </div>
-      </div>
-      <Toaster richColors closeButton position="top-center" />
-    </>
-  );
+  return <AuthProvider>{shell}</AuthProvider>;
 }

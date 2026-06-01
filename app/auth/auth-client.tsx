@@ -6,18 +6,19 @@ import { Loader2, UserPlus } from 'lucide-react'
 
 import {
   AuthAlert,
-  AuthBrandBanner,
   AuthCard,
   AuthCardBody,
+  AuthCardHero,
   AuthDivider,
   AuthField,
   AuthFooterLinks,
   AuthGoogleButton,
+  AuthLoadingState,
   AuthModeToggle,
   AuthPageBackground,
-  AuthPageHeader,
+  AuthPanel,
   AuthPasswordField,
-  AuthPortalBadge,
+  AuthTrustLine,
   authPrimaryButtonClassName,
   authSecondaryButtonClassName,
   authTextButtonClassName,
@@ -468,22 +469,11 @@ export default function AuthClient() {
         ? 'Create account'
         : 'Sign in'
 
-  const pageSubtitle =
-    mode === 'forgot'
-      ? 'Enter your email for a reset link.'
-      : mode === 'signup'
-        ? 'One account for all workspaces.'
-        : undefined
-
   if (existingSession === null) {
     return (
       <AuthPageBackground>
         <AuthCard>
-          <AuthBrandBanner />
-          <AuthCardBody className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden />
-            <p className="text-sm text-muted-foreground">Checking session…</p>
-          </AuthCardBody>
+          <AuthLoadingState message="Checking session…" />
         </AuthCard>
       </AuthPageBackground>
     )
@@ -493,11 +483,7 @@ export default function AuthClient() {
     return (
       <AuthPageBackground>
         <AuthCard>
-          <AuthBrandBanner />
-          <AuthCardBody className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden />
-            <p className="text-sm text-muted-foreground">Opening dashboard…</p>
-          </AuthCardBody>
+          <AuthLoadingState message="Opening dashboard…" />
         </AuthCard>
       </AuthPageBackground>
     )
@@ -506,21 +492,18 @@ export default function AuthClient() {
   return (
     <AuthPageBackground>
       <AuthCard>
-        <AuthBrandBanner />
-        <AuthCardBody>
-          <AuthPageHeader
-            title={pageTitle}
-            subtitle={pageSubtitle}
-            portal={role}
-            action={
-              mode === 'forgot' ? (
-                <button type="button" className={authTextButtonClassName} onClick={() => setMode('signin')}>
-                  Back
-                </button>
-              ) : null
-            }
-          />
-
+        <AuthCardHero
+          title={pageTitle}
+          portal={role}
+          action={
+            mode === 'forgot' ? (
+              <button type="button" className={authTextButtonClassName} onClick={() => setMode('signin')}>
+                Back
+              </button>
+            ) : null
+          }
+        />
+        <AuthCardBody className="border-t pt-6">
           {showModeToggle ? (
             <AuthModeToggle
               mode={mode === 'signup' ? 'signup' : 'signin'}
@@ -528,30 +511,19 @@ export default function AuthClient() {
               onSignUp={() => setMode('signup')}
               disabled={busy}
             />
-          ) : role === 'admin' ? (
-            <div className="mb-6">
-              <AuthPortalBadge portal="admin" />
-            </div>
           ) : null}
 
           {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
           {message ? <AuthAlert variant="success">{message}</AuthAlert> : null}
 
           {needsRoleUpgrade ? (
-            <div className="space-y-4" role="group" aria-labelledby="role-upgrade-title">
-              <div className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/30 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <UserPlus className="h-5 w-5" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <h2 id="role-upgrade-title" className="text-sm font-semibold text-foreground">
-                    Add {portalTitleCase(needsRoleUpgrade.portal)} access
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>
-                  </p>
-                </div>
-              </div>
+            <AuthPanel
+              icon={UserPlus}
+              title={`Add ${portalTitleCase(needsRoleUpgrade.portal)} access`}
+              description={
+                <span className="font-medium text-foreground">{needsRoleUpgrade.email}</span>
+              }
+            >
               <button
                 type="button"
                 className={authPrimaryButtonClassName}
@@ -575,7 +547,7 @@ export default function AuthClient() {
               >
                 Cancel
               </button>
-            </div>
+            </AuthPanel>
           ) : sessionConflict ? (
             <div className="space-y-3">
               <AuthAlert variant="info">
@@ -615,9 +587,10 @@ export default function AuthClient() {
               <AuthField
                 id="auth-email-forgot"
                 label="Email"
+                hideLabel
                 type="email"
                 autoComplete="email"
-                placeholder="you@company.com"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={busy}
@@ -645,9 +618,10 @@ export default function AuthClient() {
                 <AuthField
                   id="auth-email"
                   label="Email"
+                  hideLabel
                   type="email"
                   autoComplete="email"
-                  placeholder="you@company.com"
+                  placeholder="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={busy}
@@ -655,41 +629,45 @@ export default function AuthClient() {
                 <AuthPasswordField
                   id="auth-password"
                   label="Password"
+                  hideLabel
                   value={password}
                   onChange={setPassword}
                   show={showPassword}
                   onToggleShow={() => setShowPassword((v) => !v)}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   disabled={busy}
+                  labelAction={
+                    mode === 'signin' ? (
+                      <button
+                        type="button"
+                        className={authTextButtonClassName}
+                        disabled={busy}
+                        onClick={() => setMode('forgot')}
+                      >
+                        Forgot password?
+                      </button>
+                    ) : undefined
+                  }
                 />
-                {mode === 'signin' ? (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      className={authTextButtonClassName}
-                      disabled={busy}
-                      onClick={() => setMode('forgot')}
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                ) : null}
-                <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
-                  {busy ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {mode === 'signup' ? 'Creating…' : 'Signing in…'}
-                    </>
-                  ) : mode === 'signup' ? (
-                    'Create account'
-                  ) : (
-                    'Sign in'
-                  )}
-                </button>
+                <div className="pt-1">
+                  <button className={authPrimaryButtonClassName} disabled={busy} type="submit">
+                    {busy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {mode === 'signup' ? 'Creating…' : 'Signing in…'}
+                      </>
+                    ) : mode === 'signup' ? (
+                      'Create account'
+                    ) : (
+                      'Sign in'
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
           )}
 
+          {!sessionConflict && !needsRoleUpgrade && mode !== 'forgot' ? <AuthTrustLine /> : null}
           <AuthFooterLinks />
         </AuthCardBody>
       </AuthCard>
