@@ -37,6 +37,34 @@ async function requireAdmin() {
   return { ok: true as const, userId: data.user.id };
 }
 
+function parseVendorIds(req: NextRequest): string[] {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id')?.trim();
+  const idsParam = searchParams.get('ids');
+  const fromQuery = idsParam
+    ? idsParam.split(',').map((s) => s.trim()).filter(Boolean)
+    : id
+      ? [id]
+      : [];
+  return [...new Set(fromQuery)];
+}
+
+async function deleteVendorsByIds(ids: string[]) {
+  if (ids.length === 0) {
+    return { ok: false as const, status: 400, message: 'id or ids required' };
+  }
+
+  await supabaseAdmin.from('vendor_profiles').delete().in('user_id', ids);
+  await supabaseAdmin.from('user_roles').delete().in('user_id', ids).eq('role', 'vendor');
+
+  const { error } = await supabaseAdmin.from('vendors').delete().in('id', ids);
+  if (error) {
+    return { ok: false as const, status: 500, message: error.message };
+  }
+
+  return { ok: true as const, deleted: ids.length };
+}
+
 type VendorProfileRow = {
   user_id: string;
   company_name: string;
@@ -237,6 +265,24 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
+
+  if (Array.isArray(body?.ids) && typeof body.isVerified === 'boolean') {
+    const ids = [...new Set(body.ids.map((id: unknown) => String(id).trim()).filter(Boolean))];
+    if (ids.length === 0) {
+      return NextResponse.json({ error: 'ids must be a non-empty array' }, { status: 400 });
+    }
+    const isVerified = Boolean(body.isVerified);
+    const { error: bulkError } = await supabaseAdmin
+      .from('vendors')
+      .update({
+        is_verified: isVerified,
+        verified_at: isVerified ? new Date().toISOString() : null,
+      })
+      .in('id', ids);
+    if (bulkError) return NextResponse.json({ error: bulkError.message }, { status: 500 });
+    return NextResponse.json({ success: true, updated: ids.length });
+  }
+
   if (!body?.id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
   const vendorId = String(body.id);
@@ -329,21 +375,18 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ vendor });
 }
 
+/** DELETE /api/admin/vendors?id=xxx  or  ?ids=a,b,c */
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
 
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'id query param is required' }, { status: 400 });
+  const ids = parseVendorIds(req);
+  const result = await deleteVendorsByIds(ids);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: result.status });
+  }
 
-  await supabaseAdmin.from('vendor_profiles').delete().eq('user_id', id);
-  await supabaseAdmin.from('user_roles').delete().eq('user_id', id).eq('role', 'vendor');
-
-  const { error } = await supabaseAdmin.from('vendors').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, deleted: result.deleted });
 }

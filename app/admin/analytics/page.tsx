@@ -7,16 +7,33 @@ import {
   BarChart3,
   CheckCircle2,
   CircleAlert,
+  ClipboardList,
   Globe2,
+  Inbox,
   Loader2,
   Plus,
   RefreshCw,
   Search,
   ShieldAlert,
+  Sparkles,
+  Store,
   Trash2,
+  TrendingUp,
+  Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { Money } from '@/components/money'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +50,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -47,6 +66,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { cn } from '@/lib/utils'
 
 type OverviewPayload = {
   totals: {
@@ -98,9 +118,33 @@ const DEFAULT_DRAFT: InsightDraft = {
   metricValue: '',
 }
 
+const SEVERITY_ORDER: InsightSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
+
+const SEVERITY_COLORS: Record<InsightSeverity, string> = {
+  critical: '#dc2626',
+  high: '#ea580c',
+  medium: '#f59e0b',
+  low: '#3b82f6',
+  info: '#94a3b8',
+}
+
+const STATUS_COLORS: Record<InsightStatus, string> = {
+  open: '#ef4444',
+  investigating: '#f59e0b',
+  resolved: '#10b981',
+  dismissed: '#94a3b8',
+}
+
+const SEVERITY_WEIGHT: Record<InsightSeverity, number> = {
+  critical: 5,
+  high: 4,
+  medium: 3,
+  low: 2,
+  info: 1,
+}
+
 function severityBadge(sev: InsightSeverity) {
-  if (sev === 'critical') return 'destructive'
-  if (sev === 'high') return 'destructive'
+  if (sev === 'critical' || sev === 'high') return 'destructive'
   if (sev === 'medium') return 'default'
   if (sev === 'low') return 'outline'
   return 'secondary'
@@ -117,6 +161,76 @@ function fmtDate(value: string) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
+}
+
+function StatCard({
+  title,
+  value,
+  sub,
+  icon: Icon,
+  iconBg,
+  loading,
+}: {
+  title: string
+  value: React.ReactNode
+  sub: string
+  icon: React.ElementType
+  iconBg: string
+  loading?: boolean
+}) {
+  return (
+    <Card className="border-border/60 shadow-sm">
+      <CardContent className="pt-5 pb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl shadow-sm', iconBg)}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+        </div>
+        <div className="mt-4">
+          {loading ? (
+            <>
+              <Skeleton className="h-8 w-24 mb-2" />
+              <Skeleton className="h-4 w-28 mb-1" />
+              <Skeleton className="h-3 w-36" />
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-bold tracking-tight tabular-nums">{value}</p>
+              <p className="mt-0.5 text-sm font-medium text-foreground/90">{title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color?: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-xl text-xs">
+      {label ? <p className="font-semibold mb-1.5 text-foreground capitalize">{label}</p> : null}
+      {payload.map((entry) => (
+        <p key={entry.name} style={{ color: entry.color }} className="flex items-center gap-1">
+          <span className="capitalize">{entry.name}:</span>
+          <span className="font-semibold tabular-nums">{entry.value}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Icon className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>
+    </div>
+  )
 }
 
 export default function AdminAnalyticsPage() {
@@ -159,6 +273,35 @@ export default function AdminAnalyticsPage() {
     }
     return { bySeverity, byStatus, total: insights.length }
   }, [insights])
+
+  const severityChartData = useMemo(
+    () =>
+      SEVERITY_ORDER.map((sev) => ({
+        name: sev,
+        count: insightStats.bySeverity[sev] ?? 0,
+        fill: SEVERITY_COLORS[sev],
+      })),
+    [insightStats.bySeverity],
+  )
+
+  const statusChartData = useMemo(
+    () =>
+      (['open', 'investigating', 'resolved', 'dismissed'] as InsightStatus[]).map((status) => ({
+        name: status,
+        value: insightStats.byStatus[status] ?? 0,
+        fill: STATUS_COLORS[status],
+      })),
+    [insightStats.byStatus],
+  )
+
+  const recentInsights = useMemo(() => {
+    return [...insights]
+      .filter((r) => r.status === 'open' || r.status === 'investigating')
+      .sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity])
+      .slice(0, 5)
+  }, [insights])
+
+  const openSignalCount = (insightStats.byStatus.open ?? 0) + (insightStats.byStatus.investigating ?? 0)
 
   const fetchOverview = useCallback(async () => {
     setLoading(true)
@@ -282,183 +425,397 @@ export default function AdminAnalyticsPage() {
     }
   }
 
-  const maxSeverityCount = Math.max(
-    1,
-    insightStats.bySeverity.info,
-    insightStats.bySeverity.low,
-    insightStats.bySeverity.medium,
-    insightStats.bySeverity.high,
-    insightStats.bySeverity.critical,
-  )
+  const isRefreshing = loading || insightsLoading
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Admin console</p>
-          <h2 className="text-3xl font-bold tracking-tight">Analytics & Intelligence</h2>
-          <p className="text-sm text-muted-foreground">
-            Real-time platform health plus a managed queue of operational insights.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => { fetchOverview(); fetchInsights() }} disabled={loading || insightsLoading}>
-            {(loading || insightsLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Refresh
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New insight
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/admin">
-              Overview
-              <ArrowUpRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+    <div className="space-y-8">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-background to-violet-500/5 p-6 sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin console</p>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Analytics & Intelligence</h1>
+            <p className="max-w-xl text-sm text-muted-foreground">
+              Platform health at a glance, plus a managed queue of operational signals for your team.
+            </p>
+            {!insightsLoading && insightStats.total > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge variant="secondary" className="font-normal">
+                  {insightStats.total} total insights
+                </Badge>
+                {openSignalCount > 0 ? (
+                  <Badge variant="destructive" className="font-normal">
+                    {openSignalCount} need attention
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="font-normal border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                    Queue clear
+                  </Badge>
+                )}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Button
+              variant="outline"
+              className="bg-background/80 backdrop-blur-sm"
+              onClick={() => {
+                fetchOverview()
+                fetchInsights()
+              }}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Refresh
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New insight
+            </Button>
+            <Button variant="outline" className="bg-background/80 backdrop-blur-sm" asChild>
+              <Link href="/admin">
+                Overview
+                <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="insights">
-            Insights
-            <Badge variant="secondary" className="ml-2">
-              {insightStats.total}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'dashboard' | 'insights')}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="h-10 w-full sm:w-auto rounded-lg border border-border bg-muted/40 p-1">
+            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:shadow-sm">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-2 data-[state=active]:shadow-sm">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Insights
+              <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1.5 text-[10px]">
+                {insightStats.total}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="dashboard" className="mt-4 space-y-5">
-          <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Total GMV</p>
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">
-                  <Money amountUSD={totals?.totalGMV ?? 0} notation="compact" />
+        <TabsContent value="dashboard" className="mt-6 space-y-6">
+          {/* KPI row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard
+              title="Total GMV"
+              value={<Money amountUSD={totals?.totalGMV ?? 0} notation="compact" />}
+              sub="All-time gross merchandise value"
+              icon={TrendingUp}
+              iconBg="bg-emerald-500"
+              loading={loading}
+            />
+            <StatCard
+              title="Vendors"
+              value={totals?.vendorCount ?? 0}
+              sub="Registered suppliers"
+              icon={Store}
+              iconBg="bg-primary"
+              loading={loading}
+            />
+            <StatCard
+              title="Users"
+              value={totals?.userCount ?? 0}
+              sub="Buyer accounts"
+              icon={Users}
+              iconBg="bg-violet-500"
+              loading={loading}
+            />
+            <StatCard
+              title="Featured products"
+              value={totals?.featuredCount ?? 0}
+              sub="Merchandising coverage"
+              icon={Sparkles}
+              iconBg="bg-amber-500"
+              loading={loading}
+            />
+            <StatCard
+              title="Pending approvals"
+              value={totals?.pendingVendorCount ?? 0}
+              sub="Suppliers awaiting verification"
+              icon={ShieldAlert}
+              iconBg="bg-rose-500"
+              loading={loading}
+            />
+          </div>
+
+          {/* Insight status summary */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(['open', 'investigating', 'resolved', 'dismissed'] as InsightStatus[]).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => {
+                  setInsightsStatus(status)
+                  setActiveTab('insights')
+                }}
+                className="rounded-xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
+              >
+                <p className="text-xs font-medium capitalize text-muted-foreground">{status}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: STATUS_COLORS[status] }}>
+                  {insightsLoading ? '—' : insightStats.byStatus[status]}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">All-time platform gross merchandise value</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+            <Card className="xl:col-span-7 border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-semibold">Signal distribution</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">Operational insights by severity level</CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-[11px] shrink-0">
+                    {insightStats.total} signals
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {insightsLoading ? (
+                  <Skeleton className="h-[220px] w-full rounded-lg" />
+                ) : insightStats.total === 0 ? (
+                  <EmptyState
+                    icon={Inbox}
+                    title="No signals yet"
+                    description="Create your first insight to start tracking operational intelligence."
+                  />
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={severityChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 0 }}>
+                      <XAxis type="number" hide />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={72}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v) => String(v).toUpperCase()}
+                      />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
+                      <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                        {severityChartData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Vendors</p>
-                  <Globe2 className="h-4 w-4 text-primary" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">{totals?.vendorCount ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Registered suppliers</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Users</p>
-                  <Activity className="h-4 w-4 text-primary" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">{totals?.userCount ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Buyer accounts</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Featured products</p>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">{totals?.featuredCount ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Merchandising coverage</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">Pending approvals</p>
-                  <ShieldAlert className="h-4 w-4 text-primary" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">{totals?.pendingVendorCount ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Suppliers awaiting verification</p>
+
+            <Card className="xl:col-span-5 border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold">Queue status</CardTitle>
+                <CardDescription className="text-xs">Insight lifecycle breakdown</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {insightsLoading ? (
+                  <Skeleton className="h-[220px] w-full rounded-lg" />
+                ) : insightStats.total === 0 ? (
+                  <EmptyState
+                    icon={CheckCircle2}
+                    title="Nothing in queue"
+                    description="All clear — add insights as operational events arise."
+                  />
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie
+                          data={statusChartData.filter((d) => d.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={48}
+                          outerRadius={72}
+                          dataKey="value"
+                          paddingAngle={3}
+                        >
+                          {statusChartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-2 space-y-2">
+                      {statusChartData.map((entry) => (
+                        <div key={entry.name} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: entry.fill }} />
+                            <span className="capitalize text-muted-foreground">{entry.name}</span>
+                          </div>
+                          <span className="font-semibold tabular-nums">{entry.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid xl:grid-cols-12 gap-5">
-            <Card className="xl:col-span-7">
-              <CardHeader>
-                <CardTitle>Signal distribution</CardTitle>
-                <CardDescription>Operational insights by severity.</CardDescription>
+          {/* Recent + actions */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <Card className="lg:col-span-7 border-border/60 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-semibold">Priority signals</CardTitle>
+                    <CardDescription className="text-xs">Open and in-progress items, highest severity first</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveTab('insights')}>
+                    View all
+                    <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {(['critical', 'high', 'medium', 'low', 'info'] as InsightSeverity[]).map((sev) => {
-                  const count = insightStats.bySeverity[sev] ?? 0
-                  const w = Math.max(2, Math.round((count / maxSeverityCount) * 100))
-                  return (
-                    <div key={sev} className="flex items-center gap-3">
-                      <Badge variant={severityBadge(sev) as any} className="w-[90px] justify-center">
-                        {sev.toUpperCase()}
-                      </Badge>
-                      <div className="flex-1 rounded-full bg-muted h-2 overflow-hidden">
-                        <div className="h-2 bg-primary/70" style={{ width: `${w}%` }} />
+              <CardContent className="space-y-2">
+                {insightsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                    ))}
+                  </div>
+                ) : recentInsights.length === 0 ? (
+                  <EmptyState
+                    icon={CheckCircle2}
+                    title="No active signals"
+                    description="Open or investigating insights will appear here for quick triage."
+                  />
+                ) : (
+                  recentInsights.map((row) => (
+                    <div
+                      key={row.id}
+                      className="group flex items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40"
+                    >
+                      <div
+                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: SEVERITY_COLORS[row.severity] }}
+                      />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium leading-snug">{row.title}</p>
+                          <Badge variant={severityBadge(row.severity) as 'default'} className="text-[10px] uppercase">
+                            {row.severity}
+                          </Badge>
+                        </div>
+                        {row.summary ? (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{row.summary}</p>
+                        ) : null}
+                        <p className="text-[11px] text-muted-foreground">
+                          {row.region} · Updated {fmtDate(row.updated_at)}
+                        </p>
                       </div>
-                      <p className="w-10 text-right text-sm font-medium">{count}</p>
+                      <Button variant="outline" size="sm" className="shrink-0 opacity-80 group-hover:opacity-100" onClick={() => openEdit(row)}>
+                        Triage
+                      </Button>
                     </div>
-                  )
-                })}
+                  ))
+                )}
               </CardContent>
             </Card>
 
-            <Card className="xl:col-span-5">
-              <CardHeader>
-                <CardTitle>Next actions</CardTitle>
-                <CardDescription>Keep the marketplace healthy.</CardDescription>
+            <Card className="lg:col-span-5 border-border/60 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Recommended actions</CardTitle>
+                <CardDescription className="text-xs">Keep the marketplace healthy</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="rounded-md border border-border p-3 flex items-start gap-2">
-                  <CircleAlert className="mt-0.5 h-4 w-4 text-amber-500" />
+              <CardContent className="space-y-3">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
+                  <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
                   <div className="space-y-1">
-                    <p className="font-medium">Review open signals</p>
-                    <p className="text-muted-foreground">
-                      Triage items marked <strong>open</strong> and move to <strong>investigating</strong>.
+                    <p className="text-sm font-medium">Review open signals</p>
+                    <p className="text-xs text-muted-foreground">
+                      {openSignalCount > 0
+                        ? `${openSignalCount} item${openSignalCount === 1 ? '' : 's'} awaiting triage or investigation.`
+                        : 'No open items — great work keeping the queue clear.'}
                     </p>
                   </div>
                 </div>
-                <div className="rounded-md border border-border p-3 flex items-start gap-2">
-                  <Activity className="mt-0.5 h-4 w-4 text-primary" />
+                <div className="rounded-xl border border-border/60 p-4 flex items-start gap-3">
+                  <Activity className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div className="space-y-1">
-                    <p className="font-medium">Track vendor onboarding</p>
-                    <p className="text-muted-foreground">Approve queued vendors to unlock supply growth.</p>
+                    <p className="text-sm font-medium">Vendor onboarding</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(totals?.pendingVendorCount ?? 0) > 0
+                        ? `${totals?.pendingVendorCount} supplier${totals?.pendingVendorCount === 1 ? '' : 's'} waiting for verification.`
+                        : 'No vendors pending approval right now.'}
+                    </p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => setActiveTab('insights')}>
-                  Open insights queue
-                  <ArrowUpRight className="ml-2 h-4 w-4" />
-                </Button>
+                <div className="rounded-xl border border-border/60 p-4 flex items-start gap-3">
+                  <Globe2 className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Supply & merchandising</p>
+                    <p className="text-xs text-muted-foreground">
+                      {totals?.featuredCount ?? 0} featured listings across {totals?.vendorCount ?? 0} vendors.
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+                <div className="grid gap-2">
+                  <Button variant="outline" className="w-full justify-between" onClick={() => setActiveTab('insights')}>
+                    Open insights queue
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Button>
+                  {(totals?.pendingVendorCount ?? 0) > 0 ? (
+                    <Button variant="outline" className="w-full justify-between" asChild>
+                      <Link href="/admin/vendors">
+                        Review pending vendors
+                        <ArrowUpRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="insights" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-between gap-3">
-                <span>Insights queue</span>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search title, region, summary..."
-                      className="pl-9 w-[260px]"
-                    />
-                  </div>
-                  <Select value={insightsStatus} onValueChange={(v) => setInsightsStatus(v as any)}>
-                    <SelectTrigger className="w-[165px]">
+        <TabsContent value="insights" className="mt-6 space-y-4">
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="space-y-4 pb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Insights queue</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Create, update, and resolve operational signals. Persisted via Supabase.
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setCreateOpen(true)} className="shrink-0 w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add insight
+                </Button>
+              </div>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search title, region, summary..."
+                    className="pl-9 bg-background"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Select value={insightsStatus} onValueChange={(v) => setInsightsStatus(v as 'all' | InsightStatus)}>
+                    <SelectTrigger className="w-full sm:w-[160px]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -469,8 +826,8 @@ export default function AdminAnalyticsPage() {
                       <SelectItem value="dismissed">Dismissed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={insightsSeverity} onValueChange={(v) => setInsightsSeverity(v as any)}>
-                    <SelectTrigger className="w-[165px]">
+                  <Select value={insightsSeverity} onValueChange={(v) => setInsightsSeverity(v as 'all' | InsightSeverity)}>
+                    <SelectTrigger className="w-full sm:w-[160px]">
                       <SelectValue placeholder="Severity" />
                     </SelectTrigger>
                     <SelectContent>
@@ -482,98 +839,113 @@ export default function AdminAnalyticsPage() {
                       <SelectItem value="info">Info</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" onClick={fetchInsights} disabled={insightsLoading}>
+                  <Button variant="outline" onClick={fetchInsights} disabled={insightsLoading} className="w-full sm:w-auto">
                     {insightsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                     Reload
                   </Button>
                 </div>
-              </CardTitle>
-              <CardDescription>
-                Create, update, and resolve insights. Changes are persisted to Supabase via service-role API routes.
-              </CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
               {insightsLoading ? (
-                <div className="rounded-md border border-border bg-secondary/30 p-4 text-sm text-muted-foreground flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading insights...
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/20 py-16 text-sm text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading insights…
                 </div>
               ) : filteredInsights.length === 0 ? (
-                <div className="rounded-md border border-border bg-secondary/30 p-6 text-sm text-muted-foreground">
-                  No insights match your filters.
-                </div>
+                <EmptyState
+                  icon={Inbox}
+                  title="No insights match"
+                  description="Try adjusting filters or create a new insight to log a signal."
+                />
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Metric</TableHead>
-                      <TableHead>Updated</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInsights.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="whitespace-normal">
-                          <div className="space-y-1">
-                            <p className="font-medium leading-snug">{row.title}</p>
-                            {row.summary ? (
-                              <p className="text-xs text-muted-foreground line-clamp-2">{row.summary}</p>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusBadge(row.status) as any}>{row.status}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={severityBadge(row.severity) as any}>{row.severity}</Badge>
-                        </TableCell>
-                        <TableCell>{row.region}</TableCell>
-                        <TableCell>
-                          {row.metric_key ? (
-                            <span className="text-xs">
-                              <span className="font-medium">{row.metric_key}</span>
-                              {row.metric_value !== null ? `: ${row.metric_value}` : ''}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{fmtDate(row.updated_at)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
-                              Edit
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete insight?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete <strong>{row.title}</strong>.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deleteInsight(row.id)}>Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
+                <div className="overflow-hidden rounded-xl border border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="font-semibold">Title</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">Severity</TableHead>
+                        <TableHead className="font-semibold hidden md:table-cell">Region</TableHead>
+                        <TableHead className="font-semibold hidden lg:table-cell">Metric</TableHead>
+                        <TableHead className="font-semibold hidden sm:table-cell">Updated</TableHead>
+                        <TableHead className="text-right font-semibold">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInsights.map((row) => (
+                        <TableRow key={row.id} className="group">
+                          <TableCell className="whitespace-normal max-w-[280px]">
+                            <div className="flex items-start gap-2">
+                              <span
+                                className="mt-2 h-2 w-2 shrink-0 rounded-full"
+                                style={{ background: SEVERITY_COLORS[row.severity] }}
+                              />
+                              <div className="space-y-1 min-w-0">
+                                <p className="font-medium leading-snug">{row.title}</p>
+                                {row.summary ? (
+                                  <p className="text-xs text-muted-foreground line-clamp-2">{row.summary}</p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={statusBadge(row.status) as 'default'} className="capitalize">
+                              {row.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={severityBadge(row.severity) as 'default'} className="uppercase text-[10px]">
+                              {row.severity}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm">{row.region}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {row.metric_key ? (
+                              <span className="text-xs font-mono">
+                                <span className="font-medium text-foreground">{row.metric_key}</span>
+                                {row.metric_value !== null ? (
+                                  <span className="text-muted-foreground"> = {row.metric_value}</span>
+                                ) : null}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs text-muted-foreground whitespace-nowrap">
+                            {fmtDate(row.updated_at)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
+                                Edit
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete insight?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete <strong>{row.title}</strong>.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteInsight(row.id)}>Delete</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -608,7 +980,7 @@ export default function AdminAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label>Severity</Label>
-                <Select value={createDraft.severity} onValueChange={(v) => setCreateDraft((p) => ({ ...p, severity: v as any }))}>
+                <Select value={createDraft.severity} onValueChange={(v) => setCreateDraft((p) => ({ ...p, severity: v as InsightSeverity }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -623,7 +995,7 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="grid gap-2">
                 <Label>Status</Label>
-                <Select value={createDraft.status} onValueChange={(v) => setCreateDraft((p) => ({ ...p, status: v as any }))}>
+                <Select value={createDraft.status} onValueChange={(v) => setCreateDraft((p) => ({ ...p, status: v as InsightStatus }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -646,7 +1018,7 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="grid gap-2">
                 <Label>Source</Label>
-                <Select value={createDraft.source} onValueChange={(v) => setCreateDraft((p) => ({ ...p, source: v as any }))}>
+                <Select value={createDraft.source} onValueChange={(v) => setCreateDraft((p) => ({ ...p, source: v as InsightSource }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -699,24 +1071,16 @@ export default function AdminAnalyticsPage() {
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editDraft.title}
-                onChange={(e) => setEditDraft((p) => ({ ...p, title: e.target.value }))}
-              />
+              <Input id="edit-title" value={editDraft.title} onChange={(e) => setEditDraft((p) => ({ ...p, title: e.target.value }))} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-summary">Summary</Label>
-              <Textarea
-                id="edit-summary"
-                value={editDraft.summary}
-                onChange={(e) => setEditDraft((p) => ({ ...p, summary: e.target.value }))}
-              />
+              <Textarea id="edit-summary" value={editDraft.summary} onChange={(e) => setEditDraft((p) => ({ ...p, summary: e.target.value }))} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label>Severity</Label>
-                <Select value={editDraft.severity} onValueChange={(v) => setEditDraft((p) => ({ ...p, severity: v as any }))}>
+                <Select value={editDraft.severity} onValueChange={(v) => setEditDraft((p) => ({ ...p, severity: v as InsightSeverity }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -731,7 +1095,7 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="grid gap-2">
                 <Label>Status</Label>
-                <Select value={editDraft.status} onValueChange={(v) => setEditDraft((p) => ({ ...p, status: v as any }))}>
+                <Select value={editDraft.status} onValueChange={(v) => setEditDraft((p) => ({ ...p, status: v as InsightStatus }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -745,15 +1109,11 @@ export default function AdminAnalyticsPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-region">Region</Label>
-                <Input
-                  id="edit-region"
-                  value={editDraft.region}
-                  onChange={(e) => setEditDraft((p) => ({ ...p, region: e.target.value }))}
-                />
+                <Input id="edit-region" value={editDraft.region} onChange={(e) => setEditDraft((p) => ({ ...p, region: e.target.value }))} />
               </div>
               <div className="grid gap-2">
                 <Label>Source</Label>
-                <Select value={editDraft.source} onValueChange={(v) => setEditDraft((p) => ({ ...p, source: v as any }))}>
+                <Select value={editDraft.source} onValueChange={(v) => setEditDraft((p) => ({ ...p, source: v as InsightSource }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -767,19 +1127,11 @@ export default function AdminAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="edit-metricKey">Metric key</Label>
-                <Input
-                  id="edit-metricKey"
-                  value={editDraft.metricKey}
-                  onChange={(e) => setEditDraft((p) => ({ ...p, metricKey: e.target.value }))}
-                />
+                <Input id="edit-metricKey" value={editDraft.metricKey} onChange={(e) => setEditDraft((p) => ({ ...p, metricKey: e.target.value }))} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-metricValue">Metric value</Label>
-                <Input
-                  id="edit-metricValue"
-                  value={editDraft.metricValue}
-                  onChange={(e) => setEditDraft((p) => ({ ...p, metricValue: e.target.value }))}
-                />
+                <Input id="edit-metricValue" value={editDraft.metricValue} onChange={(e) => setEditDraft((p) => ({ ...p, metricValue: e.target.value }))} />
               </div>
             </div>
           </div>
