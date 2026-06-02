@@ -4,6 +4,10 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { User, UserRole } from './types';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 
+const POST_AUTH_NEXT_KEY = 'sc_post_auth_next';
+const POST_AUTH_SET_AT_KEY = 'sc_post_auth_set_at';
+const POST_AUTH_MAX_AGE_MS = 1000 * 60 * 5; // 5 minutes
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -95,6 +99,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
       setUser(mapSupabaseUserToAppUser(session?.user));
+
+      // If OAuth ends up returning to the Site URL (often `/`) instead of our
+      // intended `/auth?...` URL, automatically forward to the stored dashboard.
+      if (session?.user && typeof window !== 'undefined') {
+        try {
+          const next = window.localStorage.getItem(POST_AUTH_NEXT_KEY) || '';
+          const setAtRaw = window.localStorage.getItem(POST_AUTH_SET_AT_KEY) || '';
+          const setAt = Number(setAtRaw);
+          const fresh = Number.isFinite(setAt) ? Date.now() - setAt <= POST_AUTH_MAX_AGE_MS : false;
+
+          if (fresh && next && next.startsWith('/')) {
+            // Clear before navigating to avoid loops.
+            window.localStorage.removeItem(POST_AUTH_NEXT_KEY);
+            window.localStorage.removeItem(POST_AUTH_SET_AT_KEY);
+            // Only auto-forward when we are on a public-ish surface (commonly `/`).
+            if (window.location.pathname === '/' || window.location.pathname === '/login') {
+              window.location.assign(next);
+            }
+          } else {
+            // Stale hint; clear it.
+            window.localStorage.removeItem(POST_AUTH_NEXT_KEY);
+            window.localStorage.removeItem(POST_AUTH_SET_AT_KEY);
+          }
+        } catch {
+          // non-fatal
+        }
+      }
     });
 
     return () => {

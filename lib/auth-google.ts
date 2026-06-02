@@ -4,6 +4,10 @@ import { type PortalRole, safeNextPath } from '@/lib/auth-flow'
 
 export type GoogleAuthMode = 'signin' | 'signup'
 
+const POST_AUTH_NEXT_KEY = 'sc_post_auth_next'
+const POST_AUTH_ROLE_KEY = 'sc_post_auth_role'
+const POST_AUTH_SET_AT_KEY = 'sc_post_auth_set_at'
+
 export function buildGoogleOAuthRedirectUrl(role: PortalRole, next: string, mode?: GoogleAuthMode) {
   const url = new URL('/auth', typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
   url.searchParams.set('role', role)
@@ -12,6 +16,17 @@ export function buildGoogleOAuthRedirectUrl(role: PortalRole, next: string, mode
     url.searchParams.set('mode', 'signup')
   }
   return url.toString()
+}
+
+function rememberPostAuthDestination(role: PortalRole, next: string) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(POST_AUTH_NEXT_KEY, safeNextPath(next, role))
+    window.localStorage.setItem(POST_AUTH_ROLE_KEY, role)
+    window.localStorage.setItem(POST_AUTH_SET_AT_KEY, String(Date.now()))
+  } catch {
+    // non-fatal
+  }
 }
 
 /**
@@ -23,6 +38,7 @@ export async function startGoogleSignIn(
   opts: { role: PortalRole; next: string; mode?: GoogleAuthMode },
 ) {
   const redirectTo = buildGoogleOAuthRedirectUrl(opts.role, opts.next, opts.mode)
+  rememberPostAuthDestination(opts.role, opts.next)
 
   const shouldAttachPortalRole =
     opts.role !== 'admin' && opts.role !== 'auto'

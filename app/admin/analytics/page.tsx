@@ -428,25 +428,23 @@ export default function AdminAnalyticsPage() {
   const isRefreshing = loading || insightsLoading
 
   return (
-    <div className="space-y-8">
-      {/* Hero header */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-background to-violet-500/5 p-6 sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+    <main className="flex-1 overflow-auto bg-linear-to-b from-background via-background to-muted/25">
+      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 md:py-10 lg:px-8">
+        {/* Header */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground">Admin console</p>
+            <h1 className="mt-1 flex items-center gap-2.5 text-2xl font-semibold tracking-tight md:text-3xl">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15">
                 <BarChart3 className="h-5 w-5" />
-              </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin console</p>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Analytics & Intelligence</h1>
-            <p className="max-w-xl text-sm text-muted-foreground">
+              </span>
+              Analytics & intelligence
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
               Platform health at a glance, plus a managed queue of operational signals for your team.
             </p>
             {!insightsLoading && insightStats.total > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="secondary" className="font-normal">
                   {insightStats.total} total insights
                 </Badge>
@@ -462,10 +460,11 @@ export default function AdminAnalyticsPage() {
               </div>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              className="bg-background/80 backdrop-blur-sm"
+              size="sm"
+              className="rounded-xl"
               onClick={() => {
                 fetchOverview()
                 fetchInsights()
@@ -475,11 +474,11 @@ export default function AdminAnalyticsPage() {
               {isRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Refresh
             </Button>
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button size="sm" className="rounded-xl" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               New insight
             </Button>
-            <Button variant="outline" className="bg-background/80 backdrop-blur-sm" asChild>
+            <Button variant="outline" size="sm" className="rounded-xl" asChild>
               <Link href="/admin">
                 Overview
                 <ArrowUpRight className="ml-2 h-4 w-4" />
@@ -487,7 +486,6 @@ export default function AdminAnalyticsPage() {
             </Button>
           </div>
         </div>
-      </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'dashboard' | 'insights')}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1146,6 +1144,7 @@ export default function AdminAnalyticsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </main>
   )
 }

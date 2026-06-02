@@ -1,7 +1,8 @@
+import { isAdminConsolePath } from '@/lib/admin-console-path'
 import { isServicesConsolePath } from '@/lib/services-console-path'
 import { isVendorConsolePath } from '@/lib/vendor-console-path'
 
-export type DashboardConsoleKind = 'buyer' | 'vendor' | 'services'
+export type DashboardConsoleKind = 'buyer' | 'vendor' | 'services' | 'admin'
 
 export function getDashboardConsoleKind(pathname: string): DashboardConsoleKind | null {
   if (pathname === '/buyer' || pathname.startsWith('/buyer/')) {
@@ -10,6 +11,7 @@ export function getDashboardConsoleKind(pathname: string): DashboardConsoleKind 
   }
   if (isVendorConsolePath(pathname)) return 'vendor'
   if (isServicesConsolePath(pathname)) return 'services'
+  if (isAdminConsolePath(pathname)) return 'admin'
   return null
 }
 

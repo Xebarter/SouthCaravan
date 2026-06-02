@@ -71,10 +71,6 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const publicPage = useMemo(() => isPublicRoute(pathname), [pathname]);
-  const adminPage = useMemo(
-    () => pathname === '/admin' || pathname.startsWith('/admin/'),
-    [pathname],
-  );
   const dashboardConsolePage = useMemo(() => isAnyDashboardConsolePath(pathname), [pathname]);
 
   let shell: ReactNode;
@@ -93,8 +89,6 @@ export function AppShell({
           <Toaster richColors closeButton position="top-center" />
         </DashboardNavProvider>
       );
-    } else if (adminPage) {
-      shell = <main className="flex-1 min-h-screen">{children}</main>;
     } else {
       shell = (
         <>

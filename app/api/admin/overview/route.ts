@@ -55,7 +55,7 @@ export async function GET() {
 
   const { data: featuredProducts, error: featuredError } = await supabaseAdmin
     .from('products')
-    .select('id, name, price, category, is_featured')
+    .select('id, name, price, category, is_featured, images')
     .order('created_at', { ascending: false })
     .limit(6);
 

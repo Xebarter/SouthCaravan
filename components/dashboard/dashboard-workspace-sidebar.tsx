@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { useRegisterDashboardNav } from '@/components/dashboard-nav-context'
 import { cn } from '@/lib/utils'
 
-export type WorkspacePortal = 'buyer' | 'vendor' | 'services'
+export type WorkspacePortal = 'buyer' | 'vendor' | 'services' | 'admin'
 
 const PORTAL_THEME: Record<
   WorkspacePortal,
@@ -29,6 +29,11 @@ const PORTAL_THEME: Record<
     label: 'Services',
     dot: 'bg-amber-500',
     badge: 'bg-amber-500/10 text-amber-900 dark:text-amber-300',
+  },
+  admin: {
+    label: 'Admin',
+    dot: 'bg-rose-500',
+    badge: 'bg-rose-500/10 text-rose-800 dark:text-rose-300',
   },
 }
 
@@ -57,7 +62,7 @@ function getInitials(name: string): string {
 }
 
 export function isDashboardNavActive(href: string, pathname: string): boolean {
-  if (href === '/buyer' || href === '/services/dashboard') {
+  if (href === '/buyer' || href === '/services/dashboard' || href === '/admin') {
     return pathname === href
   }
   return pathname === href || pathname.startsWith(`${href}/`)
