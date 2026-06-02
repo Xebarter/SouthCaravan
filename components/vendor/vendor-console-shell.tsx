@@ -9,6 +9,7 @@ import {
   Package,
   Settings,
   ShoppingCart,
+  ShoppingBag,
 } from 'lucide-react';
 
 import {
@@ -16,6 +17,7 @@ import {
   type SidebarNavItem,
 } from '@/components/dashboard/dashboard-workspace-sidebar';
 import { useAuth } from '@/lib/auth-context';
+import { portalAuthHref } from '@/lib/portal-session';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { href: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
@@ -50,6 +52,11 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
       pathname={pathname}
       navItems={NAV_ITEMS}
       footerActions={[
+        {
+          label: 'Buyer workspace',
+          icon: ShoppingBag,
+          href: portalAuthHref('buyer'),
+        },
         {
           label: 'Storefront',
           icon: ExternalLink,

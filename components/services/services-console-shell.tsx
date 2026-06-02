@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Settings,
+  ShoppingBag,
 } from 'lucide-react'
 
 import {
@@ -17,6 +18,7 @@ import {
   type SidebarNavItem,
 } from '@/components/dashboard/dashboard-workspace-sidebar'
 import { useAuth } from '@/lib/auth-context'
+import { portalAuthHref } from '@/lib/portal-session'
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { href: '/services/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -51,7 +53,10 @@ export function ServicesConsoleShell({ children }: { children: React.ReactNode }
       displayEmail={email || undefined}
       pathname={pathname}
       navItems={NAV_ITEMS}
-      footerActions={[{ label: 'Shop', icon: ArrowLeft, href: '/' }]}
+      footerActions={[
+        { label: 'Buyer workspace', icon: ShoppingBag, href: portalAuthHref('buyer') },
+        { label: 'Shop', icon: ArrowLeft, href: '/' },
+      ]}
       onSignOut={handleLogout}
     >
       {children}
