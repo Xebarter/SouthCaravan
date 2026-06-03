@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+import { shouldNoIndexPath } from '@/lib/seo/noindex-paths'
+
 const PROTECTED_PREFIXES = ['/buyer', '/vendor', '/services']
 const ADMIN_PREFIX = '/admin'
 const SUPABASE_AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
@@ -147,6 +149,10 @@ export async function middleware(request: NextRequest) {
     authUrl.searchParams.set('next', '/admin')
     authUrl.searchParams.set('error', 'admin_required')
     return NextResponse.redirect(authUrl)
+  }
+
+  if (shouldNoIndexPath(pathname)) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow')
   }
 
   return response

@@ -18,6 +18,7 @@ import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
 import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-feed-client';
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 import { createPageMetadata } from '@/lib/seo/metadata';
+import { HomePageJsonLd } from '@/lib/seo/json-ld';
 import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
 import { DEFAULT_DESCRIPTION, SITE_HOME_TITLE } from '@/lib/seo/site';
 
@@ -48,6 +49,7 @@ export default async function HomePage() {
 
   return (
     <div className="bg-linear-to-b from-sky-50 via-blue-50/40 to-slate-50/60">
+      <HomePageJsonLd />
       <ProductAdBannerSection items={sponsoredItems} />
       <section className="px-2 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-6 sm:pb-8 md:pt-6 md:pb-10 bg-transparent">
         <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6">

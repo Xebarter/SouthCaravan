@@ -22,6 +22,7 @@ export function OrganizationJsonLd() {
         '@type': 'Organization',
         name: SITE_NAME,
         alternateName: SITE_NAME_ALT,
+        '@id': `${SITE_URL}/#organization`,
         url: SITE_URL,
         logo: `${SITE_URL}/logo.svg`,
         description: DEFAULT_DESCRIPTION,
@@ -39,10 +40,12 @@ export function WebSiteJsonLd() {
       data={{
         '@context': 'https://schema.org',
         '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
         name: SITE_NAME,
         alternateName: SITE_NAME_ALT,
         url: SITE_URL,
         description: DEFAULT_DESCRIPTION,
+        inLanguage: 'en',
         potentialAction: {
           '@type': 'SearchAction',
           target: {
@@ -51,6 +54,25 @@ export function WebSiteJsonLd() {
           },
           'query-input': 'required name=search_term_string',
         },
+      }}
+    />
+  )
+}
+
+/** Declares the homepage as the primary entity for brand searches. */
+export function HomePageJsonLd() {
+  return (
+    <JsonLd
+      data={{
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        '@id': `${SITE_URL}/#homepage`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        description: DEFAULT_DESCRIPTION,
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        about: { '@id': `${SITE_URL}/#organization` },
+        inLanguage: 'en',
       }}
     />
   )

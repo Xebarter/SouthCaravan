@@ -40,6 +40,18 @@ function buildTitle(title: string) {
   return `${t} | ${SITE_NAME}`
 }
 
+/** Pages that must never compete with the homepage in search results. */
+export function createNoIndexMetadata(title: string): Metadata {
+  return {
+    title: buildTitle(title),
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: { index: false, follow: false, noimageindex: true },
+    },
+  }
+}
+
 export function createPageMetadata(options: PageMetadataOptions): Metadata {
   const description = (options.description ?? DEFAULT_DESCRIPTION).trim()
   const canonical = options.path ? absoluteUrl(options.path) : SITE_URL
