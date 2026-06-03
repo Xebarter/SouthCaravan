@@ -21,7 +21,7 @@ export async function POST() {
 
     const { data: existing, error: selectError } = await supabaseAdmin
       .from('vendors')
-      .select('id,is_verified,verified_at')
+      .select('id,is_verified,verified_at,services_verified,services_verified_at')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -32,8 +32,8 @@ export async function POST() {
           ok: true,
           vendor: {
             id: String(existing.id),
-            is_verified: Boolean((existing as any).is_verified),
-            verified_at: (existing as any).verified_at ?? null,
+            is_verified: Boolean((existing as any).services_verified),
+            verified_at: (existing as any).services_verified_at ?? null,
           },
           existed: true,
         },
@@ -50,8 +50,10 @@ export async function POST() {
       company_name: company || emailPrefix,
       is_verified: false,
       verified_at: null,
+      services_verified: false,
+      services_verified_at: null,
     })
-      .select('id,is_verified,verified_at')
+      .select('id,is_verified,verified_at,services_verified,services_verified_at')
       .single()
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
@@ -60,8 +62,8 @@ export async function POST() {
         ok: true,
         vendor: {
           id: String(inserted?.id ?? user.id),
-          is_verified: Boolean(inserted?.is_verified),
-          verified_at: inserted?.verified_at ?? null,
+          is_verified: Boolean(inserted?.services_verified),
+          verified_at: inserted?.services_verified_at ?? null,
         },
         created: true,
       },

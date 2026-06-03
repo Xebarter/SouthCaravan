@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     const { data: existing, error: selectError } = await supabaseAdmin
       .from('vendors')
-      .select('id,is_verified,verified_at')
+      .select('id,is_verified,verified_at,services_verified,services_verified_at')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -47,14 +47,26 @@ export async function POST(request: Request) {
     }
 
     if (existing?.id) {
+      const row = existing as {
+        id: string
+        is_verified: boolean | null
+        verified_at: string | null
+        services_verified: boolean | null
+        services_verified_at: string | null
+      }
+      const isServicesPortal = requestedPortal === 'services'
       return NextResponse.json(
         {
           ok: true,
           portal: requestedPortal,
           vendor: {
-            id: String(existing.id),
-            is_verified: Boolean((existing as any).is_verified),
-            verified_at: (existing as any).verified_at ?? null,
+            id: String(row.id),
+            is_verified: isServicesPortal
+              ? Boolean(row.services_verified)
+              : Boolean(row.is_verified),
+            verified_at: isServicesPortal
+              ? row.services_verified_at ?? null
+              : row.verified_at ?? null,
           },
           existed: true,
         },
@@ -71,8 +83,10 @@ export async function POST(request: Request) {
       company_name: company || emailPrefix,
       is_verified: false,
       verified_at: null,
+      services_verified: false,
+      services_verified_at: null,
     })
-      .select('id,is_verified,verified_at')
+      .select('id,is_verified,verified_at,services_verified,services_verified_at')
       .single()
 
     if (insertError) {
@@ -85,8 +99,8 @@ export async function POST(request: Request) {
         portal: requestedPortal,
         vendor: {
           id: String(inserted?.id ?? user.id),
-          is_verified: Boolean(inserted?.is_verified),
-          verified_at: inserted?.verified_at ?? null,
+          is_verified: false,
+          verified_at: null,
         },
         created: true,
       },

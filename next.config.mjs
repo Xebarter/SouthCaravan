@@ -17,6 +17,7 @@ const nextConfig = {
       { source: '/pricing', destination: '/', permanent: true },
       { source: '/public/vendors', destination: '/', permanent: true },
       { source: '/vendors', destination: '/', permanent: true },
+      { source: '/admin/services/promotions', destination: '/admin/adds?tab=services', permanent: true },
     ];
   },
   typescript: {

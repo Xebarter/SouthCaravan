@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSupabaseClient } from '@/lib/supabase/server'
-import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
+import { getServicesVerificationStatus } from '@/lib/vendor-verification-status'
 
 export function hasServicesAccess(user: any) {
   const meta = user?.app_metadata ?? {}
@@ -19,7 +19,7 @@ export async function getAuthedServicesUserId(): Promise<
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
   const userId = data.user.id
-  const verification = await getVendorVerificationStatus(userId)
+  const verification = await getServicesVerificationStatus(userId)
   if (!verification.isVerified) {
     return {
       ok: false,

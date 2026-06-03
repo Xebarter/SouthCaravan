@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
   ChevronsUpDown,
@@ -42,6 +43,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ServicePromotionRequestsPanel } from '@/components/admin/service-promotion-requests-panel';
 import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
 
@@ -203,7 +206,13 @@ function BannerUploadField({
   );
 }
 
+type AddsTab = 'products' | 'services';
+
 export default function AdminAddsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab: AddsTab = searchParams.get('tab') === 'services' ? 'services' : 'products';
+
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [adds, setAdds] = useState<EditableAdd[]>([]);
   const [loading, setLoading] = useState(true);
@@ -442,9 +451,13 @@ export default function AdminAddsPage() {
 
   const deleteTarget = adds.find((a) => a.id === deleteTargetId);
 
+  function setActiveTab(tab: AddsTab) {
+    const qs = tab === 'services' ? '?tab=services' : '';
+    router.replace(`/admin/adds${qs}`);
+  }
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium tracking-wide text-muted-foreground">Admin console</p>
@@ -452,32 +465,40 @@ export default function AdminAddsPage() {
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15">
               <Megaphone className="h-5 w-5" />
             </span>
-            Sponsored ads
-            <Badge variant="secondary" className="rounded-full text-xs font-medium">
-              Homepage carousel
-            </Badge>
+            Ads & promotions
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Configure product promos shown in the carousel above Featured Marketplace Picks. Each slot links to one
-            product with a custom banner and CTA.
-          </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0 rounded-xl"
-          onClick={() => loadData()}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Refresh
-        </Button>
+        {activeTab === 'products' ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 rounded-xl"
+            onClick={() => loadData()}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Refresh
+          </Button>
+        ) : null}
       </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AddsTab)} className="gap-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2 rounded-xl bg-muted/50 p-1">
+          <TabsTrigger value="products" className="rounded-lg gap-2 text-sm">
+            <Megaphone className="h-4 w-4 shrink-0" />
+            Product carousel
+          </TabsTrigger>
+          <TabsTrigger value="services" className="rounded-lg gap-2 text-sm">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            Service promotions
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="products" className="mt-0 space-y-8 outline-none">
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -943,6 +964,12 @@ export default function AdminAddsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+
+        <TabsContent value="services" className="mt-0 outline-none">
+          <ServicePromotionRequestsPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -95,7 +95,9 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from('vendors')
-    .select('id, name, email, company_name, is_verified, verified_at, created_at, updated_at')
+    .select(
+      'id, name, email, company_name, is_verified, verified_at, services_verified, services_verified_at, created_at, updated_at',
+    )
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -107,16 +109,28 @@ export async function GET(req: NextRequest) {
   const { data: vendors, error: vendorsError } = await query;
   if (vendorsError) return NextResponse.json({ error: vendorsError.message }, { status: 500 });
 
-  const [{ count: total, error: totalErr }, { count: verified, error: verErr }, { count: pending, error: pendErr }] =
-    await Promise.all([
-      supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }).eq('is_verified', true),
-      supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }).or('is_verified.eq.false,is_verified.is.null'),
-    ]);
+  const [
+    { count: total, error: totalErr },
+    { count: marketplaceVerified, error: verErr },
+    { count: marketplacePending, error: pendErr },
+    { count: servicesVerified, error: svcVerErr },
+    { count: servicesPending, error: svcPendErr },
+  ] = await Promise.all([
+    supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+    supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }).or('is_verified.eq.false,is_verified.is.null'),
+    supabaseAdmin.from('vendors').select('id', { count: 'exact', head: true }).eq('services_verified', true),
+    supabaseAdmin
+      .from('vendors')
+      .select('id', { count: 'exact', head: true })
+      .or('services_verified.eq.false,services_verified.is.null'),
+  ]);
 
   if (totalErr) return NextResponse.json({ error: totalErr.message }, { status: 500 });
   if (verErr) return NextResponse.json({ error: verErr.message }, { status: 500 });
   if (pendErr) return NextResponse.json({ error: pendErr.message }, { status: 500 });
+  if (svcVerErr) return NextResponse.json({ error: svcVerErr.message }, { status: 500 });
+  if (svcPendErr) return NextResponse.json({ error: svcPendErr.message }, { status: 500 });
 
   const { data: orders, error: ordersError } = await supabaseAdmin.from('orders').select('total_amount');
   if (ordersError) return NextResponse.json({ error: ordersError.message }, { status: 500 });
@@ -161,27 +175,125 @@ export async function GET(req: NextRequest) {
     orderStats.set(key, cur);
   }
 
+  const rolesByUserId = new Map<string, Set<string>>();
+  if (ids.length > 0) {
+    const { data: roleRows, error: rolesError } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id, role')
+      .in('user_id', ids)
+      .in('role', ['vendor', 'services']);
+
+    if (rolesError) return NextResponse.json({ error: rolesError.message }, { status: 500 });
+    for (const row of roleRows ?? []) {
+      const uid = String(row.user_id);
+      const set = rolesByUserId.get(uid) ?? new Set<string>();
+      set.add(String(row.role));
+      rolesByUserId.set(uid, set);
+    }
+  }
+
+  const offeringsCount = new Map<string, number>();
+  if (ids.length > 0) {
+    const { data: offeringRows, error: offeringsError } = await supabaseAdmin
+      .from('service_offerings')
+      .select('provider_user_id')
+      .in('provider_user_id', ids);
+
+    if (offeringsError) {
+      const msg = String(offeringsError.message ?? '').toLowerCase();
+      if (!msg.includes('does not exist') || !msg.includes('service_offerings')) {
+        return NextResponse.json({ error: offeringsError.message }, { status: 500 });
+      }
+    } else {
+      for (const row of offeringRows ?? []) {
+        const key = String(row.provider_user_id);
+        offeringsCount.set(key, (offeringsCount.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  function resolveAccountType(idStr: string): 'marketplace_vendor' | 'service_provider' | 'hybrid' {
+    const roles = rolesByUserId.get(idStr) ?? new Set<string>();
+    const hasServices = roles.has('services');
+    const hasVendor = roles.has('vendor');
+    const hasProducts = (productCounts.get(idStr) ?? 0) > 0;
+    const hasOfferings = (offeringsCount.get(idStr) ?? 0) > 0;
+
+    if (hasServices && (hasVendor || hasProducts)) return 'hybrid';
+    if (hasServices || hasOfferings) return 'service_provider';
+    return 'marketplace_vendor';
+  }
+
   const enriched = list.map((v) => {
     const idStr = String(v.id);
     const os = orderStats.get(idStr) ?? { count: 0, revenue: 0 };
+    const roles = rolesByUserId.get(idStr) ?? new Set<string>();
     return {
       ...v,
       is_verified: Boolean(v.is_verified),
+      services_verified: Boolean((v as { services_verified?: boolean }).services_verified),
+      services_verified_at: (v as { services_verified_at?: string | null }).services_verified_at ?? null,
       profile: profileById.get(idStr) ?? null,
       product_count: productCounts.get(idStr) ?? 0,
       order_count: os.count,
       revenue: os.revenue,
+      offerings_count: offeringsCount.get(idStr) ?? 0,
+      roles: [...roles],
+      account_type: resolveAccountType(idStr),
     };
   });
+
+  const accountTypeCounts = enriched.reduce(
+    (acc, v) => {
+      acc[v.account_type] += 1;
+      return acc;
+    },
+    { marketplace_vendor: 0, service_provider: 0, hybrid: 0 } as Record<
+      'marketplace_vendor' | 'service_provider' | 'hybrid',
+      number
+    >,
+  );
+
+  const isMarketplaceMember = (v: (typeof enriched)[number]) => {
+    const roles = new Set(v.roles ?? []);
+    return (
+      roles.has('vendor') ||
+      v.product_count > 0 ||
+      v.account_type === 'marketplace_vendor' ||
+      v.account_type === 'hybrid'
+    );
+  };
+
+  const isServicesMember = (v: (typeof enriched)[number]) => {
+    const roles = new Set(v.roles ?? []);
+    return (
+      roles.has('services') ||
+      v.offerings_count > 0 ||
+      v.account_type === 'service_provider' ||
+      v.account_type === 'hybrid'
+    );
+  };
+
+  const listCounts = {
+    marketplace: enriched.filter(isMarketplaceMember).length,
+    services: enriched.filter(isServicesMember).length,
+    hybrid: enriched.filter((v) => v.account_type === 'hybrid').length,
+  };
 
   return NextResponse.json({
     stats: {
       total: total ?? 0,
-      verified: verified ?? 0,
-      pending: pending ?? 0,
+      verified: marketplaceVerified ?? 0,
+      pending: marketplacePending ?? 0,
+      marketplaceVerified: marketplaceVerified ?? 0,
+      marketplacePending: marketplacePending ?? 0,
+      servicesVerified: servicesVerified ?? 0,
+      servicesPending: servicesPending ?? 0,
       platformGmv,
     },
     vendors: enriched,
+    accountTypeCounts,
+    listCounts,
   });
 }
 
@@ -236,12 +348,16 @@ export async function POST(req: NextRequest) {
     company_name: companyName || name || email.split('@')[0] || 'Company',
     is_verified: false,
     verified_at: null as string | null,
+    services_verified: false,
+    services_verified_at: null as string | null,
   };
 
   const { data: vendor, error: insertError } = await supabaseAdmin
     .from('vendors')
     .insert(insertRow)
-    .select('id, name, email, company_name, is_verified, verified_at, created_at, updated_at')
+    .select(
+      'id, name, email, company_name, is_verified, verified_at, services_verified, services_verified_at, created_at, updated_at',
+    )
     .single();
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
@@ -280,7 +396,24 @@ export async function PATCH(req: NextRequest) {
       })
       .in('id', ids);
     if (bulkError) return NextResponse.json({ error: bulkError.message }, { status: 500 });
-    return NextResponse.json({ success: true, updated: ids.length });
+    return NextResponse.json({ success: true, updated: ids.length, portal: 'marketplace' });
+  }
+
+  if (Array.isArray(body?.ids) && typeof body.servicesVerified === 'boolean') {
+    const ids = [...new Set(body.ids.map((id: unknown) => String(id).trim()).filter(Boolean))];
+    if (ids.length === 0) {
+      return NextResponse.json({ error: 'ids must be a non-empty array' }, { status: 400 });
+    }
+    const servicesVerified = Boolean(body.servicesVerified);
+    const { error: bulkError } = await supabaseAdmin
+      .from('vendors')
+      .update({
+        services_verified: servicesVerified,
+        services_verified_at: servicesVerified ? new Date().toISOString() : null,
+      })
+      .in('id', ids);
+    if (bulkError) return NextResponse.json({ error: bulkError.message }, { status: 500 });
+    return NextResponse.json({ success: true, updated: ids.length, portal: 'services' });
   }
 
   if (!body?.id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
@@ -295,6 +428,11 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.isVerified === 'boolean') {
     patch.is_verified = body.isVerified;
     patch.verified_at = body.isVerified ? new Date().toISOString() : null;
+  }
+
+  if (typeof body.servicesVerified === 'boolean') {
+    patch.services_verified = body.servicesVerified;
+    patch.services_verified_at = body.servicesVerified ? new Date().toISOString() : null;
   }
 
   if (Object.keys(patch).length > 0) {
@@ -357,16 +495,18 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  if (
-    Object.keys(patch).length === 0 &&
-    (!profileBody || typeof profileBody !== 'object' || Object.keys(profileBody as object).length === 0)
-  ) {
+  const hasProfilePatch =
+    profileBody && typeof profileBody === 'object' && Object.keys(profileBody as object).length > 0;
+
+  if (Object.keys(patch).length === 0 && !hasProfilePatch) {
     return NextResponse.json({ error: 'No valid fields to patch' }, { status: 422 });
   }
 
   const { data: vendor, error: selectError } = await supabaseAdmin
     .from('vendors')
-    .select('id, name, email, company_name, is_verified, verified_at, created_at, updated_at')
+    .select(
+      'id, name, email, company_name, is_verified, verified_at, services_verified, services_verified_at, created_at, updated_at',
+    )
     .eq('id', vendorId)
     .single();
 
