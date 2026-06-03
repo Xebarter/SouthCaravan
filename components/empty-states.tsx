@@ -21,7 +21,7 @@ export function NoMessagesState() {
       <MessageSquare className="w-16 h-16 text-muted-foreground mb-4" />
       <h3 className="text-xl font-semibold text-foreground mb-2">No Messages</h3>
       <p className="text-muted-foreground mb-6">Start a conversation with a vendor</p>
-      <Link href="/public/vendors">
+      <Link href="/categories">
         <Button>Find Vendors</Button>
       </Link>
     </div>

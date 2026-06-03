@@ -6,11 +6,9 @@ import { SITE_URL } from '@/lib/seo/site'
 const STATIC_ROUTES: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }[] = [
   { path: '/', priority: 1, changeFrequency: 'daily' },
   { path: '/categories', priority: 0.9, changeFrequency: 'weekly' },
-  { path: '/public/vendors', priority: 0.85, changeFrequency: 'weekly' },
   { path: '/public/services/browse', priority: 0.85, changeFrequency: 'weekly' },
   { path: '/about', priority: 0.8, changeFrequency: 'monthly' },
   { path: '/features', priority: 0.8, changeFrequency: 'monthly' },
-  { path: '/pricing', priority: 0.75, changeFrequency: 'monthly' },
   { path: '/resources', priority: 0.75, changeFrequency: 'weekly' },
   { path: '/blog', priority: 0.85, changeFrequency: 'daily' },
   { path: '/faq', priority: 0.7, changeFrequency: 'monthly' },

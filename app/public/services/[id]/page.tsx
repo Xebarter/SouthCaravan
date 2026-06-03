@@ -122,7 +122,7 @@ export default async function PublicServiceOfferingPage(props: PageProps) {
             <Link href="/">Back to marketplace</Link>
           </Button>
           <Button variant="outline" asChild className="rounded-full">
-            <Link href="/public/vendors">Explore suppliers</Link>
+            <Link href="/categories">Explore suppliers</Link>
           </Button>
         </div>
       </div>

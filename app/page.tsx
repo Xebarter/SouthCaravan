@@ -58,7 +58,7 @@ export default async function HomePage() {
               Featured Marketplace Picks
             </Badge>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4">
-              <Link href={heroProducts[0] ? `/product/${heroProducts[0].id}` : '/public/vendors'} className="lg:col-span-6 block">
+              <Link href={heroProducts[0] ? `/product/${heroProducts[0].id}` : '/categories'} className="lg:col-span-6 block">
                 <Card className="border-slate-200 bg-linear-to-br from-sky-50 via-white to-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
                   <CardContent className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
                     {heroProducts[0]?.images?.[0] ? (
@@ -189,7 +189,7 @@ export default async function HomePage() {
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <PostMyRfqButton size="lg" className="rounded-full px-5 sm:px-6" showArrow />
             <Button size="lg" variant="outline" className="rounded-full px-5 sm:px-6 border-slate-300 bg-white" asChild>
-              <Link href="/public/vendors">Explore Suppliers</Link>
+              <Link href="/categories">Explore Suppliers</Link>
             </Button>
           </div>
         </div>

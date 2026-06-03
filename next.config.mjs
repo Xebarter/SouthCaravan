@@ -14,6 +14,9 @@ const nextConfig = {
     return [
       { source: '/landing', destination: '/', permanent: true },
       { source: '/catalog', destination: '/', permanent: true },
+      { source: '/pricing', destination: '/', permanent: true },
+      { source: '/public/vendors', destination: '/', permanent: true },
+      { source: '/vendors', destination: '/', permanent: true },
     ];
   },
   typescript: {

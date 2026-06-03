@@ -6,8 +6,6 @@ import { DEFAULT_DESCRIPTION } from '@/lib/seo/site';
 
 const EXPLORE_LINKS = [
   { label: 'Marketplace', href: '/' },
-  { label: 'Vendors', href: '/public/vendors' },
-  { label: 'Pricing', href: '/pricing' },
   { label: 'FAQ', href: '/faq' },
 ] as const;
 
