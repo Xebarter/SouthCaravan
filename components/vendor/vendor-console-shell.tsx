@@ -34,7 +34,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
   const { user, logout } = useAuth();
 
   const companyName = user?.company?.trim() || user?.name?.trim() || 'Vendor';
-  const storefrontHref = user?.id ? `/vendor/${user.id}` : '/catalog';
+  const storefrontHref = user?.id ? `/vendor/${user.id}` : '/';
   const vendorName = user?.name?.trim() || companyName;
   const vendorEmail = user?.email?.trim() || '';
 

@@ -363,7 +363,7 @@ export default function ContactPage() {
               <Link href="/signup">Create a Free Account</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link href="/catalog">Browse the Catalog</Link>
+              <Link href="/">Browse the Marketplace</Link>
             </Button>
           </div>
         </div>

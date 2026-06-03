@@ -70,7 +70,7 @@ export default function BuyerWishlistPage() {
         <CardContent className="space-y-3">
           {items.length === 0 ? (
             <div className="text-sm text-muted-foreground">
-              No wishlist items yet. Browse the <Link className="underline" href="/catalog">catalog</Link>.
+              No wishlist items yet. Browse the <Link className="underline" href="/">marketplace</Link>.
             </div>
           ) : (
             items.map((it) => (

@@ -67,7 +67,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button asChild className="w-full sm:w-auto">
-                  <Link href="/catalog">Browse products</Link>
+                  <Link href="/">Browse products</Link>
                 </Button>
               </div>
             </CardContent>
@@ -161,7 +161,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
                   </Button>
                 )}
                 <Button asChild className="w-full">
-                  <Link href="/catalog">Browse catalog</Link>
+                  <Link href="/">Browse catalog</Link>
                 </Button>
               </div>
             </div>

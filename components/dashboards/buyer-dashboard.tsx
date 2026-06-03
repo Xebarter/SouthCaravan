@@ -291,7 +291,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
             <Button
               type="button"
               className="rounded-2xl"
-              onClick={() => router.push('/catalog')}
+              onClick={() => router.push('/')}
             >
               <Sparkles className="w-4 h-4" />
               Browse catalog
@@ -325,7 +325,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         const q = catalogQuery.trim();
-                        router.push(q ? `/catalog?query=${encodeURIComponent(q)}` : '/catalog');
+                        router.push(q ? `/?query=${encodeURIComponent(q)}` : '/');
                       }
                     }}
                   />
@@ -336,7 +336,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                       className="rounded-xl"
                       onClick={() => {
                         const q = catalogQuery.trim();
-                        router.push(q ? `/catalog?query=${encodeURIComponent(q)}` : '/catalog');
+                        router.push(q ? `/?query=${encodeURIComponent(q)}` : '/');
                       }}
                     >
                       Search
@@ -446,7 +446,7 @@ export function BuyerDashboard({ buyerId }: { buyerId: string }) {
                   </EmptyHeader>
                   <EmptyContent>
                     <div className="flex flex-col sm:flex-row gap-2 w-full">
-                      <Link href="/catalog" className="w-full">
+                      <Link href="/" className="w-full">
                         <Button className="w-full rounded-2xl">Browse catalog</Button>
                       </Link>
                       <Link href="/buyer/quotes" className="w-full">

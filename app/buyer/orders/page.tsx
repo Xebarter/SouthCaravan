@@ -203,7 +203,7 @@ export default function BuyerOrdersPage() {
             <Card className="border-border/50">
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground">No orders found.</p>
-                <Link href="/catalog">
+                <Link href="/">
                   <Button className="mt-4">Browse Catalog</Button>
                 </Link>
               </CardContent>

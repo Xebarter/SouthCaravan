@@ -389,7 +389,7 @@ function EmptyCartView() {
       </p>
       <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <Button asChild size="lg" className="min-w-[160px]">
-          <Link href="/catalog">
+          <Link href="/">
             Browse catalog
             <ChevronRight className="ml-1.5 h-4 w-4" />
           </Link>
@@ -535,7 +535,7 @@ export default function CartPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/catalog">Continue shopping</Link>
+            <Link href="/">Continue shopping</Link>
           </Button>
           <Button
             type="button"

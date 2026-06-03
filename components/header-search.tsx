@@ -247,7 +247,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && query.trim()) {
-              router.push(`/catalog?query=${encodeURIComponent(query.trim())}`);
+              router.push(`/?query=${encodeURIComponent(query.trim())}`);
               setOpen(false);
             }
           }}
@@ -325,7 +325,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                     return (
                       <Link
                         key={`${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
-                        href={`/catalog?${params.toString()}`}
+                        href={`/?${params.toString()}`}
                         onClick={() => setOpen(false)}
                         className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
                           mobile ? 'p-3 min-h-13' : 'p-2'
@@ -410,7 +410,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
             {mobile && trimmedQuery && (
               <div className="sticky bottom-0 bg-background border-t border-border/60 px-4 py-3">
                 <Link
-                  href={`/catalog?query=${encodeURIComponent(trimmedQuery)}`}
+                  href={`/?query=${encodeURIComponent(trimmedQuery)}`}
                   onClick={() => setOpen(false)}
                   className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground text-sm font-medium py-3 hover:bg-primary/90 active:bg-primary/80 transition-colors"
                 >

@@ -8,7 +8,7 @@ export function NoOrdersState() {
       <ShoppingCart className="w-16 h-16 text-muted-foreground mb-4" />
       <h3 className="text-xl font-semibold text-foreground mb-2">No Orders Yet</h3>
       <p className="text-muted-foreground mb-6">Start browsing products and place your first order</p>
-      <Link href="/catalog">
+      <Link href="/">
         <Button>Browse Products</Button>
       </Link>
     </div>
@@ -44,7 +44,7 @@ export function NoQuotesState() {
       <FileText className="w-16 h-16 text-muted-foreground mb-4" />
       <h3 className="text-xl font-semibold text-foreground mb-2">No Quotes Requested</h3>
       <p className="text-muted-foreground mb-6">Request quotes from vendors for bulk orders</p>
-      <Link href="/catalog">
+      <Link href="/">
         <Button>Request Quote</Button>
       </Link>
     </div>

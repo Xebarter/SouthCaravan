@@ -5,7 +5,7 @@ import { SiteLogoMark } from '@/components/site-logo';
 import { DEFAULT_DESCRIPTION } from '@/lib/seo/site';
 
 const EXPLORE_LINKS = [
-  { label: 'Catalog', href: '/catalog' },
+  { label: 'Marketplace', href: '/' },
   { label: 'Vendors', href: '/public/vendors' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'FAQ', href: '/faq' },

@@ -32,7 +32,7 @@ export default function VendorDetailPage({ params }: VendorDetailPageProps) {
     return (
       <main className="flex-1 overflow-auto">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-          <Link href="/catalog">
+          <Link href="/">
             <Button variant="outline" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Catalog
@@ -52,7 +52,7 @@ export default function VendorDetailPage({ params }: VendorDetailPageProps) {
     <main className="flex-1 overflow-auto">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
-        <Link href="/catalog">
+        <Link href="/">
           <Button variant="outline" className="mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Catalog

@@ -61,7 +61,7 @@ export function MainNav() {
       ]
     : [
         { label: 'Dashboard', href: '/buyer', icon: Home },
-        { label: 'Catalog', href: '/catalog', icon: Package },
+        { label: 'Marketplace', href: '/', icon: Package },
         { label: 'Orders', href: '/buyer/orders', icon: ShoppingCart },
         { label: 'Quotes', href: '/buyer/quotes', icon: FileText },
         { label: 'Messages', href: '/buyer/messages', icon: MessageSquare },

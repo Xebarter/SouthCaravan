@@ -129,7 +129,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <BreadcrumbJsonLd
         items={[
           { name: 'Home', path: '/' },
-          { name: 'Catalog', path: '/catalog' },
+          { name: 'Home', path: '/' },
           { name: product.name, path: `/product/${id}` },
         ]}
       />
