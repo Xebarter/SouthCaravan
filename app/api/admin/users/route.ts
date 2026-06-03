@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthedAdmin } from '@/lib/api/admin-auth';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import {
+  classifyAccountSegment,
+  normalizePortalRoles,
+  primaryRoleFromRoles,
+  type AdminUserAccountSegment,
+} from '@/lib/admin-user-account-segment';
 import type { UserRole } from '@/lib/types';
 
 type AdminUserRow = {
@@ -8,6 +14,8 @@ type AdminUserRow = {
   email: string;
   name: string;
   role: UserRole;
+  roles: string[];
+  account_segment: AdminUserAccountSegment;
   company: string | null;
   created_at: string | null;
   last_sign_in_at: string | null;
@@ -16,7 +24,7 @@ type AdminUserRow = {
 
 function coerceRole(input: unknown): UserRole {
   const s = String(input ?? '').toLowerCase();
-  if (s === 'admin' || s === 'vendor' || s === 'buyer') return s;
+  if (s === 'admin' || s === 'vendor' || s === 'services' || s === 'buyer') return s;
   return 'buyer';
 }
 
@@ -30,16 +38,15 @@ function nameFromUser(u: any) {
   );
 }
 
-function roleFromUser(u: any, rolesFromDb: string[]) {
+function mergeRolesForUser(u: any, rolesFromDb: string[]) {
+  const merged = normalizePortalRoles(rolesFromDb);
   const appMeta = u?.app_metadata ?? {};
-  const direct = appMeta?.role;
-  if (direct) return coerceRole(direct);
+  if (appMeta?.role) merged.add(String(appMeta.role).toLowerCase());
   const arr = Array.isArray(appMeta?.roles) ? appMeta.roles : [];
-  if (arr.length > 0) return coerceRole(arr[0]);
-  if (rolesFromDb.includes('admin')) return 'admin';
-  if (rolesFromDb.includes('vendor')) return 'vendor';
-  if (rolesFromDb.includes('buyer')) return 'buyer';
-  return 'buyer';
+  for (const r of arr) merged.add(String(r).toLowerCase());
+  const userMeta = u?.user_metadata ?? {};
+  if (userMeta?.role) merged.add(String(userMeta.role).toLowerCase());
+  return [...merged];
 }
 
 export async function GET(req: Request) {
@@ -72,6 +79,23 @@ export async function GET(req: Request) {
     rolesByUser.set(uid, list);
   }
 
+  const vendorRecordIds = new Set<string>();
+  const serviceProviderIds = new Set<string>();
+  if (userIds.length > 0) {
+    const [{ data: vendorRows }, { data: offeringRows }] = await Promise.all([
+      supabaseAdmin.from('vendors').select('id').in('id', userIds),
+      supabaseAdmin.from('service_offerings').select('provider_user_id').in('provider_user_id', userIds),
+    ]);
+    for (const row of Array.isArray(vendorRows) ? vendorRows : []) {
+      const id = String((row as any).id ?? '');
+      if (id) vendorRecordIds.add(id);
+    }
+    for (const row of Array.isArray(offeringRows) ? offeringRows : []) {
+      const id = String((row as any).provider_user_id ?? '');
+      if (id) serviceProviderIds.add(id);
+    }
+  }
+
   let statsByUser: Record<string, { transactions: number; volume: number }> = {};
   if (includeStats && userIds.length > 0) {
     const { data: orders } = await supabaseAdmin
@@ -94,9 +118,23 @@ export async function GET(req: Request) {
     statsByUser = agg;
   }
 
+  const segmentCounts: Record<AdminUserAccountSegment, number> = {
+    admin: 0,
+    buyer: 0,
+    marketplace_vendor: 0,
+    service_provider: 0,
+    hybrid: 0,
+  };
+
   const rows: AdminUserRow[] = users.map((u: any) => {
     const id = String(u.id);
-    const roles = rolesByUser.get(id) ?? [];
+    const roles = mergeRolesForUser(u, rolesByUser.get(id) ?? []);
+    const account_segment = classifyAccountSegment(roles, {
+      hasVendorRecord: vendorRecordIds.has(id),
+      hasServiceOfferings: serviceProviderIds.has(id),
+    });
+    segmentCounts[account_segment] += 1;
+
     const meta = u.user_metadata ?? {};
     const company = typeof meta.company === 'string' ? meta.company : null;
     const createdAt = typeof u.created_at === 'string' ? u.created_at : null;
@@ -105,7 +143,9 @@ export async function GET(req: Request) {
       id,
       email: typeof u.email === 'string' ? u.email : '',
       name: nameFromUser(u),
-      role: roleFromUser(u, roles),
+      role: primaryRoleFromRoles(roles),
+      roles,
+      account_segment,
       company,
       created_at: createdAt,
       last_sign_in_at: lastSignIn,
@@ -119,6 +159,7 @@ export async function GET(req: Request) {
     page,
     pageSize,
     total: typeof data?.total === 'number' ? data.total : null,
+    segmentCounts,
   });
 }
 
@@ -157,7 +198,7 @@ export async function POST(req: Request) {
   }
 
   const userId = data.user.id;
-  if (role === 'buyer' || role === 'vendor' || role === 'admin') {
+  if (role === 'buyer' || role === 'vendor' || role === 'services' || role === 'admin') {
     await supabaseAdmin.from('user_roles').upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
   }
 

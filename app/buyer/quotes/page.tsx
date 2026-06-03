@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth-context';
+import { canAccessBuyerWorkspace } from '@/lib/buyer-portal-access';
 import {
   ClipboardList,
   Clock,
@@ -97,7 +98,7 @@ export default function BuyerQuotesPage() {
   const [searchBusy, setSearchBusy] = useState(false);
 
   const refreshRfqs = useCallback(async () => {
-    if (!user || user.role !== 'buyer') return;
+    if (!canAccessBuyerWorkspace(user)) return;
     setLoadingList(true);
     try {
       const res = await fetch('/api/buyer/rfqs', { cache: 'no-store' });
@@ -120,7 +121,7 @@ export default function BuyerQuotesPage() {
   const consumeUrlPrefill = useCallback(async () => {
     const add = searchParams.get('add')?.trim() ?? '';
     const qtyRaw = searchParams.get('qty') ?? '1';
-    if (!add || !user || user.role !== 'buyer') return;
+    if (!add || !canAccessBuyerWorkspace(user)) return;
 
     const qty = Math.max(1, Math.floor(Number(qtyRaw) || 1));
     try {
@@ -252,7 +253,7 @@ export default function BuyerQuotesPage() {
     setSearchHits([]);
   }
 
-  if (!user || user.role !== 'buyer') {
+  if (!canAccessBuyerWorkspace(user)) {
     return (
       <main className="flex-1 overflow-auto bg-linear-to-b from-background via-background to-muted/30">
         <div className="container mx-auto max-w-3xl px-4 py-16 text-center text-muted-foreground">

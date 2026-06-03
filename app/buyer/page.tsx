@@ -1,22 +1,20 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { canAccessBuyerWorkspace } from '@/lib/buyer-portal-access';
+import { grantPortalAccess } from '@/lib/portal-session';
 import { BuyerDashboard } from '@/components/dashboards/buyer-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function BuyerHomePage() {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
   const buyerId = user?.id ?? 'user-1';
 
   useEffect(() => {
     if (isLoading || !user) return;
-
-    if (user.role === 'vendor') router.replace('/vendor');
-    if (user.role === 'admin') router.replace('/dashboard');
-  }, [isLoading, user, router]);
+    void grantPortalAccess('buyer').catch(() => {});
+  }, [isLoading, user]);
 
   if (isLoading) {
     return (
@@ -27,7 +25,7 @@ export default function BuyerHomePage() {
     );
   }
 
-  if (user && user.role !== 'buyer') return null;
+  if (!canAccessBuyerWorkspace(user)) return null;
 
   return <BuyerDashboard buyerId={buyerId} />;
 }

@@ -339,8 +339,8 @@ function deriveTotals(state: CartState): CartDerived {
   };
 }
 
-function isBuyerRole(user: { role: string } | null): boolean {
-  return user?.role === 'buyer';
+function canUseBuyerCart(user: { id: string } | null): boolean {
+  return Boolean(user?.id);
 }
 
 export function useCart(): UseCartReturn {
@@ -349,7 +349,7 @@ export function useCart(): UseCartReturn {
   const [hydrated, setHydrated] = React.useState(false);
   const [serverBacked, setServerBacked] = React.useState(false);
 
-  const serverCartMode = !authLoading && isBuyerRole(user);
+  const serverCartMode = !authLoading && canUseBuyerCart(user);
 
   React.useEffect(() => {
     if (authLoading) return;

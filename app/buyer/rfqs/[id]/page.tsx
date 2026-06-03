@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
+import { canAccessBuyerWorkspace } from '@/lib/buyer-portal-access';
 import {
   ArrowLeft,
   Building2,
@@ -57,7 +58,7 @@ export default function BuyerRfqWorkspacePage({ params }: { params: { id: string
   const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user || user.role !== 'buyer') return;
+    if (!canAccessBuyerWorkspace(user)) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/buyer/rfqs/${encodeURIComponent(params.id)}`, { cache: 'no-store' });
@@ -110,7 +111,7 @@ export default function BuyerRfqWorkspacePage({ params }: { params: { id: string
     }
   }
 
-  if (!user || user.role !== 'buyer') {
+  if (!canAccessBuyerWorkspace(user)) {
     return (
       <div className="container max-w-3xl px-4 py-16 text-center text-muted-foreground">Buyer sign-in required.</div>
     );

@@ -73,7 +73,7 @@ export function ProductPurchaseActions({
     if (!inStock || !rfqEnabled || authLoading) return;
     const qty = clampQty(quantity);
     const next = `/buyer/quotes?add=${encodeURIComponent(productId)}&qty=${encodeURIComponent(String(qty))}`;
-    if (user?.role === 'buyer') {
+    if (user) {
       router.push(next);
       return;
     }
@@ -155,7 +155,7 @@ export function ProductPurchaseActions({
     qs.set('productName', name);
     const next = `/buyer/messages?${qs.toString()}`;
 
-    if (user?.role === 'buyer') {
+    if (user) {
       router.push(next);
       return;
     }

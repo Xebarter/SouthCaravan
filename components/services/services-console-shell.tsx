@@ -18,7 +18,7 @@ import {
   type SidebarNavItem,
 } from '@/components/dashboard/dashboard-workspace-sidebar'
 import { useAuth } from '@/lib/auth-context'
-import { portalAuthHref } from '@/lib/portal-session'
+import { PORTAL_DESTINATIONS } from '@/lib/portal-session'
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { href: '/services/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -54,7 +54,7 @@ export function ServicesConsoleShell({ children }: { children: React.ReactNode }
       pathname={pathname}
       navItems={NAV_ITEMS}
       footerActions={[
-        { label: 'Buyer workspace', icon: ShoppingBag, href: portalAuthHref('buyer') },
+        { label: 'Buyer workspace', icon: ShoppingBag, href: PORTAL_DESTINATIONS.buyer },
         { label: 'Shop', icon: ArrowLeft, href: '/' },
       ]}
       onSignOut={handleLogout}

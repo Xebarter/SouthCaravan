@@ -5,7 +5,7 @@ import type { UserRole } from '@/lib/types';
 
 function coerceRole(input: unknown): UserRole | null {
   const s = String(input ?? '').toLowerCase();
-  if (s === 'admin' || s === 'vendor' || s === 'buyer') return s;
+  if (s === 'admin' || s === 'vendor' || s === 'services' || s === 'buyer') return s;
   return null;
 }
 
@@ -45,7 +45,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (role) {
     // Keep the user_roles table consistent with the selected role.
     // We ensure the target role exists, and remove other portal roles.
-    await supabaseAdmin.from('user_roles').delete().eq('user_id', userId).in('role', ['buyer', 'vendor', 'admin']);
+    await supabaseAdmin
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+      .in('role', ['buyer', 'vendor', 'services', 'admin']);
     await supabaseAdmin.from('user_roles').upsert({ user_id: userId, role }, { onConflict: 'user_id,role' });
   }
 

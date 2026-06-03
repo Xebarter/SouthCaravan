@@ -9,6 +9,7 @@ import { setPortalSellConfirmOpen } from '@/lib/portal-sell-confirm-guard'
 import { isSellPortal } from '@/lib/portal-sell-prompt'
 import {
   PORTAL_DESTINATIONS,
+  grantPortalAccess,
   portalAuthHref,
   switchToPortal,
   type GrantablePortal,
@@ -75,9 +76,34 @@ export function PortalSwitchLink({
     }
   }
 
+  const openBuyerWorkspace = async () => {
+    if (!user) {
+      window.location.assign(authHref ?? portalAuthHref('buyer'))
+      return
+    }
+
+    setBusy(true)
+    try {
+      void grantPortalAccess('buyer')
+      router.push(PORTAL_DESTINATIONS.buyer)
+      onNavigate?.()
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Could not open buyer workspace.'
+      window.alert(message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleTriggerClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (isLoading || busy) {
       event.preventDefault()
+      return
+    }
+
+    if (portal === 'buyer' && user) {
+      event.preventDefault()
+      void openBuyerWorkspace()
       return
     }
 

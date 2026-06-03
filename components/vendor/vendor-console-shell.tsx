@@ -17,7 +17,7 @@ import {
   type SidebarNavItem,
 } from '@/components/dashboard/dashboard-workspace-sidebar';
 import { useAuth } from '@/lib/auth-context';
-import { portalAuthHref } from '@/lib/portal-session';
+import { PORTAL_DESTINATIONS } from '@/lib/portal-session';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { href: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
@@ -55,7 +55,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
         {
           label: 'Buyer workspace',
           icon: ShoppingBag,
-          href: portalAuthHref('buyer'),
+          href: PORTAL_DESTINATIONS.buyer,
         },
         {
           label: 'Storefront',

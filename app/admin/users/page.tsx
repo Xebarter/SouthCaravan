@@ -36,24 +36,58 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Shield, Mail, Plus, Filter, Loader2, Trash2, Pencil } from 'lucide-react';
+import {
+  MoreVertical,
+  Shield,
+  Mail,
+  Plus,
+  Filter,
+  Loader2,
+  Trash2,
+  Pencil,
+  Store,
+  BriefcaseBusiness,
+  Sparkles,
+  ShoppingBag,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import {
+  ACCOUNT_SEGMENT_META,
+  portalRoleBadges,
+  type AdminUserAccountSegment,
+} from '@/lib/admin-user-account-segment';
+import type { UserRole } from '@/lib/types';
 
 type AdminUser = {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'vendor' | 'buyer';
+  role: UserRole;
+  roles: string[];
+  account_segment: AdminUserAccountSegment;
   company: string | null;
   created_at: string | null;
   last_sign_in_at: string | null;
   stats?: { transactions: number; volume: number };
 };
 
+type SegmentFilter = 'all' | AdminUserAccountSegment;
+
+const EMPTY_SEGMENT_COUNTS: Record<AdminUserAccountSegment, number> = {
+  admin: 0,
+  buyer: 0,
+  marketplace_vendor: 0,
+  service_provider: 0,
+  hybrid: 0,
+};
+
 export default function AdminUsersPage() {
-  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [segmentFilter, setSegmentFilter] = useState<SegmentFilter>('all');
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [segmentCounts, setSegmentCounts] =
+    useState<Record<AdminUserAccountSegment, number>>(EMPTY_SEGMENT_COUNTS);
   const [query, setQuery] = useState('');
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -63,7 +97,7 @@ export default function AdminUsersPage() {
     password: '',
     name: '',
     company: '',
-    role: 'buyer' as AdminUser['role'],
+    role: 'buyer' as UserRole,
   });
 
   const [editOpen, setEditOpen] = useState(false);
@@ -72,7 +106,7 @@ export default function AdminUsersPage() {
   const [editForm, setEditForm] = useState({
     name: '',
     company: '',
-    role: 'buyer' as AdminUser['role'],
+    role: 'buyer' as UserRole,
   });
 
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -86,9 +120,15 @@ export default function AdminUsersPage() {
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || 'Failed to load users');
       setUsers(Array.isArray(json?.users) ? json.users : []);
+      setSegmentCounts(
+        json?.segmentCounts && typeof json.segmentCounts === 'object'
+          ? { ...EMPTY_SEGMENT_COUNTS, ...json.segmentCounts }
+          : EMPTY_SEGMENT_COUNTS,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load users');
       setUsers([]);
+      setSegmentCounts(EMPTY_SEGMENT_COUNTS);
     } finally {
       setLoading(false);
     }
@@ -101,33 +141,20 @@ export default function AdminUsersPage() {
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
     return users.filter((u) => {
-      if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+      if (segmentFilter !== 'all' && u.account_segment !== segmentFilter) return false;
       if (!q) return true;
-      const hay = `${u.name} ${u.email} ${u.company ?? ''} ${u.id}`.toLowerCase();
+      const hay = `${u.name} ${u.email} ${u.company ?? ''} ${u.id} ${u.account_segment} ${(u.roles ?? []).join(' ')}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [users, roleFilter, query]);
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-purple-500/10 text-purple-400';
-      case 'vendor':
-        return 'bg-primary/10 text-primary';
-      case 'buyer':
-        return 'bg-green-500/10 text-green-400';
-      default:
-        return 'bg-gray-500/10 text-gray-400';
-    }
-  };
+  }, [users, segmentFilter, query]);
 
   const stats = useMemo(() => {
     const total = users.length;
-    const vendors = users.filter((u) => u.role === 'vendor').length;
-    const buyers = users.filter((u) => u.role === 'buyer').length;
-    const admins = users.filter((u) => u.role === 'admin').length;
-    return { total, vendors, buyers, admins };
-  }, [users]);
+    return {
+      total,
+      ...segmentCounts,
+    };
+  }, [users.length, segmentCounts]);
 
   async function createUser() {
     setInviteSaving(true);
@@ -217,29 +244,41 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground mt-1">Total Users</p>
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums">{stats.total}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Total</p>
             </CardContent>
           </Card>
           <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.vendors}</div>
-              <p className="text-xs text-muted-foreground mt-1">Vendors</p>
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums text-sky-600">{stats.buyer}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Buyers</p>
             </CardContent>
           </Card>
           <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.buyers}</div>
-              <p className="text-xs text-muted-foreground mt-1">Buyers</p>
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums text-emerald-600">{stats.marketplace_vendor}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Vendors</p>
             </CardContent>
           </Card>
           <Card className="border-border/50">
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{stats.admins}</div>
-              <p className="text-xs text-muted-foreground mt-1">Admins</p>
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums text-violet-600">{stats.service_provider}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Service providers</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums text-indigo-600">{stats.hybrid}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Hybrid</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="py-3">
+              <div className="text-xl font-bold tabular-nums text-purple-600">{stats.admin}</div>
+              <p className="text-xs text-muted-foreground mt-0.5">Admins</p>
             </CardContent>
           </Card>
         </div>
@@ -248,15 +287,17 @@ export default function AdminUsersPage() {
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2 items-center">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-48 bg-secondary">
-              <SelectValue placeholder="Filter by role" />
+          <Select value={segmentFilter} onValueChange={(v) => setSegmentFilter(v as SegmentFilter)}>
+            <SelectTrigger className="w-56 bg-secondary">
+              <SelectValue placeholder="Filter by account type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Users</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="vendor">Vendor</SelectItem>
-              <SelectItem value="buyer">Buyer</SelectItem>
+              <SelectItem value="all">All account types</SelectItem>
+              <SelectItem value="buyer">Buyers</SelectItem>
+              <SelectItem value="marketplace_vendor">Marketplace vendors</SelectItem>
+              <SelectItem value="service_provider">Service providers</SelectItem>
+              <SelectItem value="hybrid">Vendor &amp; services (hybrid)</SelectItem>
+              <SelectItem value="admin">Admins</SelectItem>
             </SelectContent>
           </Select>
           </div>
@@ -272,7 +313,9 @@ export default function AdminUsersPage() {
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle>Users</CardTitle>
-            <CardDescription>All registered users on the platform</CardDescription>
+            <CardDescription>
+              Buyers, marketplace vendors, service providers, and hybrid accounts (both portals)
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 overflow-x-auto">
@@ -282,7 +325,7 @@ export default function AdminUsersPage() {
                     <tr className="border-b border-border/50">
                       <th className="text-left py-3 px-4 font-semibold text-muted-foreground">User</th>
                       <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Email</th>
-                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Role</th>
+                      <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Account type</th>
                       <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Company</th>
                       <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Activity</th>
                       <th className="text-right py-3 px-4 font-semibold text-muted-foreground">Actions</th>
@@ -325,9 +368,7 @@ export default function AdminUsersPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <Badge className={getRoleColor(user.role)}>
-                              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                            </Badge>
+                            <AccountTypeCell user={user} />
                           </td>
                           <td className="py-3 px-4">{user.company || '—'}</td>
                           <td className="py-3 px-4">
@@ -415,10 +456,14 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="buyer">Buyer</SelectItem>
-                <SelectItem value="vendor">Vendor</SelectItem>
+                <SelectItem value="vendor">Marketplace vendor</SelectItem>
+                <SelectItem value="services">Service provider</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Hybrid accounts need both vendor and services roles in the database. Creating a user sets one portal role only.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)} disabled={inviteSaving}>
@@ -451,7 +496,8 @@ export default function AdminUsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="buyer">Buyer</SelectItem>
-                <SelectItem value="vendor">Vendor</SelectItem>
+                <SelectItem value="vendor">Marketplace vendor</SelectItem>
+                <SelectItem value="services">Service provider</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -493,5 +539,43 @@ export default function AdminUsersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </main>
+  );
+}
+
+function AccountTypeCell({ user }: { user: AdminUser }) {
+  const segment = user.account_segment ?? 'buyer';
+  const meta = ACCOUNT_SEGMENT_META[segment] ?? ACCOUNT_SEGMENT_META.buyer;
+  const roleChips = portalRoleBadges(user.roles ?? [user.role]);
+
+  const SegmentIcon =
+    segment === 'admin'
+      ? Shield
+      : segment === 'buyer'
+        ? ShoppingBag
+        : segment === 'marketplace_vendor'
+          ? Store
+          : segment === 'service_provider'
+            ? BriefcaseBusiness
+            : Sparkles;
+
+  return (
+    <div className="space-y-1.5 min-w-[10rem]">
+      <Badge variant="outline" className={cn('gap-1 font-medium border', meta.badgeClass)}>
+        <SegmentIcon className="h-3 w-3 shrink-0" />
+        {meta.shortLabel}
+      </Badge>
+      {roleChips.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {roleChips.map((chip) => (
+            <span
+              key={chip.role}
+              className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            >
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

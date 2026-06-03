@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { User, UserRole } from './types';
+import { collectPortalRolesFromAuthUser, primaryPortalRole } from '@/lib/buyer-portal-access';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 
 const POST_AUTH_NEXT_KEY = 'sc_post_auth_next';
@@ -39,20 +40,8 @@ function clearPortalHints() {
 
 function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
   if (!supabaseUser?.id) return null;
-  const meta = supabaseUser.app_metadata ?? {};
-  // Prefer the scalar `role` field; fall back to app_metadata.roles (written by
-  // the portal-access grant flow). If multiple roles exist, prefer the most
-  // privileged / operational portal first.
-  const rolesArr: string[] = Array.isArray(meta.roles) ? meta.roles : [];
-  const scalar = typeof meta.role === 'string' ? meta.role : '';
-  const merged = [scalar, ...rolesArr].map((r) => String(r || '').toLowerCase()).filter(Boolean);
-  const role = (merged.includes('admin')
-    ? 'admin'
-    : merged.includes('vendor')
-      ? 'vendor'
-      : merged.includes('services')
-        ? 'services'
-        : 'buyer') as UserRole;
+  const roles = collectPortalRolesFromAuthUser(supabaseUser);
+  const role = primaryPortalRole(roles.length > 0 ? roles : ['buyer']);
 
   const name =
     supabaseUser.user_metadata?.name ||
@@ -71,6 +60,7 @@ function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
     email: supabaseUser.email ?? '',
     name,
     role,
+    roles: roles.length > 0 ? roles : [role],
     company,
     avatar,
     createdAt: new Date(supabaseUser.created_at ?? Date.now()),

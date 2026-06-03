@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
+import { canAccessBuyerWorkspace } from '@/lib/buyer-portal-access';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 
@@ -19,7 +20,7 @@ function buyerSignInHref() {
 }
 
 export function resolvePostMyRfqPath(user: User | null | undefined) {
-  if (user?.role === 'buyer') return RFQ_DESTINATION;
+  if (canAccessBuyerWorkspace(user)) return RFQ_DESTINATION;
   return buyerSignInHref();
 }
 

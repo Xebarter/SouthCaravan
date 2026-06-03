@@ -2,28 +2,26 @@ import { NextResponse } from 'next/server';
 import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-function hasBuyerAccessFromJwt(user: any): boolean {
-  // Check app_metadata (set by admin/service role)
-  const appMeta = user?.app_metadata ?? {};
-  if (appMeta.role === 'buyer') return true;
-  const appRoles = Array.isArray(appMeta.roles) ? appMeta.roles : [];
-  if (appRoles.includes('buyer')) return true;
+async function ensureBuyerProfile(user: {
+  id: string;
+  email: string;
+  user_metadata?: Record<string, unknown>;
+}) {
+  const email = user.email;
+  const meta = user.user_metadata ?? {};
+  const name =
+    (typeof meta.name === 'string' && meta.name.trim()) ||
+    (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+    email.split('@')[0] ||
+    'Buyer';
 
-  // Check user_metadata.role (set during client-side signUp via auth-context.tsx)
-  const userMeta = user?.user_metadata ?? {};
-  if (userMeta.role === 'buyer') return true;
+  await supabaseAdmin
+    .from('customers')
+    .upsert({ id: user.id, email, name }, { onConflict: 'id' });
 
-  return false;
-}
-
-async function hasBuyerAccessFromDb(userId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
+  await supabaseAdmin
     .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .eq('role', 'buyer')
-    .maybeSingle();
-  return data !== null;
+    .upsert({ user_id: user.id, role: 'buyer' }, { onConflict: 'user_id,role' });
 }
 
 export async function getAuthedBuyer(): Promise<
@@ -32,19 +30,22 @@ export async function getAuthedBuyer(): Promise<
 > {
   const supabase = await getServerSupabaseClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  if (error || !data.user?.id || !data.user.email) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  // Check JWT claims first (fast), then fall back to the user_roles table.
-  const hasAccess =
-    hasBuyerAccessFromJwt(data.user) || (await hasBuyerAccessFromDb(data.user.id));
-
-  if (!hasAccess) {
-    return { ok: false, response: NextResponse.json({ error: 'Buyer role required' }, { status: 403 }) };
+  try {
+    await ensureBuyerProfile({
+      id: data.user.id,
+      email: data.user.email,
+      user_metadata: data.user.user_metadata as Record<string, unknown> | undefined,
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Could not prepare buyer profile';
+    return { ok: false, response: NextResponse.json({ error: message }, { status: 500 }) };
   }
 
-  const email = typeof data.user.email === 'string' ? data.user.email : '';
+  const email = data.user.email;
   const meta = data.user.user_metadata ?? {};
   const name =
     (typeof meta.name === 'string' && meta.name) ||

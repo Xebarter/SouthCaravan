@@ -5,7 +5,10 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  /** Primary portal (vendor/services stay primary when also shopping as a buyer). */
   role: UserRole;
+  /** All portal roles granted on the account. */
+  roles: UserRole[];
   company?: string;
   avatar?: string;
   createdAt: Date;
