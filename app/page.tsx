@@ -19,11 +19,11 @@ import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
 import { createPageMetadata } from '@/lib/seo/metadata';
 import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+import { DEFAULT_DESCRIPTION, SITE_HOME_TITLE } from '@/lib/seo/site';
 
 export const metadata = createPageMetadata({
-  title: 'South Caravan — B2B Marketplace for Wholesale & Global Trade',
-  description:
-    'Discover verified suppliers, wholesale products, and RFQs on South Caravan — Uganda and Africa’s B2B marketplace for import, export, and cross-border trade.',
+  title: SITE_HOME_TITLE,
+  description: DEFAULT_DESCRIPTION,
   path: '/',
   keywords: [
     ...KEYWORD_CATEGORIES.brand,

@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, SITE_NAME, SITE_NAME_ALT, SITE_TAGLINE, SITE_URL } from '@/lib/seo/site'
+import { CONTACT_EMAIL, DEFAULT_DESCRIPTION, SITE_NAME, SITE_NAME_ALT, SITE_TAGLINE, SITE_URL } from '@/lib/seo/site'
 
 type JsonLdProps = {
   data: Record<string, unknown> | Record<string, unknown>[]
@@ -24,7 +24,7 @@ export function OrganizationJsonLd() {
         alternateName: SITE_NAME_ALT,
         url: SITE_URL,
         logo: `${SITE_URL}/logo.svg`,
-        description: SITE_TAGLINE,
+        description: DEFAULT_DESCRIPTION,
         email: CONTACT_EMAIL,
         areaServed: ['UG', 'KE', 'TZ', 'RW', 'Africa', 'Worldwide'],
         sameAs: [],
@@ -42,7 +42,7 @@ export function WebSiteJsonLd() {
         name: SITE_NAME,
         alternateName: SITE_NAME_ALT,
         url: SITE_URL,
-        description: SITE_TAGLINE,
+        description: DEFAULT_DESCRIPTION,
         potentialAction: {
           '@type': 'SearchAction',
           target: {

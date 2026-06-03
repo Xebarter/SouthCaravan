@@ -14,6 +14,8 @@ export const KEYWORD_CATEGORIES = {
     'South Caravan global marketplace',
     'South Caravan wholesale',
     'South Caravan suppliers',
+    'connect buyers and suppliers worldwide',
+    'South Caravan connect buyers suppliers',
   ],
   b2b: [
     'B2B marketplace',

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Facebook, Linkedin, Mail, MapPin, Phone, Twitter } from 'lucide-react';
 
 import { SiteLogoMark } from '@/components/site-logo';
+import { DEFAULT_DESCRIPTION } from '@/lib/seo/site';
 
 const EXPLORE_LINKS = [
   { label: 'Catalog', href: '/catalog' },
@@ -67,7 +68,7 @@ export function Footer() {
               SouthCaravan
             </Link>
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Streamline B2B procurement with intelligent vendor management across Africa.
+              {DEFAULT_DESCRIPTION}
             </p>
             <div className="flex items-center gap-4 pt-1">
               <a

@@ -1,8 +1,10 @@
 import { ImageResponse } from 'next/og'
 
+import { SITE_NAME, SITE_SUBTAGLINE, SITE_TAGLINE } from '@/lib/seo/site'
+
 export const runtime = 'edge'
 
-export const alt = 'SouthCaravan'
+export const alt = SITE_NAME
 export const size = {
   width: 1200,
   height: 630,
@@ -55,14 +57,14 @@ export default function OpenGraphImage() {
             >
               SC
             </div>
-            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1 }}>SouthCaravan</div>
+            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1 }}>{SITE_NAME}</div>
           </div>
 
-          <div style={{ fontSize: 54, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.05 }}>
-            B2B Vendor Management
+          <div style={{ fontSize: 48, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1.08 }}>
+            {SITE_TAGLINE}
           </div>
-          <div style={{ fontSize: 28, opacity: 0.9, maxWidth: 900, lineHeight: 1.25 }}>
-            Streamlined procurement and supply chain management for buyers, vendors, and admins.
+          <div style={{ fontSize: 26, opacity: 0.9, maxWidth: 900, lineHeight: 1.3 }}>
+            {SITE_SUBTAGLINE}
           </div>
 
           <div
@@ -73,7 +75,7 @@ export default function OpenGraphImage() {
               flexWrap: 'wrap',
             }}
           >
-            {['Catalog', 'Orders', 'Messaging', 'Analytics'].map((label) => (
+            {['Catalog', 'RFQs', 'Wholesale', 'Verified suppliers'].map((label) => (
               <div
                 key={label}
                 style={{

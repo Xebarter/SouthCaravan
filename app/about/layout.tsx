@@ -4,9 +4,9 @@ import { createPageMetadata } from '@/lib/seo/metadata'
 import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords'
 
 export const metadata = createPageMetadata({
-  title: 'About South Caravan — Africa B2B Trade Platform',
+  title: 'About South Caravan — Connecting Buyers & Suppliers',
   description:
-    'Learn how South Caravan connects verified suppliers and buyers across Uganda, East Africa, and global markets through RFQs, wholesale catalog, and trusted B2B trade.',
+    'Learn how South Caravan connects buyers and suppliers worldwide — wholesale catalog, RFQs, and verified trade from Uganda and Africa to global markets.',
   path: '/about',
   keywords: [
     ...KEYWORD_CATEGORIES.brand,

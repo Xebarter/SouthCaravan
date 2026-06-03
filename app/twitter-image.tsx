@@ -1,8 +1,10 @@
 import { ImageResponse } from 'next/og'
 
+import { SITE_HOME_TITLE, SITE_TAGLINE } from '@/lib/seo/site'
+
 export const runtime = 'edge'
 
-export const alt = 'SouthCaravan'
+export const alt = SITE_HOME_TITLE
 export const size = {
   width: 1200,
   height: 630,
@@ -25,11 +27,11 @@ export default function TwitterImage() {
         }}
       >
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ fontSize: 52, fontWeight: 900, letterSpacing: -1.6, lineHeight: 1.05 }}>
-            SouthCaravan
+          <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: -1.4, lineHeight: 1.1 }}>
+            {SITE_HOME_TITLE}
           </div>
-          <div style={{ fontSize: 30, opacity: 0.92 }}>
-            Professional B2B vendor management platform
+          <div style={{ fontSize: 28, opacity: 0.92, marginTop: 8 }}>
+            {SITE_TAGLINE}
           </div>
           <div style={{ fontSize: 22, opacity: 0.85 }}>southcaravan.com</div>
         </div>

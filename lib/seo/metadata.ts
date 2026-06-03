@@ -5,6 +5,7 @@ import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
   LOCALE,
+  SITE_HOME_TITLE,
   SITE_NAME,
   SITE_NAME_ALT,
   SITE_TAGLINE,
@@ -97,7 +98,7 @@ export function createPageMetadata(options: PageMetadataOptions): Metadata {
 
 export const rootMetadata: Metadata = {
   ...createPageMetadata({
-    title: `${SITE_NAME} — B2B Marketplace for Africa & Global Trade`,
+    title: SITE_HOME_TITLE,
     description: DEFAULT_DESCRIPTION,
     path: '/',
     keywords: PRIMARY_META_KEYWORDS,
@@ -116,4 +117,4 @@ export const rootMetadata: Metadata = {
   },
 }
 
-export { SITE_TAGLINE, DEFAULT_DESCRIPTION, SITE_URL, SITE_NAME }
+export { SITE_HOME_TITLE, SITE_TAGLINE, DEFAULT_DESCRIPTION, SITE_URL, SITE_NAME }

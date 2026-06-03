@@ -4,10 +4,19 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://southcarav
 export const SITE_NAME = 'South Caravan'
 export const SITE_NAME_ALT = 'SouthCaravan'
 
-export const SITE_TAGLINE = 'B2B marketplace connecting buyers and suppliers across Africa and the world'
+/** Default browser / SEO title (homepage and social default). */
+export const SITE_HOME_TITLE = 'South Caravan | Connect Buyers and Suppliers Worldwide'
 
+/** Short hook for OG images, manifest, and UI subcopy. */
+export const SITE_TAGLINE = 'Connect buyers and suppliers worldwide'
+
+/** One-line supporting message under the tagline. */
+export const SITE_SUBTAGLINE =
+  'Wholesale trade, verified partners, and RFQs — from Uganda and Africa to the world.'
+
+/** Meta description & footer blurb (relatable, search-friendly). */
 export const DEFAULT_DESCRIPTION =
-  'South Caravan is a B2B marketplace for wholesale trade, verified suppliers, RFQs, and cross-border sourcing. Connect with Uganda, East Africa, and global exporters on one trusted platform.'
+  'South Caravan connects buyers and suppliers worldwide — discover wholesale products, request quotes, and build trusted trade across Uganda, Africa, and global markets.'
 
 export const DEFAULT_OG_IMAGE = '/opengraph-image'
 

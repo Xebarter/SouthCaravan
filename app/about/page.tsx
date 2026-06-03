@@ -196,11 +196,11 @@ export default function AboutPage() {
               Kampala, Uganda · Est. 2024
             </span>
             <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight tracking-tight">
-              Powering Africa&apos;s<br />
-              <span className="text-emerald-400">B2B Procurement</span>
+              Connect buyers &amp;<br />
+              <span className="text-emerald-400">suppliers worldwide</span>
             </h1>
             <p className="mt-5 text-lg text-white/70 leading-relaxed">
-              SouthCaravan is a leading vendor management and procurement platform built to transform how businesses across Africa and the world connect, source, and trade with confidence.
+              South Caravan is the B2B marketplace where businesses discover wholesale products, send RFQs, and build trusted trade — from Uganda and across Africa to global partners.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
