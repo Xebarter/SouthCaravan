@@ -2,10 +2,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, BarChart3, Lock, MessageSquare, Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 
-export const metadata = {
-  title: 'Features - SouthCaravan B2B Platform',
-  description: 'Explore SouthCaravan vendor management features designed for procurement teams.',
-};
+import { createPageMetadata } from '@/lib/seo/metadata';
+import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+
+export const metadata = createPageMetadata({
+  title: 'B2B Marketplace Features — RFQ, Vendors & Procurement',
+  description:
+    'Explore South Caravan features: vendor discovery, RFQ management, supplier verification, analytics, secure messaging, and cross-border B2B trade tools for Africa.',
+  path: '/features',
+  keywords: [...KEYWORD_CATEGORIES.technology, ...KEYWORD_CATEGORIES.rfq, ...KEYWORD_CATEGORIES.b2b],
+});
 
 export default function FeaturesPage() {
   return (

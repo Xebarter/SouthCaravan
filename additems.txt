@@ -1,109 +1,343 @@
-1. Business & Professional Services
-Accounting, Bookkeeping & Financial Reporting
-Auditing & Assurance
-Tax Advisory & Compliance
-Legal Advisory & Corporate Law
-Business Registration & Licensing
-Company Secretarial Services
-Business Consulting & Strategy
-Risk & Compliance Consulting
-Procurement & Supply Consulting
-2. Technology & Digital Services
-Website Design & Development
-Mobile App Development (Android & iOS)
-Custom Software Development
-E-commerce Development & Management
-IT Support & Helpdesk Services
-Network Setup & Administration
-Cybersecurity & Data Protection
-Cloud Computing & DevOps
-Data Analytics & AI Solutions
-System Integration & API Development
-3. Marketing & Creative Services
-Digital Marketing (SEO, SEM, Social Media Ads)
-Social Media Management
-Branding & Identity Design
-Graphic Design (Logos, Flyers, UI/UX)
-Content Creation & Copywriting
-Video Production & Editing
-Photography Services
-Public Relations (PR)
-Influencer & Campaign Management
-Market Research & Consumer Insights
-4. Logistics & Supply Chain
-Transportation & Haulage
-Fleet Management
-Warehousing & Inventory Management
-Freight Forwarding (Air, Sea, Land)
-Customs Clearing & Documentation
-Last-Mile Delivery & Courier Services
-Packaging & Distribution
-Cold Chain Logistics
-Import & Export Consultancy
-5. Construction & Engineering
-Building Construction (Residential & Commercial)
-Civil Engineering Projects
-Architectural Design & Planning
-Quantity Surveying
-Electrical Installation & Maintenance
-Plumbing & Water Systems
-HVAC (Heating, Ventilation, Air Conditioning)
-Interior Design & Fit-outs
-Renovation & Property Maintenance
-Surveying & Land Mapping
-6. Human Resources & Training
-Recruitment & Talent Acquisition
-Temporary & Outsourced Staffing
-HR Consulting & Policy Development
-Payroll Processing & Management
-Employee Training & Development
-Corporate Workshops & Seminars
-Performance Management Systems
-Organizational Development
-Occupational Health & Safety Training
-7. Financial Services
-Insurance Brokerage & Advisory
-Financial Planning & Advisory
-Investment Consulting
-Wealth Management
-Loan Facilitation & Credit Services
-Microfinance Services
-Payment Processing & Fintech Solutions
-Asset Financing & Leasing
-Grant Writing & Fundraising Support
-8. Sales & Customer Support
-Sales Outsourcing & Field Sales Teams
-Lead Generation & Prospecting
-Telemarketing Services
-Customer Support (Call Centers, Live Chat)
-CRM Setup & Management
-After-Sales Support Services
-Market Expansion & Distribution Support
-9. Facility & Operational Services
-Cleaning & Janitorial Services
-Security & Guard Services
-Pest Control & Fumigation
-Waste Collection & Recycling
-Landscaping & Gardening
-Building & Office Maintenance
-Office Setup & Space Management
-Utilities Management (Water, Power)
-Laundry & Office Hygiene Services
-10. Hospitality, Events & Lifestyle Services
-Event Planning & Management
-Catering & Corporate Catering
-Conference & Exhibition Services
-Travel Management & Corporate Travel
-Hotel & Accommodation Booking
-Car Hire & Transport Services
-Corporate Gifting & Merchandise
-11. Agriculture & Specialized Services
-Agricultural Consultancy & Advisory
-Farm Management Services
-Irrigation System Design & Installation
-Agro-input Supply & Distribution
-Veterinary Services
-Agribusiness Training
-Produce Handling & Post-Harvest Services
-Food Processing & Packaging
-Environmental & Sustainability Consulting
+
+SOUTH CARAVAN SEO KEYWORDS - B2B MARKETPLACE
+(Enhanced master list — also used in lib/seo/keywords.ts)
+
+================================================================================
+CORE BRAND KEYWORDS
+================================================================================
+South Caravan
+SouthCaravan
+south caravan marketplace
+South Caravan B2B platform
+South Caravan Uganda
+South Caravan Africa
+South Caravan global marketplace
+South Caravan wholesale
+South Caravan suppliers
+South Caravan buyers
+South Caravan RFQ
+South Caravan Kampala
+southcaravan.com B2B
+
+================================================================================
+GENERAL B2B KEYWORDS
+================================================================================
+B2B marketplace
+business to business platform
+B2B trading platform
+wholesale marketplace
+global wholesale platform
+supplier marketplace
+buyer supplier platform
+online trade platform
+digital trading marketplace
+B2B ecommerce platform
+business marketplace Africa
+international B2B marketplace
+global B2B network
+trade facilitation platform
+procurement platform B2B
+corporate buyers marketplace
+enterprise procurement Africa
+SME B2B platform
+online wholesale catalog
+multi vendor marketplace
+two sided marketplace B2B
+
+================================================================================
+UGANDA SPECIFIC KEYWORDS
+================================================================================
+Uganda B2B marketplace
+Uganda wholesale suppliers
+Uganda exporters directory
+Uganda import export platform
+Uganda business directory
+Kampala suppliers
+Uganda manufacturers
+buy from Uganda
+sell to Uganda
+Uganda trade platform
+Uganda products wholesale
+Uganda agriculture exports
+Uganda SMEs marketplace
+Made in Uganda wholesale
+Uganda coffee exporters
+Uganda tea exporters
+Uganda gold trade B2B
+Uganda construction suppliers
+export from Kampala
+Uganda digital commerce
+
+================================================================================
+EAST AFRICA KEYWORDS
+================================================================================
+East Africa B2B marketplace
+East African trade platform
+Kenya Uganda Tanzania trade
+EAC business network
+East Africa exporters
+East Africa suppliers directory
+East Africa wholesale market
+regional trade East Africa
+East Africa import export
+intra Africa trade platform
+COMESA trade marketplace
+Rwanda Burundi trade hub
+East Africa procurement
+
+================================================================================
+AFRICA WIDE KEYWORDS
+================================================================================
+Africa B2B marketplace
+African suppliers directory
+African exporters platform
+African trade hub
+pan African marketplace
+Africa wholesale platform
+African business network
+Africa import export
+African SMEs platform
+Africa digital marketplace
+AfCFTA trade platform
+African Continental Free Trade Area marketplace
+Sub Saharan Africa B2B
+West Africa East Africa trade
+African commodity marketplace
+Africa agribusiness platform
+
+================================================================================
+GLOBAL TRADE KEYWORDS
+================================================================================
+global trade platform
+international suppliers
+global exporters directory
+import export marketplace
+worldwide B2B platform
+cross border trade platform
+global sourcing platform
+international wholesale marketplace
+global business network
+supply chain marketplace
+international trade hub
+offshore sourcing Africa
+emerging markets B2B
+global buyer network
+
+================================================================================
+IMPORT EXPORT KEYWORDS
+================================================================================
+import export business
+export goods Africa
+import goods Africa
+customs trade platform
+export documentation support
+international shipping trade
+global logistics marketplace
+trade compliance platform
+export opportunities Africa
+customs clearance support B2B
+export license guidance
+trade finance Africa
+letter of credit B2B
+export packing list support
+HS code product listing
+
+================================================================================
+SUPPLIER & VENDOR KEYWORDS
+================================================================================
+verified suppliers
+trusted suppliers marketplace
+wholesale suppliers Africa
+manufacturers directory
+bulk suppliers platform
+product suppliers global
+factory direct suppliers
+supplier verification platform
+vetted exporters Africa
+supplier onboarding B2B
+vendor management platform
+sell wholesale online Africa
+list products B2B Africa
+supplier storefront Africa
+export ready suppliers
+
+================================================================================
+BUYER KEYWORDS
+================================================================================
+bulk buyers platform
+international buyers network
+wholesale buyers directory
+business buyers platform
+procurement platform B2B
+corporate buyers marketplace
+sourcing managers Africa
+purchase managers B2B
+tender buyers platform
+institutional buyers Africa
+
+================================================================================
+PRODUCT & CATALOG KEYWORDS
+================================================================================
+wholesale products Africa
+African goods marketplace
+export quality products
+bulk goods marketplace
+manufactured goods Africa
+agricultural products Africa
+handmade products Africa
+raw materials suppliers
+industrial products Africa
+commodity trading Africa
+B2B product catalog
+wholesale price list Africa
+minimum order quantity MOQ
+bulk order marketplace
+
+================================================================================
+INDUSTRY KEYWORDS
+================================================================================
+agriculture marketplace Africa
+manufacturing suppliers Africa
+textile suppliers Africa
+construction materials Africa
+electronics wholesale Africa
+food products wholesale
+furniture suppliers Africa
+mining products Africa
+energy sector suppliers Africa
+pharmaceutical wholesale Africa
+packaging suppliers Africa
+cosmetics wholesale Africa
+automotive parts Africa B2B
+plastics suppliers Africa
+steel suppliers Africa
+
+================================================================================
+LOGISTICS KEYWORDS
+================================================================================
+global shipping platform
+freight forwarding marketplace
+cargo logistics Africa
+supply chain solutions
+international delivery platform
+shipping and logistics Africa
+warehouse distribution network
+transport logistics platform
+last mile delivery B2B Africa
+air freight Africa B2B
+sea freight East Africa
+land border trade logistics
+
+================================================================================
+PAYMENT KEYWORDS
+================================================================================
+secure B2B payments
+international payment gateway
+cross border payments Africa
+trade payment solutions
+escrow payment marketplace
+business payment platform
+multi currency B2B payments
+mobile money B2B Uganda
+invoice payment platform
+trade credit B2B
+
+================================================================================
+TECHNOLOGY KEYWORDS
+================================================================================
+AI powered marketplace
+smart B2B platform
+digital trade ecosystem
+online procurement system
+cloud B2B platform
+mobile B2B marketplace
+RFQ automation platform
+vendor management software
+digital supplier discovery
+marketplace analytics B2B
+B2B SaaS Africa
+
+================================================================================
+RFQ & TENDER KEYWORDS
+================================================================================
+request for quotation platform
+RFQ marketplace Africa
+online tender platform
+bulk quote requests
+B2B RFQ management
+procurement RFQ Africa
+vendor quote comparison
+post RFQ online
+tender management Africa
+bid management B2B
+quote request Uganda
+
+================================================================================
+SERVICES MARKETPLACE KEYWORDS
+================================================================================
+B2B services marketplace
+professional services Africa
+service provider directory
+outsourcing marketplace Africa
+business services platform
+freelance B2B Africa
+consulting services marketplace
+logistics services B2B
+trade agent services Africa
+
+================================================================================
+TRUST & SAFETY KEYWORDS
+================================================================================
+verified business network
+trusted trade platform
+secure marketplace Africa
+fraud free B2B platform
+business verification system
+reliable suppliers network
+KYC verified vendors
+due diligence suppliers
+dispute resolution B2B
+secure messaging B2B
+
+================================================================================
+LONG-TAIL & CONVERSION KEYWORDS
+================================================================================
+find suppliers Africa
+connect buyers and sellers
+business expansion Africa
+start import export business
+grow wholesale business
+African trade opportunities
+global sourcing Africa
+business networking platform
+sell wholesale online Africa
+source products from Uganda
+find exporters in East Africa
+B2B marketplace for SMEs
+digital export platform Uganda
+how to find wholesale suppliers Africa
+best B2B platform Uganda
+online marketplace for manufacturers Africa
+buy bulk products Uganda
+register as vendor Africa
+open buyer account B2B
+
+================================================================================
+COMPETITOR-ALTERNATIVE PHRASES (informational)
+================================================================================
+Alibaba alternative Africa
+local B2B marketplace Uganda
+Africa focused trade platform
+regional B2B vs global marketplace
+verified local suppliers vs directory
+
+================================================================================
+SEO IMPLEMENTATION NOTES (for developers)
+================================================================================
+- Primary meta keywords: lib/seo/keywords.ts → PRIMARY_META_KEYWORDS
+- Page metadata helper: lib/seo/metadata.ts → createPageMetadata()
+- Structured data: lib/seo/json-ld.tsx (Organization, WebSite, Product, Article, FAQ)
+- Sitemap: /sitemap.xml (app/sitemap.ts)
+- Robots: /robots.txt (app/robots.ts)
+- Set NEXT_PUBLIC_SITE_URL=https://southcaravan.com in production
+- Submit sitemap in Google Search Console & Bing Webmaster Tools

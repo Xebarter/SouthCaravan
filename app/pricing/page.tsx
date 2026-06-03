@@ -3,10 +3,16 @@ import Link from 'next/link';
 import { Check, ArrowRight } from 'lucide-react';
 import { Money } from '@/components/money';
 
-export const metadata = {
-  title: 'Pricing - SouthCaravan B2B Platform',
-  description: 'Simple, transparent pricing for vendors and buyers on SouthCaravan.',
-};
+import { createPageMetadata } from '@/lib/seo/metadata';
+import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+
+export const metadata = createPageMetadata({
+  title: 'Pricing — Plans for Buyers, Vendors & Service Providers',
+  description:
+    'Transparent B2B marketplace pricing for buyers, verified vendors, and service providers. Grow wholesale trade on South Caravan with plans built for African SMEs.',
+  path: '/pricing',
+  keywords: [...KEYWORD_CATEGORIES.b2b, ...KEYWORD_CATEGORIES.payments],
+});
 
 export default function PricingPage() {
   return (

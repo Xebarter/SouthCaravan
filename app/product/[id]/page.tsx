@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { ArrowLeft, Building2, CheckCircle2, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,40 @@ import { getVendorDisplayName } from '@/lib/vendor-display';
 import { productIsRfqRoutable } from '@/lib/platform-rfq-recipient';
 import { getPlatformRfqRecipientUserId } from '@/lib/platform-rfq-recipient';
 import { isUuid } from '@/lib/is-uuid';
+import { createPageMetadata } from '@/lib/seo/metadata';
+import { ProductJsonLd, BreadcrumbJsonLd } from '@/lib/seo/json-ld';
+import { SITE_URL } from '@/lib/seo/site';
+import { stripHtmlForPreview } from '@/lib/strip-html';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const product = await getProductById(id);
+  if (!product) {
+    return createPageMetadata({
+      title: 'Product not found',
+      description: 'This product listing is no longer available.',
+      path: `/product/${id}`,
+      noIndex: true,
+    });
+  }
+
+  const vendorDisplay = product.vendor_id ? getVendorDisplayName(String(product.vendor_id)) : 'South Caravan';
+  const description =
+    stripHtmlForPreview(product.description ?? '').trim().slice(0, 160) ||
+    `Wholesale ${product.name} from ${vendorDisplay}. B2B pricing, bulk orders, and export-ready supply on South Caravan.`;
+
+  return createPageMetadata({
+    title: `${product.name} — Wholesale B2B`,
+    description,
+    path: `/product/${id}`,
+    ogImage: product.images?.[0] ?? undefined,
+    keywords: [product.category, product.subcategory, 'wholesale', 'B2B', vendorDisplay].filter(Boolean),
+  });
+}
 
 function normalizeSpecs(specs: Record<string, unknown> | null) {
   if (!specs) return [];
@@ -84,8 +119,29 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     new Set([product.images?.[0], ...product.images.slice(1, 5)].filter(Boolean)),
   );
 
+  const productUrl = `${SITE_URL}/product/${id}`;
+  const plainDescription =
+    stripHtmlForPreview(product.description ?? '').trim() ||
+    `Wholesale ${product.name} for B2B buyers on South Caravan.`;
+
   return (
     <div className="bg-background px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-8">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', path: '/' },
+          { name: 'Catalog', path: '/catalog' },
+          { name: product.name, path: `/product/${id}` },
+        ]}
+      />
+      <ProductJsonLd
+        name={product.name}
+        description={plainDescription}
+        image={product.images}
+        url={productUrl}
+        price={Number(product.price) || undefined}
+        brand={vendorDisplay}
+        availability={product.in_stock ? 'InStock' : 'OutOfStock'}
+      />
       {criticalPreloadUrls.map((url) => (
         <link key={url} rel="preload" as="image" href={url} />
       ))}

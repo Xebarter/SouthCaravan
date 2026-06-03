@@ -2,10 +2,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, Clock, User } from 'lucide-react';
 
-export const metadata = {
-  title: 'Resources - SouthCaravan B2B Platform',
-  description: 'Learn best practices for vendor management, procurement strategies, and supply chain optimization.',
-};
+import { createPageMetadata } from '@/lib/seo/metadata';
+import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+
+export const metadata = createPageMetadata({
+  title: 'B2B Trade Resources & Procurement Guides',
+  description:
+    'Guides on vendor management, African import-export, procurement strategy, and supply chain optimization for wholesale buyers and suppliers.',
+  path: '/resources',
+  keywords: [...KEYWORD_CATEGORIES.longTail, ...KEYWORD_CATEGORIES.importExport],
+});
 
 export default function ResourcesPage() {
   return (

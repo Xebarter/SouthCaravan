@@ -17,6 +17,21 @@ import { stripHtmlForPreview } from '@/lib/strip-html';
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
 import { CategoryInfiniteFeedClient } from '@/components/home/category-infinite-feed-client';
 import { PostMyRfqButton } from '@/components/post-my-rfq-button';
+import { createPageMetadata } from '@/lib/seo/metadata';
+import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+
+export const metadata = createPageMetadata({
+  title: 'South Caravan — B2B Marketplace for Wholesale & Global Trade',
+  description:
+    'Discover verified suppliers, wholesale products, and RFQs on South Caravan — Uganda and Africa’s B2B marketplace for import, export, and cross-border trade.',
+  path: '/',
+  keywords: [
+    ...KEYWORD_CATEGORIES.brand,
+    ...KEYWORD_CATEGORIES.uganda,
+    ...KEYWORD_CATEGORIES.b2b,
+    ...KEYWORD_CATEGORIES.longTail,
+  ],
+});
 
 export default async function HomePage() {
   const featuredProducts = await getFeaturedLandingProducts(60);
