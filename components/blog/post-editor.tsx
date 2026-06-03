@@ -228,13 +228,17 @@ export function PostEditor({ post, mode }: PostEditorProps) {
           <Card className="border-border/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Content</CardTitle>
+              <p className="text-xs text-muted-foreground font-normal mt-1 leading-relaxed">
+                Full rich-text editor — paste from Word or Google Docs, upload or drop images, embed videos,
+                tables, links, colors, and HTML when needed.
+              </p>
             </CardHeader>
             <CardContent className="pt-0">
               <RichTextEditor
                 value={content}
                 onChange={setContent}
                 placeholder="Write your post content here…"
-                minHeight={480}
+                minHeight={520}
               />
             </CardContent>
           </Card>

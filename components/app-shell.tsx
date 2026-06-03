@@ -28,6 +28,7 @@ const publicRoutePrefixes = [
   '/features',
   '/pricing',
   '/about',
+  '/careers',
   '/contact',
   '/resources',
   '/blog',

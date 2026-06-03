@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,53 +8,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { JobDetailSection } from '@/components/careers/job-detail-section';
+import type { CareerJob } from '@/components/careers/shared';
 import {
-  Briefcase, Calendar, Check, ChevronLeft, ExternalLink,
+  EMP_LABELS, EXP_LABELS, fmtSalary, LOC_LABELS,
+} from '@/components/careers/shared';
+import {
+  Briefcase, Check, ChevronLeft, ExternalLink,
   FileText, Loader2, MapPin, Star, Upload, Users, X, Zap,
-  Clock, Share2, Linkedin, Globe, Github,
+  Clock, Share2, ArrowDown,
 } from 'lucide-react';
 
-interface Department { id: string; name: string; slug: string; }
-interface Job {
-  id: string; title: string; slug: string; status: string;
-  location: string; location_type: string; employment_type: string;
-  experience_level: string; summary?: string | null;
-  description: string; responsibilities?: string | null;
-  requirements?: string | null; nice_to_have?: string | null;
+interface Job extends CareerJob {
+  description: string;
+  responsibilities?: string | null;
+  requirements?: string | null;
+  nice_to_have?: string | null;
   benefits?: string | null;
-  salary_min?: number | null; salary_max?: number | null;
-  salary_currency: string; salary_period: string; show_salary: boolean;
-  application_deadline?: string | null; application_url?: string | null;
-  is_featured: boolean; is_urgent: boolean; application_count: number;
-  posted_at?: string | null; department?: Department | null;
-}
-
-const EMP_LABELS: Record<string, string> = {
-  full_time: 'Full-time', part_time: 'Part-time',
-  contract: 'Contract', internship: 'Internship', freelance: 'Freelance',
-};
-const LOC_LABELS: Record<string, string> = {
-  onsite: 'On-site', hybrid: 'Hybrid', remote: 'Remote',
-};
-const EXP_LABELS: Record<string, string> = {
-  entry: 'Entry level', mid: 'Mid-level', senior: 'Senior',
-  lead: 'Lead', executive: 'Executive',
-};
-
-function fmtSalary(job: Job) {
-  if (!job.show_salary || (!job.salary_min && !job.salary_max)) return null;
-  const period = job.salary_period === 'yearly' ? '/yr' : job.salary_period === 'monthly' ? '/mo' : '/hr';
-  const fmt = (n: number) =>
-    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
-      : n >= 1_000 ? `${(n / 1_000).toFixed(0)}K`
-        : String(n);
-  if (job.salary_min && job.salary_max) return `${job.salary_currency} ${fmt(job.salary_min)}–${fmt(job.salary_max)}${period}`;
-  if (job.salary_min) return `From ${job.salary_currency} ${fmt(job.salary_min)}${period}`;
-  return `Up to ${job.salary_currency} ${fmt(job.salary_max!)}${period}`;
+  application_url?: string | null;
 }
 
 function fmtBytes(bytes: number) {
@@ -71,10 +49,10 @@ interface FileField {
 }
 
 const FILE_FIELDS: FileField[] = [
-  { key: 'resume',             label: 'Resume / CV',     required: true,  hint: 'PDF, Word, or image. Max 10 MB.' },
-  { key: 'cover_letter_file',  label: 'Cover Letter',    required: false, hint: 'Optional – you can also type below.' },
-  { key: 'portfolio_file',     label: 'Portfolio / Work Sample', required: false },
-  { key: 'certificate',        label: 'Certificate / Transcript', required: false },
+  { key: 'resume', label: 'Resume / CV', required: true, hint: 'PDF, Word, or image. Max 10 MB.' },
+  { key: 'cover_letter_file', label: 'Cover Letter', required: false, hint: 'Optional – you can also type below.' },
+  { key: 'portfolio_file', label: 'Portfolio / Work Sample', required: false },
+  { key: 'certificate', label: 'Certificate / Transcript', required: false },
 ];
 
 const REFERRAL_SOURCES = [
@@ -104,6 +82,13 @@ const EMPTY_FORM: FormState = {
   gdpr_consent: false,
 };
 
+const STEPS: { id: FormStep; label: string }[] = [
+  { id: 'personal', label: 'Personal' },
+  { id: 'professional', label: 'Experience' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'review', label: 'Review' },
+];
+
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [job, setJob] = useState<Job | null>(null);
@@ -116,6 +101,7 @@ export default function JobDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [shareDone, setShareDone] = useState(false);
   const applyRef = useRef<HTMLDivElement>(null);
 
   const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
@@ -128,6 +114,26 @@ export default function JobDetailPage() {
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const scrollToApply = useCallback(() => {
+    applyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  async function handleShare() {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const title = job?.title ?? 'South Caravan Careers';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareDone(true);
+      setTimeout(() => setShareDone(false), 2000);
+    } catch {
+      /* user cancelled */
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,444 +167,457 @@ export default function JobDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <JobDetailSkeleton />;
   }
 
   if (notFound || !job) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
-        <Briefcase className="w-16 h-16 text-muted-foreground/30" />
-        <h1 className="text-2xl font-bold">Position not found</h1>
-        <p className="text-muted-foreground">This role may have been filled or removed.</p>
-        <Button asChild><Link href="/careers">Browse open roles</Link></Button>
+      <div className="min-h-[70vh] flex items-center justify-center px-4 py-20">
+        <Card className="max-w-md w-full rounded-2xl text-center shadow-lg">
+          <CardContent className="pt-12 pb-10 px-8">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+              <Briefcase className="h-8 w-8 text-muted-foreground/40" />
+            </span>
+            <h1 className="mt-6 text-2xl font-extrabold">Position not found</h1>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              This role may have been filled, closed, or removed from our listings.
+            </p>
+            <Button asChild className="mt-8 rounded-lg">
+              <Link href="/careers">Browse open roles</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (submitted) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-6 px-4 text-center max-w-lg mx-auto">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-          <Check className="w-8 h-8 text-green-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Application Submitted!</h1>
-          <p className="text-muted-foreground">
-            Thank you for applying for <strong>{job.title}</strong>. We&apos;ve received your application
-            and will be in touch if there&apos;s a match. This may take 2–4 weeks.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button asChild variant="outline"><Link href="/careers">Browse more roles</Link></Button>
-          <Button asChild><Link href="/">Go home</Link></Button>
-        </div>
+      <div className="min-h-[70vh] flex items-center justify-center px-4 py-20">
+        <Card className="max-w-lg w-full rounded-2xl text-center shadow-lg overflow-hidden">
+          <div className="h-2 bg-linear-to-r from-emerald-400 to-primary" aria-hidden />
+          <CardContent className="pt-12 pb-10 px-8">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="h-8 w-8 text-emerald-600" />
+            </span>
+            <h1 className="mt-6 text-2xl font-extrabold">Application submitted</h1>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Thank you for applying for <strong className="text-foreground">{job.title}</strong>.
+              Our team will review your application and respond if there&apos;s a match — typically within 2–4 weeks.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+              <Button asChild variant="outline" className="rounded-lg">
+                <Link href="/careers">Browse more roles</Link>
+              </Button>
+              <Button asChild className="rounded-lg">
+                <Link href="/">Back to home</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const salary = fmtSalary(job);
   const deadline = job.application_deadline ? new Date(job.application_deadline) : null;
-
-  const steps: { id: FormStep; label: string }[] = [
-    { id: 'personal',     label: 'Personal' },
-    { id: 'professional', label: 'Professional' },
-    { id: 'documents',    label: 'Documents' },
-    { id: 'review',       label: 'Review' },
-  ];
-  const stepIdx = steps.findIndex((s) => s.id === step);
+  const stepIdx = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Back navigation */}
-      <div className="border-b border-border bg-background/95 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
-          <Link href="/careers" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="w-4 h-4" /> All Positions
+    <div className="min-h-screen bg-background pb-24 lg:pb-8">
+      {/* Top bar */}
+      <div className="border-b border-border bg-muted/30">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <Link
+            href="/careers"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            All roles
           </Link>
-          <span className="text-border">·</span>
-          <span className="text-sm font-medium truncate">{job.title}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Button type="button" variant="outline" size="sm" className="rounded-lg gap-1.5 shrink-0" onClick={handleShare}>
+              <Share2 className="h-3.5 w-3.5" />
+              {shareDone ? 'Copied!' : 'Share'}
+            </Button>
+            {!job.application_url && (
+              <Button size="sm" className="rounded-lg lg:hidden shrink-0" onClick={scrollToApply}>
+                Apply
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Job details — left */}
-          <div className="lg:col-span-3 space-y-8">
-            {/* Title block */}
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {job.is_featured && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-                    <Star className="w-2.5 h-2.5 fill-amber-500" /> Featured
-                  </span>
-                )}
-                {job.is_urgent && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200">
-                    <Zap className="w-2.5 h-2.5 fill-red-500" /> Urgent Hire
-                  </span>
-                )}
-                {job.department && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                    {job.department.name}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">{job.title}</h1>
-
-              {/* Meta pills */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {[
-                  { icon: MapPin,    label: `${job.location} · ${LOC_LABELS[job.location_type] ?? job.location_type}` },
-                  { icon: Briefcase, label: EMP_LABELS[job.employment_type] ?? job.employment_type },
-                  { icon: Star,      label: EXP_LABELS[job.experience_level] ?? job.experience_level },
-                  ...(job.application_count > 0
-                    ? [{ icon: Users, label: `${job.application_count} applicant${job.application_count !== 1 ? 's' : ''}` }]
-                    : []),
-                ].map(({ icon: Icon, label }) => (
-                  <span key={label} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-secondary text-sm text-foreground/80">
-                    <Icon className="w-3.5 h-3.5" />{label}
-                  </span>
-                ))}
-                {salary && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-green-200 bg-green-50 text-sm text-green-700 font-medium">
-                    {salary}
-                  </span>
-                )}
-              </div>
-
-              {deadline && (
-                <div className="flex items-center gap-2 text-sm text-orange-600 font-medium">
-                  <Clock className="w-4 h-4" />
-                  Application deadline: {deadline.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </div>
-              )}
-            </div>
-
-            {/* Description sections */}
-            {job.summary && (
-              <div className="rounded-xl border border-border bg-secondary/30 p-5">
-                <p className="text-base font-medium text-foreground">{job.summary}</p>
-              </div>
+      {/* Role hero */}
+      <section
+        className="border-b border-border"
+        style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0f172a 100%)' }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {job.is_featured && (
+              <Badge className="gap-1 bg-amber-500/20 text-amber-200 border-amber-400/30 hover:bg-amber-500/20">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                Featured
+              </Badge>
             )}
-
-            {job.description && (
-              <Section title="About the Role">
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                  {job.description}
-                </div>
-              </Section>
+            {job.is_urgent && (
+              <Badge className="gap-1 bg-red-500/20 text-red-200 border-red-400/30 hover:bg-red-500/20">
+                <Zap className="h-3 w-3 fill-red-400" />
+                Urgent hire
+              </Badge>
             )}
-
-            {job.responsibilities && (
-              <Section title="Responsibilities">
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                  {job.responsibilities}
-                </div>
-              </Section>
-            )}
-
-            {job.requirements && (
-              <Section title="Requirements">
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                  {job.requirements}
-                </div>
-              </Section>
-            )}
-
-            {job.nice_to_have && (
-              <Section title="Nice to Have">
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                  {job.nice_to_have}
-                </div>
-              </Section>
-            )}
-
-            {job.benefits && (
-              <Section title="Benefits & Perks">
-                <div className="prose prose-sm max-w-none text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                  {job.benefits}
-                </div>
-              </Section>
+            {job.department && (
+              <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+                {job.department.name}
+              </Badge>
             )}
           </div>
 
-          {/* Application form — right */}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight max-w-3xl">
+            {job.title}
+          </h1>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <MetaPill icon={MapPin} label={`${job.location} · ${LOC_LABELS[job.location_type] ?? job.location_type}`} />
+            <MetaPill icon={Briefcase} label={EMP_LABELS[job.employment_type] ?? job.employment_type} />
+            <MetaPill icon={Star} label={EXP_LABELS[job.experience_level] ?? job.experience_level} />
+            {job.application_count > 0 && (
+              <MetaPill icon={Users} label={`${job.application_count} applicant${job.application_count !== 1 ? 's' : ''}`} />
+            )}
+            {salary && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-sm font-semibold text-emerald-200">
+                {salary}
+              </span>
+            )}
+          </div>
+
+          {deadline && (
+            <p className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-amber-200/90">
+              <Clock className="h-4 w-4" />
+              Apply by {deadline.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          )}
+
+          {job.summary && (
+            <p className="mt-6 text-sm sm:text-base text-white/75 leading-relaxed max-w-3xl border-l-2 border-primary/60 pl-4">
+              {job.summary}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
+          {/* Job content */}
+          <div className="lg:col-span-3 space-y-5">
+            {job.description && (
+              <JobDetailSection title="About the role">{job.description}</JobDetailSection>
+            )}
+            {job.responsibilities && (
+              <JobDetailSection title="Responsibilities" accent="bg-sky-500">
+                {job.responsibilities}
+              </JobDetailSection>
+            )}
+            {job.requirements && (
+              <JobDetailSection title="Requirements" accent="bg-violet-500">
+                {job.requirements}
+              </JobDetailSection>
+            )}
+            {job.nice_to_have && (
+              <JobDetailSection title="Nice to have" accent="bg-amber-500">
+                {job.nice_to_have}
+              </JobDetailSection>
+            )}
+            {job.benefits && (
+              <JobDetailSection title="Benefits & perks" accent="bg-emerald-500">
+                {job.benefits}
+              </JobDetailSection>
+            )}
+          </div>
+
+          {/* Application */}
           <div className="lg:col-span-2" ref={applyRef}>
-            <div className="sticky top-20">
+            <div className="lg:sticky lg:top-20">
               {job.application_url ? (
-                /* External ATS */
-                <div className="rounded-xl border border-border p-6 space-y-4">
-                  <h2 className="text-lg font-semibold">Apply for this role</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Applications for this position are handled through our external portal.
-                  </p>
-                  <Button className="w-full" size="lg" asChild>
-                    <a href={job.application_url} target="_blank" rel="noopener noreferrer">
-                      Apply Now <ExternalLink className="w-4 h-4 ml-2" />
-                    </a>
-                  </Button>
-                </div>
+                <Card className="rounded-2xl shadow-lg border-border">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Apply for this role</CardTitle>
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Applications are handled through our external hiring portal.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full rounded-xl h-11" size="lg" asChild>
+                      <a href={job.application_url} target="_blank" rel="noopener noreferrer">
+                        Apply now
+                        <ExternalLink className="ml-2 h-4 w-4" />
+                      </a>
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : (
-                /* Built-in application form */
-                <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card overflow-hidden">
-                  {/* Form header */}
-                  <div className="bg-primary/5 border-b border-border px-5 py-4">
-                    <h2 className="font-semibold text-base">Apply for this role</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">{job.title}</p>
-                  </div>
+                <form onSubmit={handleSubmit}>
+                  <Card className="rounded-2xl shadow-lg border-border overflow-hidden">
+                    <div className="bg-linear-to-r from-primary/10 via-primary/5 to-transparent border-b border-border px-5 py-4">
+                      <h2 className="font-bold text-base">Apply for this role</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{job.title}</p>
+                    </div>
 
-                  {/* Step progress */}
-                  <div className="px-5 pt-4 pb-2">
-                    <div className="flex items-center gap-1">
-                      {steps.map((s, i) => (
-                        <div key={s.id} className="flex items-center flex-1">
-                          <button
-                            type="button"
-                            onClick={() => i <= stepIdx && setStep(s.id)}
-                            disabled={i > stepIdx}
-                            className="flex flex-col items-center gap-1 flex-1 focus:outline-none"
-                          >
-                            <div className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center transition-colors
-                              ${i < stepIdx ? 'bg-green-500 text-white'
-                                : i === stepIdx ? 'bg-primary text-primary-foreground'
-                                  : 'bg-secondary text-muted-foreground'}`}
+                    {/* Stepper */}
+                    <div className="px-5 pt-5 pb-2">
+                      <div className="flex items-center">
+                        {STEPS.map((s, i) => (
+                          <div key={s.id} className="flex items-center flex-1 last:flex-none">
+                            <button
+                              type="button"
+                              onClick={() => i <= stepIdx && setStep(s.id)}
+                              disabled={i > stepIdx}
+                              className="flex flex-col items-center gap-1 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md disabled:opacity-60"
                             >
-                              {i < stepIdx ? <Check className="w-3 h-3" /> : i + 1}
-                            </div>
-                            <span className={`text-[9px] font-medium ${i === stepIdx ? 'text-primary' : 'text-muted-foreground'}`}>
-                              {s.label}
-                            </span>
-                          </button>
-                          {i < steps.length - 1 && (
-                            <div className={`h-0.5 flex-1 mx-1 rounded ${i < stepIdx ? 'bg-green-400' : 'bg-border'}`} />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {submitError && (
-                    <div className="mx-5 mb-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm px-3 py-2">
-                      {submitError}
-                    </div>
-                  )}
-
-                  <div className="px-5 pb-5 space-y-4 max-h-[60vh] overflow-y-auto">
-                    {/* STEP 1: Personal */}
-                    {step === 'personal' && (
-                      <div className="space-y-3 pt-2">
-                        <FormField label="Full Name" required>
-                          <Input value={form.full_name} onChange={(e) => setF('full_name', e.target.value)} placeholder="Jane Doe" required />
-                        </FormField>
-                        <FormField label="Email Address" required>
-                          <Input type="email" value={form.email} onChange={(e) => setF('email', e.target.value)} placeholder="jane@example.com" required />
-                        </FormField>
-                        <FormField label="Phone Number">
-                          <Input type="tel" value={form.phone} onChange={(e) => setF('phone', e.target.value)} placeholder="+254 7XX XXX XXX" />
-                        </FormField>
-                        <FormField label="Nationality">
-                          <Input value={form.nationality} onChange={(e) => setF('nationality', e.target.value)} placeholder="Kenyan" />
-                        </FormField>
-                        <FormField label="Current Location">
-                          <Input value={form.location} onChange={(e) => setF('location', e.target.value)} placeholder="Nairobi, Kenya" />
-                        </FormField>
-                        <div className="flex items-center justify-between pt-1">
-                          <div>
-                            <p className="text-sm font-medium">Willing to Relocate?</p>
+                              <span
+                                className={[
+                                  'h-7 w-7 rounded-full text-[10px] font-bold flex items-center justify-center transition-colors',
+                                  i < stepIdx ? 'bg-emerald-500 text-white'
+                                    : i === stepIdx ? 'bg-primary text-primary-foreground'
+                                      : 'bg-muted text-muted-foreground',
+                                ].join(' ')}
+                              >
+                                {i < stepIdx ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                              </span>
+                              <span className={`text-[9px] font-semibold truncate max-w-[4rem] ${i === stepIdx ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {s.label}
+                              </span>
+                            </button>
+                            {i < STEPS.length - 1 && (
+                              <div className={`h-0.5 flex-1 mx-1 rounded-full min-w-[8px] ${i < stepIdx ? 'bg-emerald-400' : 'bg-border'}`} />
+                            )}
                           </div>
-                          <Switch checked={form.willing_to_relocate} onCheckedChange={(v) => setF('willing_to_relocate', v)} />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">Requires Work Authorization / Sponsorship?</p>
-                          </div>
-                          <Switch checked={form.requires_sponsorship} onCheckedChange={(v) => setF('requires_sponsorship', v)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* STEP 2: Professional */}
-                    {step === 'professional' && (
-                      <div className="space-y-3 pt-2">
-                        <FormField label="Current / Last Job Title">
-                          <Input value={form.current_title} onChange={(e) => setF('current_title', e.target.value)} placeholder="Software Engineer" />
-                        </FormField>
-                        <FormField label="Current / Last Company">
-                          <Input value={form.current_company} onChange={(e) => setF('current_company', e.target.value)} placeholder="Acme Ltd" />
-                        </FormField>
-                        <FormField label="Years of Experience">
-                          <Input type="number" min="0" max="50" value={form.years_experience} onChange={(e) => setF('years_experience', e.target.value)} placeholder="3" />
-                        </FormField>
-                        <FormField label="Expected Salary">
-                          <Input value={form.expected_salary} onChange={(e) => setF('expected_salary', e.target.value)} placeholder="KES 150,000/month" />
-                        </FormField>
-                        <FormField label="Availability / Notice Period">
-                          <Input value={form.start_date_availability} onChange={(e) => setF('start_date_availability', e.target.value)} placeholder="2 weeks / Immediately" />
-                        </FormField>
-                        <FormField label="LinkedIn Profile URL">
-                          <Input type="url" value={form.linkedin_url} onChange={(e) => setF('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
-                        </FormField>
-                        <FormField label="Portfolio / Website URL">
-                          <Input type="url" value={form.portfolio_url} onChange={(e) => setF('portfolio_url', e.target.value)} placeholder="https://yoursite.com" />
-                        </FormField>
-                        <FormField label="GitHub Profile URL">
-                          <Input type="url" value={form.github_url} onChange={(e) => setF('github_url', e.target.value)} placeholder="https://github.com/..." />
-                        </FormField>
-                        <FormField label="Cover Letter">
-                          <Textarea
-                            value={form.cover_letter}
-                            onChange={(e) => setF('cover_letter', e.target.value)}
-                            placeholder="Why are you excited about this role? What makes you a great fit?..."
-                            rows={5}
-                          />
-                        </FormField>
-                        <FormField label="How did you hear about us?">
-                          <Select value={form.referral_source || 'none'} onValueChange={(v) => setF('referral_source', v === 'none' ? '' : v)}>
-                            <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Select…</SelectItem>
-                              {REFERRAL_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </FormField>
-                        {form.referral_source === 'Employee referral' && (
-                          <FormField label="Referrer's Name">
-                            <Input value={form.referral_name} onChange={(e) => setF('referral_name', e.target.value)} placeholder="John Smith" />
-                          </FormField>
-                        )}
-                      </div>
-                    )}
-
-                    {/* STEP 3: Documents */}
-                    {step === 'documents' && (
-                      <div className="space-y-4 pt-2">
-                        <p className="text-xs text-muted-foreground">
-                          Upload your documents. Accepted: PDF, Word (.docx), JPG/PNG. Max 10 MB each.
-                        </p>
-                        {FILE_FIELDS.map((field) => (
-                          <FileUploadField
-                            key={field.key}
-                            field={field}
-                            file={files[field.key] ?? null}
-                            onChange={(f) => setFiles((prev) => ({ ...prev, [field.key]: f }))}
-                          />
                         ))}
                       </div>
-                    )}
+                    </div>
 
-                    {/* STEP 4: Review */}
-                    {step === 'review' && (
-                      <div className="space-y-4 pt-2">
-                        <ReviewRow label="Name" value={form.full_name} />
-                        <ReviewRow label="Email" value={form.email} />
-                        {form.phone && <ReviewRow label="Phone" value={form.phone} />}
-                        {form.location && <ReviewRow label="Location" value={form.location} />}
-                        {form.current_title && <ReviewRow label="Current Title" value={form.current_title} />}
-                        {form.years_experience && <ReviewRow label="Experience" value={`${form.years_experience} years`} />}
-                        {form.expected_salary && <ReviewRow label="Expected Salary" value={form.expected_salary} />}
-                        {form.start_date_availability && <ReviewRow label="Availability" value={form.start_date_availability} />}
-                        <div>
-                          <p className="text-xs text-muted-foreground font-medium mb-1">Uploaded Documents</p>
-                          {Object.entries(files).filter(([, f]) => f).map(([key, file]) => (
-                            <p key={key} className="text-sm flex items-center gap-1.5 text-foreground/70">
-                              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                              {file!.name} ({fmtBytes(file!.size)})
-                            </p>
-                          ))}
-                          {!files.resume && (
-                            <p className="text-sm text-destructive flex items-center gap-1.5">
-                              <X className="w-3.5 h-3.5" /> Resume not uploaded
-                            </p>
-                          )}
-                        </div>
-
-                        <Separator />
-
-                        <div className="space-y-3 rounded-md bg-secondary/50 border border-border p-3 text-xs text-muted-foreground">
-                          <p className="font-semibold text-foreground text-sm">Data Processing Consent</p>
-                          <p>
-                            By submitting this application, you consent to SouthCaravan storing and processing
-                            your personal data and documents for recruitment purposes for up to 2 years.
-                            Your data will not be shared with third parties without your consent.
-                          </p>
-                          <div className="flex items-start gap-2 pt-1">
-                            <Switch
-                              checked={form.gdpr_consent}
-                              onCheckedChange={(v) => setF('gdpr_consent', v)}
-                              id="gdpr"
-                            />
-                            <label htmlFor="gdpr" className="text-foreground font-medium cursor-pointer">
-                              I agree to the processing of my personal data for recruitment purposes. <span className="text-destructive">*</span>
-                            </label>
-                          </div>
-                        </div>
+                    {submitError && (
+                      <div className="mx-5 mb-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm px-3 py-2.5">
+                        {submitError}
                       </div>
                     )}
-                  </div>
 
-                  {/* Navigation buttons */}
-                  <div className="px-5 pb-5 flex items-center justify-between gap-2 border-t border-border pt-4">
-                    {stepIdx > 0 ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setStep(steps[stepIdx - 1].id)}
-                      >
-                        Back
-                      </Button>
-                    ) : <div />}
+                    <CardContent className="px-5 pb-5 space-y-4 max-h-[min(58vh,520px)] overflow-y-auto">
+                      {step === 'personal' && (
+                        <div className="space-y-3 pt-1">
+                          <FormField label="Full name" required>
+                            <Input value={form.full_name} onChange={(e) => setF('full_name', e.target.value)} placeholder="Jane Doe" required className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Email address" required>
+                            <Input type="email" value={form.email} onChange={(e) => setF('email', e.target.value)} placeholder="jane@example.com" required className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Phone number">
+                            <Input type="tel" value={form.phone} onChange={(e) => setF('phone', e.target.value)} placeholder="+256 7XX XXX XXX" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Nationality">
+                            <Input value={form.nationality} onChange={(e) => setF('nationality', e.target.value)} placeholder="Ugandan" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Current location">
+                            <Input value={form.location} onChange={(e) => setF('location', e.target.value)} placeholder="Kampala, Uganda" className="rounded-lg" />
+                          </FormField>
+                          <ToggleRow label="Willing to relocate?" checked={form.willing_to_relocate} onChange={(v) => setF('willing_to_relocate', v)} />
+                          <ToggleRow label="Requires work authorization / sponsorship?" checked={form.requires_sponsorship} onChange={(v) => setF('requires_sponsorship', v)} />
+                        </div>
+                      )}
 
-                    {stepIdx < steps.length - 1 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          if (step === 'personal' && (!form.full_name || !form.email)) {
-                            setSubmitError('Name and email are required.');
-                            return;
-                          }
-                          setSubmitError(null);
-                          setStep(steps[stepIdx + 1].id);
-                        }}
-                      >
-                        Continue
-                      </Button>
-                    ) : (
-                      <Button type="submit" size="sm" disabled={submitting || !form.gdpr_consent}>
-                        {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        Submit Application
-                      </Button>
-                    )}
-                  </div>
+                      {step === 'professional' && (
+                        <div className="space-y-3 pt-1">
+                          <FormField label="Current / last job title">
+                            <Input value={form.current_title} onChange={(e) => setF('current_title', e.target.value)} placeholder="Software Engineer" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Current / last company">
+                            <Input value={form.current_company} onChange={(e) => setF('current_company', e.target.value)} placeholder="Acme Ltd" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Years of experience">
+                            <Input type="number" min="0" max="50" value={form.years_experience} onChange={(e) => setF('years_experience', e.target.value)} placeholder="3" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Expected salary">
+                            <Input value={form.expected_salary} onChange={(e) => setF('expected_salary', e.target.value)} placeholder="UGX 3,000,000/month" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Availability / notice period">
+                            <Input value={form.start_date_availability} onChange={(e) => setF('start_date_availability', e.target.value)} placeholder="2 weeks / Immediately" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="LinkedIn profile">
+                            <Input type="url" value={form.linkedin_url} onChange={(e) => setF('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Portfolio / website">
+                            <Input type="url" value={form.portfolio_url} onChange={(e) => setF('portfolio_url', e.target.value)} placeholder="https://yoursite.com" className="rounded-lg" />
+                          </FormField>
+                          <FormField label="GitHub profile">
+                            <Input type="url" value={form.github_url} onChange={(e) => setF('github_url', e.target.value)} placeholder="https://github.com/..." className="rounded-lg" />
+                          </FormField>
+                          <FormField label="Cover letter">
+                            <Textarea
+                              value={form.cover_letter}
+                              onChange={(e) => setF('cover_letter', e.target.value)}
+                              placeholder="Why are you excited about this role?"
+                              rows={5}
+                              className="rounded-lg resize-y"
+                            />
+                          </FormField>
+                          <FormField label="How did you hear about us?">
+                            <Select value={form.referral_source || 'none'} onValueChange={(v) => setF('referral_source', v === 'none' ? '' : v)}>
+                              <SelectTrigger className="rounded-lg"><SelectValue placeholder="Select source" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Select…</SelectItem>
+                                {REFERRAL_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </FormField>
+                          {form.referral_source === 'Employee referral' && (
+                            <FormField label="Referrer's name">
+                              <Input value={form.referral_name} onChange={(e) => setF('referral_name', e.target.value)} placeholder="John Smith" className="rounded-lg" />
+                            </FormField>
+                          )}
+                        </div>
+                      )}
+
+                      {step === 'documents' && (
+                        <div className="space-y-4 pt-1">
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            PDF, Word (.docx), or images. Max 10 MB per file.
+                          </p>
+                          {FILE_FIELDS.map((field) => (
+                            <FileUploadField
+                              key={field.key}
+                              field={field}
+                              file={files[field.key] ?? null}
+                              onChange={(f) => setFiles((prev) => ({ ...prev, [field.key]: f }))}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {step === 'review' && (
+                        <div className="space-y-4 pt-1">
+                          <ReviewRow label="Name" value={form.full_name} />
+                          <ReviewRow label="Email" value={form.email} />
+                          {form.phone && <ReviewRow label="Phone" value={form.phone} />}
+                          {form.location && <ReviewRow label="Location" value={form.location} />}
+                          {form.current_title && <ReviewRow label="Title" value={form.current_title} />}
+                          {form.years_experience && <ReviewRow label="Experience" value={`${form.years_experience} years`} />}
+                          {form.expected_salary && <ReviewRow label="Expected salary" value={form.expected_salary} />}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">Documents</p>
+                            {Object.entries(files).filter(([, f]) => f).map(([key, file]) => (
+                              <p key={key} className="text-sm flex items-center gap-1.5 text-foreground/80">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                {file!.name} ({fmtBytes(file!.size)})
+                              </p>
+                            ))}
+                            {!files.resume && (
+                              <p className="text-sm text-destructive flex items-center gap-1.5">
+                                <X className="h-3.5 w-3.5" /> Resume required — go back to Documents
+                              </p>
+                            )}
+                          </div>
+                          <Separator />
+                          <div className="rounded-xl bg-muted/40 border border-border p-4 text-xs text-muted-foreground space-y-2">
+                            <p className="font-semibold text-foreground text-sm">Data processing consent</p>
+                            <p className="leading-relaxed">
+                              By submitting, you consent to South Caravan storing your data for recruitment for up to 2 years.
+                            </p>
+                            <div className="flex items-start gap-3 pt-1">
+                              <Switch checked={form.gdpr_consent} onCheckedChange={(v) => setF('gdpr_consent', v)} id="gdpr" />
+                              <label htmlFor="gdpr" className="text-foreground font-medium cursor-pointer leading-snug">
+                                I agree to processing my personal data for recruitment. <span className="text-destructive">*</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+
+                    <div className="px-5 pb-5 flex items-center justify-between gap-2 border-t border-border pt-4 bg-muted/20">
+                      {stepIdx > 0 ? (
+                        <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => setStep(STEPS[stepIdx - 1].id)}>
+                          Back
+                        </Button>
+                      ) : <div />}
+
+                      {stepIdx < STEPS.length - 1 ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            if (step === 'personal' && (!form.full_name || !form.email)) {
+                              setSubmitError('Name and email are required.');
+                              return;
+                            }
+                            setSubmitError(null);
+                            setStep(STEPS[stepIdx + 1].id);
+                          }}
+                        >
+                          Continue
+                        </Button>
+                      ) : (
+                        <Button type="submit" size="sm" className="rounded-lg" disabled={submitting || !form.gdpr_consent}>
+                          {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Submit application
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
                 </form>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile sticky apply */}
+      {!job.application_url && (
+        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-background/95 backdrop-blur p-3 lg:hidden">
+          <Button className="w-full rounded-xl h-11 gap-2" onClick={scrollToApply}>
+            Apply for this role
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function MetaPill({ icon: Icon, label }: { icon: typeof MapPin; label: string }) {
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-3 pb-2 border-b border-border">{title}</h2>
-      {children}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-white/90">
+      <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" />
+      {label}
+    </span>
+  );
+}
+
+function JobDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="h-14 border-b border-border" />
+      <div className="h-48 bg-muted animate-pulse" />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid lg:grid-cols-5 gap-8">
+        <div className="lg:col-span-3 space-y-4">
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
+        <div className="lg:col-span-2">
+          <Skeleton className="h-[420px] w-full rounded-2xl" />
+        </div>
+      </div>
     </div>
   );
 }
 
 function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold">
         {label}{required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
       {children}
@@ -606,11 +625,20 @@ function FormField({ label, required, children }: { label: string; required?: bo
   );
 }
 
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+      <p className="text-sm font-medium leading-snug">{label}</p>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right max-w-[60%] truncate">{value}</span>
+    <div className="flex items-center justify-between gap-4 text-sm py-0.5">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right truncate">{value}</span>
     </div>
   );
 }
@@ -621,37 +649,31 @@ function FileUploadField({
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold">
         {field.label}
         {field.required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
       {file ? (
-        <div className="flex items-center gap-2 p-2.5 rounded-md border border-border bg-secondary/30">
-          <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-muted/30">
+          <FileText className="h-4 w-4 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate">{file.name}</p>
             <p className="text-[10px] text-muted-foreground">{fmtBytes(file.size)}</p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={() => onChange(null)}
-          >
-            <X className="w-3.5 h-3.5" />
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-md" onClick={() => onChange(null)}>
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       ) : (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full rounded-md border border-dashed border-border bg-secondary/20 hover:bg-secondary/40 transition-colors p-3 flex flex-col items-center gap-1"
+          className="w-full rounded-xl border border-dashed border-border bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-colors p-4 flex flex-col items-center gap-1.5"
         >
-          <Upload className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Click to upload</span>
-          {field.hint && <span className="text-[10px] text-muted-foreground/70">{field.hint}</span>}
+          <Upload className="h-5 w-5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">Click to upload</span>
+          {field.hint && <span className="text-[10px] text-muted-foreground/80 text-center">{field.hint}</span>}
         </button>
       )}
       <input
