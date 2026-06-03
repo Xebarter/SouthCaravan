@@ -56,6 +56,8 @@ export function PostEditor({ post, mode }: PostEditorProps) {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState(post?.cover_image ?? '');
   const [newTagName, setNewTagName] = useState('');
+  const [postId, setPostId] = useState(post?.id ?? '');
+  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/blog/categories').then((r) => r.json()).then((d) => setCategories(d.categories ?? []));
@@ -94,52 +96,97 @@ export function PostEditor({ post, mode }: PostEditorProps) {
     }
   }
 
+  function buildFormData(targetStatus?: string) {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('slug', slug);
+    fd.append('excerpt', excerpt);
+    fd.append('content', content);
+    fd.append('status', targetStatus ?? status);
+    fd.append('author_name', authorName);
+    fd.append('category_id', categoryId);
+    fd.append('meta_title', metaTitle);
+    fd.append('meta_description', metaDescription);
+    fd.append('featured', String(featured));
+    fd.append('allow_comments', String(allowComments));
+    fd.append('tag_ids', JSON.stringify(selectedTagIds));
+    if (coverImageFile) {
+      fd.append('cover_image_file', coverImageFile);
+    } else if (coverImage) {
+      fd.append('cover_image', coverImage);
+    }
+    return fd;
+  }
+
+  async function persistPost(
+    targetStatus?: string,
+    options?: { redirectOnCreate?: boolean },
+  ): Promise<BlogPost | null> {
+    const isCreate = mode === 'new' && !postId;
+    const fd = buildFormData(targetStatus);
+
+    let res: Response;
+    if (isCreate) {
+      res = await fetch('/api/admin/blog', { method: 'POST', body: fd });
+    } else {
+      fd.append('id', postId || post!.id);
+      res = await fetch('/api/admin/blog', { method: 'PATCH', body: fd });
+    }
+
+    if (!res.ok) return null;
+
+    const text = await res.text();
+    if (!text.trim()) return null;
+
+    let data: { post?: BlogPost };
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return null;
+    }
+
+    if (!data.post) return null;
+
+    setPostId(data.post.id);
+    setSlug(data.post.slug);
+    setSaveStatus('saved');
+    if (targetStatus) setStatus(targetStatus);
+
+    if (isCreate && options?.redirectOnCreate !== false) {
+      router.push(`/admin/blog/${data.post.id}/edit`);
+    }
+
+    return data.post;
+  }
+
   async function handleSave(targetStatus?: string) {
     setSaving(true);
     setSaveStatus('idle');
     try {
-      const fd = new FormData();
-      fd.append('title', title);
-      fd.append('slug', slug);
-      fd.append('excerpt', excerpt);
-      fd.append('content', content);
-      fd.append('status', targetStatus ?? status);
-      fd.append('author_name', authorName);
-      fd.append('category_id', categoryId);
-      fd.append('meta_title', metaTitle);
-      fd.append('meta_description', metaDescription);
-      fd.append('featured', String(featured));
-      fd.append('allow_comments', String(allowComments));
-      fd.append('tag_ids', JSON.stringify(selectedTagIds));
-      if (coverImageFile) {
-        fd.append('cover_image_file', coverImageFile);
-      } else if (coverImage) {
-        fd.append('cover_image', coverImage);
-      }
-
-      let res: Response;
-      if (mode === 'new') {
-        res = await fetch('/api/admin/blog', { method: 'POST', body: fd });
-      } else {
-        fd.append('id', post!.id);
-        res = await fetch('/api/admin/blog', { method: 'PATCH', body: fd });
-      }
-
-      if (res.ok) {
-        setSaveStatus('saved');
-        if (mode === 'new') {
-          const data = await res.json();
-          router.push(`/admin/blog/${data.post.id}/edit`);
-        } else {
-          if (targetStatus) setStatus(targetStatus);
-        }
-      } else {
-        setSaveStatus('error');
-      }
+      const saved = await persistPost(targetStatus, { redirectOnCreate: true });
+      if (!saved) setSaveStatus('error');
     } catch {
       setSaveStatus('error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePreview() {
+    if (!title.trim()) return;
+    setPreviewing(true);
+    setSaveStatus('idle');
+    try {
+      const saved = await persistPost(status, { redirectOnCreate: false });
+      if (!saved?.slug) {
+        setSaveStatus('error');
+        return;
+      }
+      window.open(`/blog/${saved.slug}?preview=1`, '_blank', 'noopener,noreferrer');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setPreviewing(false);
     }
   }
 
@@ -153,10 +200,14 @@ export function PostEditor({ post, mode }: PostEditorProps) {
           {saveStatus === 'error' && <p className="text-xs text-destructive mt-0.5">Save failed. Please try again.</p>}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={slug ? `/blog/${slug}` : '/blog'} target="_blank" rel="noopener">
-              <Eye className="w-4 h-4 mr-1.5" /> Preview
-            </a>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={saving || previewing || !title.trim()}
+            onClick={() => void handlePreview()}
+          >
+            <Eye className="w-4 h-4 mr-1.5" />
+            {previewing ? 'Saving…' : 'Preview'}
           </Button>
           {status !== 'published' && (
             <Button

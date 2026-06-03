@@ -18,6 +18,7 @@ function PostCard({ post, featured }: { post: BlogPost; featured?: boolean }) {
   return (
     <Link
       href={`/blog/${post.slug}`}
+      prefetch
       className={`group flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-md transition-shadow ${featured ? 'md:flex-row' : ''}`}
     >
       {/* Cover */}
@@ -117,6 +118,11 @@ export default function BlogPage() {
 
   useEffect(() => {
     fetch('/api/admin/blog/categories').then((r) => r.json()).then((d) => setCategories(d.categories ?? []));
+  }, []);
+
+  useEffect(() => {
+    const cat = new URLSearchParams(window.location.search).get('category');
+    if (cat) setActiveCategory(cat);
   }, []);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
