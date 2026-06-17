@@ -33,9 +33,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  const companyName = user?.company?.trim() || user?.name?.trim() || 'Vendor';
-  const storefrontHref = user?.id ? `/vendor/${user.id}` : '/';
-  const vendorName = user?.name?.trim() || companyName;
+  const vendorName = user?.name?.trim() || user?.company?.trim() || 'Vendor';
   const vendorEmail = user?.email?.trim() || '';
 
   const handleLogout = () => {
@@ -60,8 +58,7 @@ export function VendorConsoleShell({ children }: { children: React.ReactNode }) 
         {
           label: 'Storefront',
           icon: ExternalLink,
-          href: storefrontHref,
-          external: true,
+          href: '/',
         },
       ]}
       onSignOut={handleLogout}

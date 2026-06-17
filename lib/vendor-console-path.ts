@@ -1,7 +1,5 @@
 /**
- * Vendor console lives under `/vendor` with fixed segments. Public storefront
- * pages use `/vendor/:vendorProfileId` where the second segment is not a
- * reserved console path (e.g. `/vendor/vendor-1`).
+ * Vendor console routes under `/vendor` with fixed segments (orders, products, etc.).
  */
 const VENDOR_CONSOLE_ROOT_SEGMENTS = new Set([
   'products',
