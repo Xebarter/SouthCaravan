@@ -66,7 +66,7 @@ export default async function HomePage() {
                   <span className="text-sky-900"> Ship with confidence.</span>
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 max-w-xl">
-                  A modern B2B marketplace to compare products, request quotes, and purchase from vetted vendors—without the back-and-forth.
+                  Compare products, get quotes, and buy from trusted suppliers, all in one place.
                 </p>
               </div>
 
