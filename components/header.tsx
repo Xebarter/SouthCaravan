@@ -36,21 +36,6 @@ function getInitials(name: string): string {
     .join('');
 }
 
-function getDashboardHref(role: string): string {
-  if (role === 'admin') return '/admin';
-  if (role === 'vendor') return '/vendor';
-  if (role === 'services') return '/services/dashboard';
-  return '/buyer';
-}
-
-function getDashboardHrefForContext(pathname: string, role: string): string {
-  const kind = getDashboardConsoleKind(pathname);
-  if (kind === 'buyer') return '/buyer';
-  if (kind === 'vendor') return '/vendor';
-  if (kind === 'services') return '/services/dashboard';
-  return getDashboardHref(role);
-}
-
 function WorkspaceMenuButton({ className }: { className?: string }) {
   const dashboardNav = useDashboardNav();
   const pathname = usePathname();
@@ -219,8 +204,6 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
     ? getMessagesHrefForPath(pathname, user.role)
     : '/auth?role=buyer&next=/buyer/messages';
 
-  const homeHref = user ? getDashboardHrefForContext(pathname, user.role) : '/';
-
   return (
     <>
       {/* Desktop (md+) */}
@@ -240,7 +223,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href={homeHref} className="flex items-center gap-2 font-bold text-lg" aria-label="SouthCaravan home">
+            <Link href="/" className="flex items-center gap-2 font-bold text-lg" aria-label="SouthCaravan home">
               <SiteLogoMark />
               <span className="hidden sm:inline">SouthCaravan</span>
             </Link>
@@ -310,7 +293,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
           <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
             <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
               <Link
-                href={homeHref}
+                href="/"
                 aria-label="SouthCaravan home"
                 className="shrink-0 inline-flex items-center gap-2 min-w-0"
               >

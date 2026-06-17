@@ -285,19 +285,19 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     className="rounded-lg border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {item.images?.[0] ? (
-                      <div className="relative h-28 w-full bg-slate-100">
+                      <div className="relative aspect-[4/3] w-full bg-slate-100">
                         <Image
                           src={item.images[0]}
                           alt={item.name}
                           fill
                           loading="lazy"
                           unoptimized
-                          sizes="25vw"
-                          className="object-cover"
+                          sizes="(min-width: 768px) 25vw, 50vw"
+                          className="object-contain p-1.5"
                         />
                       </div>
                     ) : (
-                      <div className="h-28 w-full bg-slate-100 flex items-center justify-center">
+                      <div className="aspect-[4/3] w-full bg-slate-100 flex items-center justify-center">
                         <Package className="h-6 w-6 text-slate-400" />
                       </div>
                     )}

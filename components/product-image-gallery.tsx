@@ -70,7 +70,7 @@ export function ProductImageGallery({
 
   return (
     <div className={cn('w-full space-y-3', className)}>
-      <div className="group relative w-full h-[340px] md:h-[440px] rounded-lg overflow-hidden bg-slate-100">
+      <div className="group relative w-full min-h-[280px] h-[min(52vh,400px)] sm:h-[min(56vh,480px)] lg:h-[min(58vh,560px)] rounded-lg overflow-hidden bg-slate-100">
         <Image
           src={safeImages[activeIndex]}
           alt={alt}
@@ -78,7 +78,7 @@ export function ProductImageGallery({
           priority
           unoptimized
           sizes="(min-width: 1024px) 58vw, 100vw"
-          className="object-cover"
+          className="object-contain p-1 sm:p-2"
         />
 
         {safeImages.length > 1 && (
@@ -128,7 +128,7 @@ export function ProductImageGallery({
                   fill
                   unoptimized
                   sizes="20vw"
-                  className="object-cover"
+                  className="object-contain bg-white/50"
                 />
                 {isLastThumbWithMore && (
                   <div className="absolute inset-0 grid place-items-center bg-black/55 text-white text-sm font-semibold">

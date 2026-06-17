@@ -90,6 +90,10 @@ const DEFAULT_FEATURED_LIMIT = 5;
 export const LANDING_CATEGORIES_MAX = 2000;
 export const LANDING_FEED_MAX_PAGE_SIZE = 6;
 export const LANDING_FEED_MAX_PER_CATEGORY = 6;
+export const CATEGORIES_PAGE_MAX_PAGE_SIZE = 6;
+export const CATEGORIES_PAGE_MAX_PER_CATEGORY = 12;
+export const CATEGORIES_PAGE_DEFAULT_PAGE_SIZE = 4;
+export const CATEGORIES_PAGE_DEFAULT_PER_CATEGORY = 12;
 
 function isMissingServiceOfferingsTable(error: any) {
   const msg = String(error?.message ?? '').toLowerCase();
@@ -119,7 +123,29 @@ function serviceRowToFeedProduct(row: any): FeedProduct {
   };
 }
 
-function mergeFeaturedFeedItems(products: FeedProduct[], services: FeedProduct[], perCategory: number): FeedProduct[] {
+export function offeringSummaryToFeedProduct(row: ServiceOfferingSummary): FeedProduct {
+  const pricingType = String(row.pricing_type ?? 'fixed').toLowerCase() === 'hourly' ? 'hourly' : 'fixed';
+  return {
+    id: String(row.id),
+    vendor_id: null,
+    name: String(row.title ?? ''),
+    description: String(row.description ?? ''),
+    category: String(row.category ?? ''),
+    subcategory: String(row.subcategory ?? ''),
+    sub_subcategory: 'Service',
+    price: Number(row.rate ?? 0),
+    minimum_order: 1,
+    unit: pricingType === 'hourly' ? 'hour' : 'service',
+    images: row.images,
+    in_stock: Boolean(row.is_active),
+    is_featured: Boolean(row.is_featured),
+    item_kind: 'service',
+    href: `/public/services/${row.id}`,
+    price_currency: String(row.currency ?? 'USD').toUpperCase(),
+  };
+}
+
+export function mergeFeaturedFeedItems(products: FeedProduct[], services: FeedProduct[], perCategory: number): FeedProduct[] {
   const combined = [...products, ...services];
   combined.sort((a, b) => {
     const af = a.is_featured ? 1 : 0;
@@ -200,58 +226,67 @@ export async function getSponsoredProducts(limit = DEFAULT_SPONSORED_LIMIT): Pro
   });
 }
 
+async function fetchUniqueMarketplaceCategories(): Promise<string[]> {
+  const { data: categoriesData, error: categoryError } = await supabaseAdmin
+    .from('products')
+    .select('category')
+    .order('category', { ascending: true })
+    .limit(LANDING_CATEGORIES_MAX);
+
+  if (categoryError) {
+    console.error('[marketplace categories]', categoryError.message);
+    return [];
+  }
+
+  const productCategories = Array.from(
+    new Set((categoriesData ?? []).map((item: any) => item.category?.trim()).filter(Boolean)),
+  );
+
+  let serviceCategories: string[] = [];
+  const { data: serviceCatRows, error: serviceCatErr } = await supabaseAdmin
+    .from('service_offerings')
+    .select('category')
+    .eq('is_active', true)
+    .limit(2000);
+
+  if (serviceCatErr && !isMissingServiceOfferingsTable(serviceCatErr)) {
+    console.error('[marketplace service categories]', serviceCatErr.message);
+  } else {
+    serviceCategories = Array.from(
+      new Set((serviceCatRows ?? []).map((r: any) => String(r.category ?? '').trim()).filter(Boolean)),
+    );
+  }
+
+  return Array.from(new Set([...productCategories, ...serviceCategories])).sort((a, b) => a.localeCompare(b));
+}
+
+export async function getMarketplaceCategoryNames(): Promise<string[]> {
+  return getCached('marketplace-category-names-v1', 60_000, fetchUniqueMarketplaceCategories);
+}
+
 export async function getLandingCategoryFeedSections(params: {
   page: number;
   pageSize: number;
   perCategory: number;
+  maxPageSize?: number;
+  maxPerCategory?: number;
 }): Promise<{ sections: FeedSection[]; hasMore: boolean; page: number }> {
   const page = Math.max(0, Math.floor(params.page || 0));
-  const pageSize = parsePositiveInt(params.pageSize, 3, LANDING_FEED_MAX_PAGE_SIZE);
-  const perCategory = parsePositiveInt(params.perCategory, 4, LANDING_FEED_MAX_PER_CATEGORY);
+  const maxPageSize = params.maxPageSize ?? LANDING_FEED_MAX_PAGE_SIZE;
+  const maxPerCategory = params.maxPerCategory ?? LANDING_FEED_MAX_PER_CATEGORY;
+  const pageSize = parsePositiveInt(params.pageSize, 3, maxPageSize);
+  const perCategory = parsePositiveInt(params.perCategory, 4, maxPerCategory);
 
-  const cacheKey = `landing-category-feed-v2:${page}:${pageSize}:${perCategory}`;
+  const cacheKey = `landing-category-feed-v2:${page}:${pageSize}:${perCategory}:${maxPageSize}:${maxPerCategory}`;
   return getCached(cacheKey, 30_000, async () => {
-    // First, fetch unique categories. This is cached so we avoid doing it on every page load.
-    const { data: categoriesData, error: categoryError } = await supabaseAdmin
-      .from('products')
-      .select('category')
-      .order('category', { ascending: true })
-      .limit(LANDING_CATEGORIES_MAX);
-
-    if (categoryError) {
-      console.error('[landing/category-feed categories]', categoryError.message);
-      return { sections: [], hasMore: false, page };
-    }
-
-    const productCategories = Array.from(
-      new Set((categoriesData ?? []).map((item: any) => item.category?.trim()).filter(Boolean)),
-    );
-
-    let serviceCategories: string[] = [];
-    const { data: serviceCatRows, error: serviceCatErr } = await supabaseAdmin
-      .from('service_offerings')
-      .select('category')
-      .eq('is_active', true)
-      .limit(2000);
-
-    if (serviceCatErr && !isMissingServiceOfferingsTable(serviceCatErr)) {
-      console.error('[landing/category-feed service categories]', serviceCatErr.message);
-    } else {
-      serviceCategories = Array.from(
-        new Set((serviceCatRows ?? []).map((r: any) => String(r.category ?? '').trim()).filter(Boolean)),
-      );
-    }
-
-    const uniqueCategories = Array.from(new Set([...productCategories, ...serviceCategories])).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const uniqueCategories = await fetchUniqueMarketplaceCategories();
 
     const start = page * pageSize;
     const end = start + pageSize;
     const pageCategories = uniqueCategories.slice(start, end);
 
     const servicesByCategory = new Map<string, FeedProduct[]>();
-    if (pageCategories.length > 0 && serviceCategories.length > 0) {
+    if (pageCategories.length > 0) {
       const { data: serviceRows, error: servicesErr } = await supabaseAdmin
         .from('service_offerings')
         .select(
@@ -310,6 +345,20 @@ export async function getLandingCategoryFeedSections(params: {
       hasMore: end < uniqueCategories.length,
       page,
     };
+  });
+}
+
+export async function getCategoriesPageFeedSections(params: {
+  page: number;
+  pageSize?: number;
+  perCategory?: number;
+}): Promise<{ sections: FeedSection[]; hasMore: boolean; page: number }> {
+  return getLandingCategoryFeedSections({
+    page: params.page,
+    pageSize: params.pageSize ?? CATEGORIES_PAGE_DEFAULT_PAGE_SIZE,
+    perCategory: params.perCategory ?? CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
+    maxPageSize: CATEGORIES_PAGE_MAX_PAGE_SIZE,
+    maxPerCategory: CATEGORIES_PAGE_MAX_PER_CATEGORY,
   });
 }
 
