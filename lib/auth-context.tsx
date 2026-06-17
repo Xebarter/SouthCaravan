@@ -67,6 +67,22 @@ function mapSupabaseUserToAppUser(supabaseUser: any): User | null {
   };
 }
 
+function sameUser(a: User | null, b: User | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.id !== b.id) return false;
+  if (a.email !== b.email) return false;
+  if (a.name !== b.name) return false;
+  if (a.company !== b.company) return false;
+  if (a.avatar !== b.avatar) return false;
+  if (a.role !== b.role) return false;
+  if (a.roles.length !== b.roles.length) return false;
+  for (let i = 0; i < a.roles.length; i += 1) {
+    if (a.roles[i] !== b.roles[i]) return false;
+  }
+  return true;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
         const { data } = await supabase.auth.getUser();
         if (cancelled) return;
-        setUser(mapSupabaseUserToAppUser(data.user));
+        const nextUser = mapSupabaseUserToAppUser(data.user);
+        setUser((prev) => (sameUser(prev, nextUser) ? prev : nextUser));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -88,7 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
-      setUser(mapSupabaseUserToAppUser(session?.user));
+      const nextUser = mapSupabaseUserToAppUser(session?.user);
+      setUser((prev) => (sameUser(prev, nextUser) ? prev : nextUser));
 
       // If OAuth ends up returning to the Site URL (often `/`) instead of our
       // intended `/auth?...` URL, automatically forward to the stored dashboard.

@@ -289,7 +289,8 @@ export function PortalVerificationGate({
   const loadVerificationStatus = useCallback(async () => {
     setStatus({ kind: 'loading' })
     try {
-      const res = await fetch('/api/vendor/bootstrap', {
+      const bootstrapUrl = portal === 'services' ? '/api/services/bootstrap' : '/api/vendor/bootstrap'
+      const res = await fetch(bootstrapUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ portal }),
