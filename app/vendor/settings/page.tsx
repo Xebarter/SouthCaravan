@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   Building2,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   Eye,
   EyeOff,
   Globe,
@@ -14,11 +16,13 @@ import {
   Mail,
   MapPin,
   Phone,
+  RotateCcw,
   Save,
   Shield,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +37,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +55,8 @@ import { useAuth } from '@/lib/auth-context';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 import { ProductDescriptionEditor } from '@/components/product-description-editor';
 import { sanitizeProductHtml } from '@/lib/sanitize-product-html';
+import { notifyVendorCompanyNameUpdated, resolveVendorSidebarDisplayName } from '@/lib/vendor-display-name';
+import { stripHtmlForPreview } from '@/lib/strip-html';
 
 type NotifKey = 'orders' | 'quotes' | 'messages' | 'marketing';
 
@@ -133,6 +141,72 @@ function buildProfilePayload(profile: VendorProfileApi | null): VendorProfilePay
   };
 }
 
+function computeProfileCompleteness(
+  profile: VendorProfileApi | null,
+  showcaseCount: number,
+): { percent: number; label: string } {
+  if (!profile) return { percent: 0, label: 'Complete your profile to build buyer trust' };
+
+  const checks = [
+    { ok: Boolean(profile.company_name?.trim()), weight: 20 },
+    { ok: Boolean(stripHtmlForPreview(profile.description ?? '').trim()), weight: 20 },
+    { ok: Boolean(profile.public_email?.trim() || profile.contact_email?.trim()), weight: 15 },
+    { ok: Boolean(profile.phone?.trim()), weight: 10 },
+    { ok: Boolean(profile.logo_url?.trim()), weight: 15 },
+    { ok: Boolean(profile.city?.trim() && profile.country?.trim()), weight: 10 },
+    {
+      ok: !profile.public_profile_enabled || showcaseCount > 0,
+      weight: 10,
+    },
+  ];
+
+  const percent = checks.reduce((sum, item) => sum + (item.ok ? item.weight : 0), 0);
+  const label =
+    percent >= 90
+      ? 'Your profile looks strong — buyers can trust what they see'
+      : percent >= 60
+        ? 'Good progress — add a few more details to stand out'
+        : 'Complete your profile to build buyer trust';
+
+  return { percent, label };
+}
+
+function VendorSettingsSkeleton() {
+  return (
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-8">
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-4 w-full max-w-xl" />
+        <div className="flex gap-2">
+          <Skeleton className="h-6 w-28 rounded-full" />
+          <Skeleton className="h-6 w-36 rounded-full" />
+        </div>
+      </div>
+      <Skeleton className="h-11 w-full rounded-2xl" />
+      <div className="rounded-2xl border border-border/60 overflow-hidden">
+        <Skeleton className="h-14 w-full" />
+        <div className="p-6 flex gap-4">
+          <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-56" />
+            <Skeleton className="h-8 w-28" />
+          </div>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-border/60 p-6 space-y-4">
+        <Skeleton className="h-5 w-44" />
+        <Skeleton className="h-10 w-full max-w-lg" />
+        <Skeleton className="h-32 w-full max-w-2xl" />
+        <div className="grid sm:grid-cols-2 gap-4 max-w-lg">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VendorSettingsPage() {
   const { user, logout } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -166,6 +240,13 @@ export default function VendorSettingsPage() {
   const [pwShowConfirm, setPwShowConfirm] = useState(false);
   const [accountDeleteOpen, setAccountDeleteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security'>('profile');
+  const [baselineProfile, setBaselineProfile] = useState<VendorProfileApi | null>(null);
+  const [baselineNotifs, setBaselineNotifs] = useState<Record<NotifKey, boolean>>({
+    orders: true,
+    quotes: true,
+    messages: true,
+    marketing: false,
+  });
 
   const userId = user?.id ?? '';
   const dirtyRef = useRef(false);
@@ -208,6 +289,8 @@ export default function VendorSettingsPage() {
           };
           setNotifs(nextNotifs);
           setShowcaseImages(Array.isArray(showcaseJson?.images) ? showcaseJson.images : []);
+          setBaselineProfile(nextProfile ? { ...nextProfile } : null);
+          setBaselineNotifs(nextNotifs);
 
           // baseline snapshots for "unsaved changes" UX
           setSavedProfileSnapshot(JSON.stringify(buildProfilePayload(nextProfile) ?? {}));
@@ -226,10 +309,15 @@ export default function VendorSettingsPage() {
   }, [userId]);
 
   const vendorDisplay = useMemo(() => {
-    const companyName = profile?.company_name || user?.email?.split('@')?.[0] || 'Vendor';
-    const email = profile?.public_email || user?.email || '';
+    const companyName = resolveVendorSidebarDisplayName(profile?.company_name, user);
+    const email = profile?.public_email?.trim() || user?.email || '';
     return { companyName, email };
   }, [profile, user]);
+
+  const profileCompleteness = useMemo(
+    () => computeProfileCompleteness(profile, showcaseImages.length),
+    [profile, showcaseImages.length],
+  );
 
   const publicProfileHref = useMemo(() => {
     if (!userId) return '';
@@ -256,17 +344,16 @@ export default function VendorSettingsPage() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const handleDiscardChanges = () => {
+    if (baselineProfile) setProfile({ ...baselineProfile });
+    setNotifs({ ...baselineNotifs });
+    toast.message('Changes discarded');
+  };
+
   if (!user) return null;
 
   if (loading) {
-    return (
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-3xl">
-        <div className="flex items-center gap-2 text-muted-foreground py-24 justify-center">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">Loading settings…</span>
-        </div>
-      </div>
-    );
+    return <VendorSettingsSkeleton />;
   }
 
   const handleSave = async () => {
@@ -297,6 +384,9 @@ export default function VendorSettingsPage() {
       setProfile(nextProfile);
       setSavedProfileSnapshot(JSON.stringify(buildProfilePayload(nextProfile) ?? {}));
       setSavedNotifsSnapshot(JSON.stringify(notifs));
+      setBaselineProfile(nextProfile ? { ...nextProfile } : null);
+      setBaselineNotifs({ ...notifs });
+      notifyVendorCompanyNameUpdated(nextProfile?.company_name ?? '');
       toast.success('Settings saved');
     } catch (e: any) {
       setError(e?.message || 'Failed to save settings');
@@ -574,59 +664,54 @@ export default function VendorSettingsPage() {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-10 max-w-6xl mx-auto space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Keep your supplier profile accurate, control buyer-facing visibility, and manage security preferences.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge variant={hasUnsavedChanges ? 'warning' : 'success'}>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto space-y-6 pb-28">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+              Workspace
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Settings</h1>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Manage your supplier profile, buyer-facing visibility, notifications, and account security.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-card/80 p-4 shadow-sm max-w-xl">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <p className="text-sm font-medium">Profile completeness</p>
+              <span className="text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                {profileCompleteness.percent}%
+              </span>
+            </div>
+            <Progress value={profileCompleteness.percent} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-2">{profileCompleteness.label}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={hasUnsavedChanges ? 'warning' : 'success'} className="gap-1">
+              {hasUnsavedChanges ? null : <CheckCircle2 className="h-3 w-3" />}
               {hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}
             </Badge>
             {publicProfileHref ? (
-              <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+              <Button asChild variant="outline" size="sm" className="h-7 text-xs gap-1.5">
                 <a href={publicProfileHref} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-3 w-3" />
                   View public profile
                 </a>
               </Button>
             ) : (
-              <Badge variant="secondary">Public profile is off</Badge>
+              <Badge variant="secondary">Public profile off</Badge>
             )}
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9"
-            disabled={!hasUnsavedChanges || saving}
-            onClick={() => {
-              setProfile((p) => (p ? { ...p } : p));
-              void handleSave();
-            }}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       <Tabs
@@ -634,35 +719,38 @@ export default function VendorSettingsPage() {
         onValueChange={(v) => setActiveTab(v as typeof activeTab)}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-slate-100 p-1.5">
-          <TabsTrigger value="profile" className="gap-2 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Profile</span>
-            <span className="sm:hidden">Profile</span>
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-border/60 bg-muted/40 p-1.5">
+          <TabsTrigger
+            value="profile"
+            className="gap-2 rounded-xl py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Building2 className="h-4 w-4 shrink-0" />
+            <span>Profile</span>
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
-            className="gap-2 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="gap-2 rounded-xl py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
-            <span className="sm:hidden">Notifs</span>
+            <Bell className="h-4 w-4 shrink-0" />
+            <span>Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Security</span>
-            <span className="sm:hidden">Security</span>
+          <TabsTrigger
+            value="security"
+            className="gap-2 rounded-xl py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+          >
+            <Shield className="h-4 w-4 shrink-0" />
+            <span>Security</span>
           </TabsTrigger>
         </TabsList>
 
         {/* ── Profile tab ── */}
-        <TabsContent value="profile" className="space-y-6 mt-7">
+        <TabsContent value="profile" className="space-y-6 mt-6">
           {/* Company identity card */}
-          <Card className="border-slate-200/70 shadow-sm overflow-hidden">
-            <div className="h-14 w-full bg-linear-to-r from-slate-50 to-sky-50" />
+          <Card className="rounded-2xl border-border/70 shadow-sm overflow-hidden">
+            <div className="h-16 w-full bg-gradient-to-r from-violet-500/10 via-background to-sky-500/10" />
             <CardContent className="pt-0 pb-6">
               <div className="-mt-7 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
-                <div className="h-16 w-16 shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm ring-4 ring-white">
+                <div className="h-16 w-16 shrink-0 rounded-2xl overflow-hidden border border-border/60 bg-background shadow-sm ring-4 ring-background">
                   {profile?.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -671,13 +759,13 @@ export default function VendorSettingsPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white text-xl font-bold select-none">
+                    <div className="flex h-full w-full items-center justify-center bg-violet-600 text-white text-xl font-bold select-none">
                       {getInitials(vendorDisplay.companyName)}
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-base text-slate-900">{vendorDisplay.companyName}</p>
+                  <p className="font-semibold text-base">{vendorDisplay.companyName}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">{vendorDisplay.email}</p>
                   <div className="mt-2.5 flex items-center gap-2">
                     <input
@@ -719,8 +807,8 @@ export default function VendorSettingsPage() {
           </Card>
 
           {/* Company info */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 Company information
@@ -816,8 +904,8 @@ export default function VendorSettingsPage() {
           </Card>
 
           {/* Public profile */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
                 Public profile
@@ -936,8 +1024,8 @@ export default function VendorSettingsPage() {
           </Card>
 
           {/* Showcase images */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <Upload className="h-4 w-4 text-muted-foreground" />
                 Showcase gallery
@@ -973,7 +1061,7 @@ export default function VendorSettingsPage() {
                 }}
               />
               <div
-                className="rounded-xl border border-dashed border-slate-300/80 bg-secondary/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -1136,7 +1224,7 @@ export default function VendorSettingsPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-border/60 bg-secondary/10 px-4 py-6 text-sm text-muted-foreground">
-                  <p className="font-medium text-slate-900">No showcase images yet</p>
+                  <p className="font-medium text-foreground">No showcase images yet</p>
                   <p className="mt-1">
                     Upload 3-6 professional photos to help buyers trust your facilities, equipment, and QC process.
                   </p>
@@ -1146,8 +1234,8 @@ export default function VendorSettingsPage() {
           </Card>
 
           {/* Location */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 Business location
@@ -1206,8 +1294,8 @@ export default function VendorSettingsPage() {
 
         {/* ── Notifications tab ── */}
         <TabsContent value="notifications" className="space-y-6 mt-7">
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base">Email notifications</CardTitle>
               <CardDescription className="text-xs">
                 Choose which events send an email to{' '}
@@ -1234,8 +1322,8 @@ export default function VendorSettingsPage() {
         {/* ── Security tab ── */}
         <TabsContent value="security" className="space-y-6 mt-7">
           {/* Change password */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base flex items-center gap-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 Change password
@@ -1321,8 +1409,8 @@ export default function VendorSettingsPage() {
           </Card>
 
           {/* Active sessions */}
-          <Card className="border-slate-200/70 shadow-sm">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border-border/70 shadow-sm">
+            <CardHeader className="pb-4 border-b border-border/50 bg-muted/20">
               <CardTitle className="text-base">Active sessions</CardTitle>
               <CardDescription className="text-xs">
                 Sign out of any device you don't recognise
@@ -1402,11 +1490,11 @@ export default function VendorSettingsPage() {
       {/* Sticky action bar */}
       <div
         className={cn(
-          'sticky bottom-0 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8',
-          'pb-4 pt-3',
+          'fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80',
+          'pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 px-4 sm:px-6',
         )}
       >
-        <div className="rounded-2xl border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 px-4 py-3 shadow-sm">
+        <div className="mx-auto max-w-5xl">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium">
@@ -1418,16 +1506,30 @@ export default function VendorSettingsPage() {
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {hasUnsavedChanges
-                  ? 'You have changes that haven’t been saved yet.'
+                  ? 'You have unsaved changes.'
                   : 'Everything is up to date.'}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 justify-end">
-              <Badge variant={hasUnsavedChanges ? 'warning' : 'success'}>
-                {hasUnsavedChanges ? 'Unsaved' : 'Saved'}
-              </Badge>
-              <Button onClick={handleSave} disabled={saving || !hasUnsavedChanges} className="min-w-32">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+              {hasUnsavedChanges ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saving}
+                  onClick={handleDiscardChanges}
+                  className="w-full sm:w-auto"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Discard
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving || !hasUnsavedChanges}
+                className="w-full sm:w-auto min-w-32"
+              >
                 {saving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
