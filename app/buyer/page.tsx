@@ -16,7 +16,7 @@ export default function BuyerHomePage() {
     void grantPortalAccess('buyer').catch(() => {});
   }, [isLoading, user]);
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return (
       <div className="container mx-auto max-w-7xl px-4 py-16 space-y-4">
         <Skeleton className="h-10 w-64" />

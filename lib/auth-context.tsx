@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { User, UserRole } from './types';
 import { collectPortalRolesFromAuthUser, primaryPortalRole } from '@/lib/buyer-portal-access';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
+import { clearPortalVerificationCache } from '@/lib/portal-verification-cache';
 
 const POST_AUTH_NEXT_KEY = 'sc_post_auth_next';
 const POST_AUTH_SET_AT_KEY = 'sc_post_auth_set_at';
@@ -91,22 +92,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = getBrowserSupabaseClient();
 
     let cancelled = false;
-    (async () => {
-      try {
-        setIsLoading(true);
-        const { data } = await supabase.auth.getUser();
-        if (cancelled) return;
-        const nextUser = mapSupabaseUserToAppUser(data.user);
-        setUser((prev) => (sameUser(prev, nextUser) ? prev : nextUser));
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const applySession = (session: { user?: unknown } | null | undefined) => {
       if (cancelled) return;
       const nextUser = mapSupabaseUserToAppUser(session?.user);
       setUser((prev) => (sameUser(prev, nextUser) ? prev : nextUser));
+      setIsLoading(false);
+    };
+
+    // Hydrate from the local session first (no network round-trip).
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      applySession(session);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+
+      if (event === 'INITIAL_SESSION') {
+        applySession(session);
+      } else {
+        const nextUser = mapSupabaseUserToAppUser(session?.user);
+        setUser((prev) => (sameUser(prev, nextUser) ? prev : nextUser));
+        setIsLoading(false);
+      }
 
       // If OAuth ends up returning to the Site URL (often `/`) instead of our
       // intended `/auth?...` URL, automatically forward to the stored dashboard.
@@ -175,6 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    const userId = user?.id;
+    if (userId) {
+      clearPortalVerificationCache('vendor', userId);
+      clearPortalVerificationCache('services', userId);
+    }
     clearPortalHints();
     // Navigate immediately so console headers never re-render as signed-out
     // (which briefly showed mock vendor identity + a Sign in button).

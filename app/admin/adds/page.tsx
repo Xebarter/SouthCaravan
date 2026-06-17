@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductPromotionRequestsPanel } from '@/components/admin/product-promotion-requests-panel';
 import { ServicePromotionRequestsPanel } from '@/components/admin/service-promotion-requests-panel';
 import { cn } from '@/lib/utils';
 import { Money } from '@/components/money';
@@ -964,6 +965,8 @@ export default function AdminAddsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProductPromotionRequestsPanel />
         </TabsContent>
 
         <TabsContent value="services" className="mt-0 outline-none">

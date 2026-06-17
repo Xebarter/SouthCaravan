@@ -15,6 +15,7 @@ import {
   Plus,
   PlusCircle,
   RefreshCw,
+  Sparkles,
   Trash2,
   TrendingUp,
   UploadCloud,
@@ -41,6 +42,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -60,7 +62,7 @@ const ProductDescriptionEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-[220px] rounded-md border border-input bg-muted/40 animate-pulse" aria-hidden />
+      <div className="min-h-[140px] sm:min-h-[220px] rounded-md border border-input bg-muted/40 animate-pulse" aria-hidden />
     ),
   },
 );
@@ -110,6 +112,15 @@ type UploadUiState =
   | { status: 'uploading'; progress: number }
   | { status: 'success'; progress: number }
   | { status: 'error' };
+
+type ProductPromotionRequest = {
+  id: string;
+  product_id: string;
+  kind: 'featured';
+  status: 'pending' | 'approved' | 'rejected';
+  message: string;
+  created_at: string;
+};
 
 const specificationSchema = z.object({
   key: z.string().min(1, 'Key required'),
@@ -356,7 +367,7 @@ function ImageUploader({
           addFiles(event.dataTransfer.files);
         }}
         className={[
-          'w-full rounded-lg border-2 border-dashed px-6 py-8 text-center transition-colors',
+          'w-full rounded-lg border-2 border-dashed px-4 py-6 sm:px-6 sm:py-8 text-center transition-colors',
           dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-secondary/40',
         ].join(' ')}
       >
@@ -465,7 +476,7 @@ function ImageUploader({
 }
 
 export default function VendorProductsPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [products, setProducts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -478,6 +489,10 @@ export default function VendorProductsPage() {
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyTree[]>([]);
   const [descriptionEditorKey, setDescriptionEditorKey] = useState(0);
+  const [promotionRequests, setPromotionRequests] = useState<ProductPromotionRequest[]>([]);
+  const [promotionNeedsSetup, setPromotionNeedsSetup] = useState(false);
+  const [featureMessage, setFeatureMessage] = useState('');
+  const [featureSubmitting, setFeatureSubmitting] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -539,6 +554,18 @@ export default function VendorProductsPage() {
     }
   }, [availableSubSubcategories, form]);
 
+  async function loadPromotionRequests() {
+    try {
+      const res = await fetch('/api/vendor/products/promotions', { cache: 'no-store' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error ?? 'Failed to load promotion requests');
+      setPromotionNeedsSetup(Boolean(payload.needsSetup));
+      setPromotionRequests(Array.isArray(payload.requests) ? payload.requests : []);
+    } catch {
+      setPromotionRequests([]);
+    }
+  }
+
   async function fetchTaxonomy() {
     try {
       const res = await fetch('/api/categories');
@@ -565,10 +592,11 @@ export default function VendorProductsPage() {
   }
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (!user) return;
     fetchTaxonomy();
     fetchProducts();
-  }, [authLoading, user]);
+    void loadPromotionRequests();
+  }, [user]);
 
   const stats = useMemo(() => {
     const total = products.length;
@@ -576,6 +604,23 @@ export default function VendorProductsPage() {
     const totalValue = products.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
     return { total, inStock, outOfStock: total - inStock, totalValue };
   }, [products]);
+
+  const pendingFeaturedRequest = useMemo(() => {
+    if (!editingProduct?.id) return null;
+    return promotionRequests.find(
+      (request) =>
+        request.product_id === editingProduct.id &&
+        request.kind === 'featured' &&
+        request.status === 'pending',
+    );
+  }, [promotionRequests, editingProduct]);
+
+  const isProductFeatured = Boolean(editingProduct?.is_featured);
+  const canRequestFeatured =
+    Boolean(editingProduct?.id) &&
+    !isProductFeatured &&
+    !pendingFeaturedRequest &&
+    !promotionNeedsSetup;
 
   function resetDialogState() {
     const firstCategory = categoryOptions[0] ?? '';
@@ -606,6 +651,7 @@ export default function VendorProductsPage() {
     setNewImages([]);
     setMode('create');
     setUploadUi({ status: 'idle' });
+    setFeatureMessage('');
   }
 
   function openCreate() {
@@ -634,7 +680,37 @@ export default function VendorProductsPage() {
     });
     replace(Object.entries(product.specifications ?? {}).map(([key, value]) => ({ key, value })));
     setDescriptionEditorKey((k) => k + 1);
+    setFeatureMessage('');
     setDialogOpen(true);
+  }
+
+  async function submitFeaturedRequest() {
+    if (!editingProduct?.id) {
+      toast.error('Save the product first to request featured placement.');
+      return;
+    }
+
+    setFeatureSubmitting(true);
+    try {
+      const res = await fetch('/api/vendor/products/promotions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: editingProduct.id,
+          kind: 'featured',
+          message: featureMessage,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error ?? 'Failed to submit request');
+      toast.success('Featured listing request sent to admin for review');
+      setFeatureMessage('');
+      await loadPromotionRequests();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit request');
+    } finally {
+      setFeatureSubmitting(false);
+    }
   }
 
   async function onSubmit(values: ProductFormValues) {
@@ -677,15 +753,27 @@ export default function VendorProductsPage() {
         });
       }
 
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; product?: SupabaseProduct };
       if (!response.ok) throw new Error(payload?.error ?? 'Failed to save product');
 
+      const savedProduct = payload.product;
+      if (savedProduct) {
+        setEditingProduct(savedProduct);
+        setMode('edit');
+        setExistingImages(savedProduct.images ?? []);
+        newImages.forEach((item) => URL.revokeObjectURL(item.preview));
+        setNewImages([]);
+      }
+
       setUploadUi({ status: 'success', progress: 100 });
-      toast.success(mode === 'create' ? 'Product created' : 'Product updated');
-      await new Promise((r) => setTimeout(r, 600));
-      setDialogOpen(false);
-      resetDialogState();
+      toast.success(
+        mode === 'create'
+          ? 'Product created. You can request featured placement below.'
+          : 'Product updated',
+      );
       await fetchProducts();
+      await new Promise((r) => setTimeout(r, 600));
+      setUploadUi({ status: 'idle' });
     } catch (error) {
       setUploadUi({ status: 'error' });
       toast.error(error instanceof Error ? error.message : 'Could not save product');
@@ -726,7 +814,7 @@ export default function VendorProductsPage() {
     }
   }
 
-  if (authLoading || !user) return null;
+  if (!user) return null;
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -748,6 +836,14 @@ export default function VendorProductsPage() {
           Add product
         </Button>
       </div>
+
+      {promotionNeedsSetup ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Featured listing requests are not enabled yet. Run the SQL in{' '}
+          <code className="rounded bg-background/60 px-1.5 py-0.5 text-xs">supabase/product-promotions.sql</code>{' '}
+          in your Supabase project.
+        </div>
+      ) : null}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -853,9 +949,17 @@ export default function VendorProductsPage() {
                           <p className="font-medium truncate max-w-[200px] leading-tight">
                             {product.name}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">
-                            {stripHtmlForPreview(product.description ?? '').trim() || 'No description'}
-                          </p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                            {product.is_featured ? (
+                              <Badge className="h-5 gap-1 px-1.5 text-[10px]">
+                                <Sparkles className="h-3 w-3" />
+                                Featured
+                              </Badge>
+                            ) : null}
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {stripHtmlForPreview(product.description ?? '').trim() || 'No description'}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -924,27 +1028,36 @@ export default function VendorProductsPage() {
         setDialogOpen(open);
         if (!open) resetDialogState();
       }}>
-        <DialogContent className="w-[92vw] max-w-[92vw] sm:max-w-2xl lg:max-w-3xl h-[88dvh] p-0 gap-0 overflow-hidden rounded-2xl border shadow-xl">
+        <DialogContent
+          className={cn(
+            'flex flex-col p-0 gap-0 overflow-hidden rounded-xl sm:rounded-2xl border shadow-xl',
+            // Mobile: inset panel that fits the viewport (overrides default center translate)
+            'fixed left-2 right-2 top-2 bottom-2 w-auto max-w-none translate-x-0 translate-y-0',
+            // Desktop: centered modal
+            'sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:-translate-x-1/2 sm:-translate-y-1/2',
+            'sm:w-[min(92vw,48rem)] sm:max-w-3xl sm:h-[min(88dvh,900px)]',
+          )}
+        >
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="h-full min-h-0 flex flex-col">
-              <DialogHeader className="border-b border-border px-6 py-4 bg-background/95 backdrop-blur">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <DialogTitle className="text-xl">{mode === 'create' ? 'Add product' : 'Edit product'}</DialogTitle>
-                    <DialogDescription className="mt-1">
-                      {mode === 'create'
-                        ? 'Create a new product listing with pricing, images, and specs.'
-                        : 'Update this product\u2019s details, pricing, images, and specs.'}
-                    </DialogDescription>
-                  </div>
+            <form onSubmit={form.handleSubmit(onSubmit, onInvalidSubmit)} className="flex h-full min-h-0 flex-col">
+              <DialogHeader className="shrink-0 border-b border-border bg-background/95 px-4 py-3 pr-12 backdrop-blur sm:px-6 sm:py-4">
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg sm:text-xl">
+                    {mode === 'create' ? 'Add product' : 'Edit product'}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 hidden text-xs sm:block sm:text-sm">
+                    {mode === 'create'
+                      ? 'Create a new product listing with pricing, images, and specs.'
+                      : 'Update this product\u2019s details, pricing, images, and specs.'}
+                  </DialogDescription>
                 </div>
               </DialogHeader>
 
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                <div className="mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
-                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+                <div className="mx-auto w-full space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6">
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-semibold">Product information</h3>
+                      <h3 className="text-sm font-semibold sm:text-base">Product information</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <FormField control={form.control} name="name" render={({ field }) => (
@@ -986,9 +1099,9 @@ export default function VendorProductsPage() {
                     )} />
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                      <h3 className="text-base font-semibold">Category</h3>
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3 sm:space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <h3 className="text-sm font-semibold sm:text-base">Category</h3>
                       <Badge variant="outline" className="w-full sm:w-auto sm:max-w-[60%] truncate">
                         {taxonomyPath || 'Select category path'}
                       </Badge>
@@ -1045,8 +1158,8 @@ export default function VendorProductsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
-                    <h3 className="text-base font-semibold">Pricing & availability</h3>
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3 sm:space-y-4">
+                    <h3 className="text-sm font-semibold sm:text-base">Pricing & availability</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <FormField control={form.control} name="price" render={({ field }) => (
                         <FormItem data-field="price" className="min-w-0">
@@ -1072,9 +1185,9 @@ export default function VendorProductsPage() {
                     )} />
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold">Images</h3>
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold sm:text-base">Images</h3>
                       <Badge variant="outline">{existingImages.length + newImages.length} image(s)</Badge>
                     </div>
                     <ImageUploader
@@ -1086,10 +1199,10 @@ export default function VendorProductsPage() {
                     />
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 pb-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold">Specifications</h3>
-                      <Button type="button" variant="outline" size="sm" onClick={() => append({ key: '', value: '' })}>
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3 sm:space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-sm font-semibold sm:text-base">Specifications</h3>
+                      <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => append({ key: '', value: '' })}>
                         <PlusCircle className="w-4 h-4 mr-1" />
                         Add Specification
                       </Button>
@@ -1120,12 +1233,68 @@ export default function VendorProductsPage() {
                 </div>
               </div>
 
-              <div className="border-t border-border bg-background/95 backdrop-blur px-6 py-3">
-                <div className="max-w-5xl mx-auto w-full flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting} className="min-w-32">
+              <div className="shrink-0 border-t border-border bg-background/95 px-4 py-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+                <div className="mx-auto w-full max-w-5xl space-y-3">
+                  <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                      <p className="text-sm font-medium">Featured on homepage</p>
+                      {isProductFeatured ? (
+                        <Badge className="gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          Live
+                        </Badge>
+                      ) : pendingFeaturedRequest ? (
+                        <Badge variant="secondary">Request pending</Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {isProductFeatured
+                        ? 'This product is already featured on the homepage.'
+                        : pendingFeaturedRequest
+                          ? 'An admin is reviewing your featured listing request.'
+                          : editingProduct?.id
+                            ? 'Submit this product for admin review to appear in the homepage featured section.'
+                            : 'Save the product first, then you can submit it for featured placement.'}
+                    </p>
+                    {canRequestFeatured ? (
+                      <Textarea
+                        value={featureMessage}
+                        onChange={(e) => setFeatureMessage(e.target.value)}
+                        placeholder="Optional note for admin (e.g. seasonal promo, bulk discounts, fast delivery)."
+                        disabled={featureSubmitting || submitting}
+                        className="min-h-16 resize-y text-sm"
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => setDialogOpen(false)}
+                      disabled={submitting || featureSubmitting}
+                    >
+                      {editingProduct ? 'Done' : 'Cancel'}
+                    </Button>
+                    {canRequestFeatured ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="w-full sm:w-auto gap-2"
+                        disabled={submitting || featureSubmitting}
+                        onClick={() => void submitFeaturedRequest()}
+                      >
+                        {featureSubmitting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        {featureSubmitting ? 'Submitting…' : 'Submit for featured'}
+                      </Button>
+                    ) : null}
+                    <Button type="submit" disabled={submitting || featureSubmitting} className="w-full min-w-0 sm:min-w-32 sm:w-auto">
                     {submitting ? (
                       <>
                         {uploadUi.status === 'success' ? (
@@ -1148,6 +1317,7 @@ export default function VendorProductsPage() {
                       </>
                     )}
                   </Button>
+                  </div>
                 </div>
               </div>
             </form>

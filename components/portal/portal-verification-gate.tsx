@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -19,6 +19,10 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import {
+  readPortalVerificationCache,
+  writePortalVerificationCache,
+} from '@/lib/portal-verification-cache'
 import { cn } from '@/lib/utils'
 
 type Portal = 'vendor' | 'services'
@@ -277,53 +281,99 @@ export function PortalVerificationGate({
   const pathname = usePathname()
   const router = useRouter()
 
-  const [status, setStatus] = useState<GateStatus>({ kind: 'loading' })
-
   const portalHome = portal === 'services' ? '/services' : '/vendor'
+  const userId = user?.id
 
-  const nextHref = useMemo(() => {
-    const next = pathname?.startsWith(portalHome) ? pathname : portalHome
-    return `/auth?role=${encodeURIComponent(portal)}&next=${encodeURIComponent(next)}`
-  }, [pathname, portal, portalHome])
+  const [status, setStatus] = useState<GateStatus>(() => {
+    if (!userId) return { kind: 'loading' }
+    const cached = readPortalVerificationCache(portal, userId)
+    if (cached === 'verified') return { kind: 'verified' }
+    if (cached === 'pending') return { kind: 'pending' }
+    return { kind: 'loading' }
+  })
 
-  const loadVerificationStatus = useCallback(async () => {
-    setStatus({ kind: 'loading' })
-    try {
-      const bootstrapUrl = portal === 'services' ? '/api/services/bootstrap' : '/api/vendor/bootstrap'
-      const res = await fetch(bootstrapUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portal }),
-      })
-      const json = (await res.json().catch(() => ({}))) as BootstrapResponse
-      if (!res.ok) {
-        setStatus({ kind: 'error', message: 'Could not load account status.' })
-        return
+  const loadVerificationStatus = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!userId) return
+
+      const cached = readPortalVerificationCache(portal, userId)
+      if (!options?.background) {
+        if (cached === 'verified') {
+          setStatus({ kind: 'verified' })
+        } else if (cached === 'pending') {
+          setStatus({ kind: 'pending' })
+        } else {
+          setStatus((prev) =>
+            prev.kind === 'verified' || prev.kind === 'pending' ? prev : { kind: 'loading' },
+          )
+        }
       }
-      if (!('ok' in json) || json.ok !== true) {
-        setStatus({ kind: 'error', message: 'Could not load account status.' })
-        return
+
+      try {
+        const bootstrapUrl =
+          portal === 'services' ? '/api/services/bootstrap' : '/api/vendor/bootstrap'
+        const res = await fetch(bootstrapUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ portal }),
+        })
+        const json = (await res.json().catch(() => ({}))) as BootstrapResponse
+        if (!res.ok) {
+          if (!options?.background || !cached) {
+            setStatus({ kind: 'error', message: 'Could not load account status.' })
+          }
+          return
+        }
+        if (!('ok' in json) || json.ok !== true) {
+          if (!options?.background || !cached) {
+            setStatus({ kind: 'error', message: 'Could not load account status.' })
+          }
+          return
+        }
+
+        const nextStatus = json.vendor?.is_verified ? 'verified' : 'pending'
+        writePortalVerificationCache(portal, userId, nextStatus)
+        setStatus(nextStatus === 'verified' ? { kind: 'verified' } : { kind: 'pending' })
+      } catch (e: unknown) {
+        if (!options?.background || !cached) {
+          const message = e instanceof Error ? e.message : 'Could not load account status.'
+          setStatus({ kind: 'error', message })
+        }
       }
-      setStatus(json.vendor?.is_verified ? { kind: 'verified' } : { kind: 'pending' })
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Could not load account status.'
-      setStatus({ kind: 'error', message })
-    }
-  }, [portal])
+    },
+    [portal, userId],
+  )
 
   const refreshStatus = () => {
     void loadVerificationStatus()
   }
 
   useEffect(() => {
+    if (!userId) return
+    const cached = readPortalVerificationCache(portal, userId)
+    if (cached === 'verified') setStatus({ kind: 'verified' })
+    else if (cached === 'pending') setStatus({ kind: 'pending' })
+  }, [portal, userId])
+
+  useEffect(() => {
     if (isLoading) return
     if (!user) {
-      router.replace(nextHref)
-      return
+      const next = pathname?.startsWith(portalHome) ? pathname : portalHome
+      const authHref = `/auth?role=${encodeURIComponent(portal)}&next=${encodeURIComponent(next)}`
+      router.replace(authHref)
     }
+  }, [isLoading, user, pathname, portalHome, portal, router])
 
-    void loadVerificationStatus()
-  }, [isLoading, user, router, nextHref, loadVerificationStatus])
+  useEffect(() => {
+    if (isLoading || !userId) return
+
+    const cached = readPortalVerificationCache(portal, userId)
+    void loadVerificationStatus({ background: cached === 'verified' })
+  }, [isLoading, userId, portal, loadVerificationStatus])
+
+  if (isLoading && status.kind !== 'verified' && status.kind !== 'pending') {
+    return null
+  }
 
   if (status.kind === 'verified') return <>{children}</>
 

@@ -201,7 +201,7 @@ export function ProductDescriptionEditor({
       </div>
       <EditorContent
         editor={editor}
-        className="product-description-editor__content max-h-[min(360px,50vh)] overflow-y-auto px-3 py-2.5"
+        className="product-description-editor__content max-h-[min(240px,40vh)] sm:max-h-[min(360px,50vh)] overflow-y-auto px-3 py-2.5"
       />
     </div>
   );
