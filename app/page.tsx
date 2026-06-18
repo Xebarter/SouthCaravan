@@ -42,6 +42,8 @@ export default async function HomePage() {
         <div className="mx-auto max-w-[1500px] space-y-3">
           <FeaturedPicksCard products={heroProducts} />
 
+          <ProductAdBannerSection items={sponsoredItems} />
+
           {extraFeaturedProducts.length > 0 ? (
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -69,8 +71,6 @@ export default async function HomePage() {
         initialHasMore={initialCategoryFeed.hasMore}
         initialPage={1}
       />
-
-      <ProductAdBannerSection items={sponsoredItems} />
     </div>
   );
 }

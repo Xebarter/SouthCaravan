@@ -13,6 +13,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { productPageInsetClassName } from '@/lib/product-grid-layout';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -35,7 +36,7 @@ function normalizeCategories(categories: string[]) {
 
 function actionLinkClass(active: boolean) {
   return cn(
-    'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors sm:text-sm',
+    'inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold transition-colors sm:h-8 sm:gap-1.5 sm:px-3 sm:text-xs md:text-sm',
     active
       ? 'border-primary bg-primary text-primary-foreground shadow-sm'
       : 'border-border bg-background text-foreground hover:border-primary/30 hover:bg-muted/60',
@@ -44,8 +45,8 @@ function actionLinkClass(active: boolean) {
 
 function categoryPillClass() {
   return cn(
-    'inline-flex h-8 max-w-[34ch] shrink-0 items-center truncate rounded-full border border-border/80',
-    'bg-muted/30 px-3 text-xs font-medium text-foreground transition-colors',
+    'inline-flex h-7 max-w-[28ch] shrink-0 items-center truncate rounded-full border border-border/80',
+    'bg-muted/30 px-2.5 text-[11px] font-medium text-foreground transition-colors sm:h-8 sm:max-w-[34ch] sm:px-3 sm:text-xs',
     'hover:border-primary/25 hover:bg-primary/5 hover:text-primary',
   );
 }
@@ -71,9 +72,14 @@ export function MarketplaceActionStrip({ categories }: Props) {
           'md:sticky md:top-16 md:z-40',
         )}
       >
-        <div className="mx-auto max-w-[1500px] px-4 py-2 md:px-6">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto scrollbar-none">
+        <div className={cn('mx-auto max-w-[1500px] py-2', productPageInsetClassName)}>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div
+              className={cn(
+                'flex shrink-0 items-center gap-1 overflow-x-auto sm:gap-1.5',
+                '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              )}
+            >
               <Link href="/categories" className={actionLinkClass(isCategories)}>
                 <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
                 <span>Categories</span>
@@ -89,18 +95,17 @@ export function MarketplaceActionStrip({ categories }: Props) {
               <PostMyRfqButton
                 size="sm"
                 variant="outline"
-                className="h-8 shrink-0 rounded-full px-3 text-xs font-semibold sm:text-sm"
+                className="hidden h-7 shrink-0 rounded-full px-2.5 text-[11px] font-semibold sm:inline-flex sm:h-8 sm:px-3 sm:text-xs md:text-sm"
               />
             </div>
 
-            <div className="hidden h-7 w-px shrink-0 bg-border/80 sm:block" aria-hidden />
+            <div className="hidden h-6 w-px shrink-0 bg-border/80 sm:block" aria-hidden />
 
             <div className="relative min-w-0 flex-1">
               <div
                 className={cn(
-                  'flex items-center gap-1.5 overflow-x-auto scrollbar-none',
-                  'pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none]',
-                  '[&::-webkit-scrollbar]:hidden',
+                  'flex items-center gap-1 overflow-x-auto sm:gap-1.5',
+                  '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
                 )}
               >
                 {visible.map((category) => (
@@ -119,7 +124,7 @@ export function MarketplaceActionStrip({ categories }: Props) {
                     onClick={() => setSearchOpen(true)}
                     className={cn(categoryPillClass(), 'cursor-pointer')}
                   >
-                    +{remaining} more
+                    +{remaining}
                   </button>
                 ) : null}
                 <button
@@ -131,12 +136,12 @@ export function MarketplaceActionStrip({ categories }: Props) {
                   )}
                   aria-label="Search all categories"
                 >
-                  <Search className="h-3.5 w-3.5" />
+                  <Search className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden />
                   <span className="hidden sm:inline">All</span>
                 </button>
               </div>
               <div
-                className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l from-background to-transparent"
+                className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent sm:w-8"
                 aria-hidden
               />
             </div>
