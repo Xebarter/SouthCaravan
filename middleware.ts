@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-import { shouldNoIndexPath } from '@/lib/seo/noindex-paths'
+import { shouldNoIndexPath, shouldNoIndexCategorySearch } from '@/lib/seo/noindex-paths'
 
 const PROTECTED_PREFIXES = ['/buyer', '/vendor', '/services']
 const ADMIN_PREFIX = '/admin'
@@ -151,7 +151,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(authUrl)
   }
 
-  if (shouldNoIndexPath(pathname)) {
+  if (shouldNoIndexPath(pathname) || shouldNoIndexCategorySearch(pathname, search)) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow')
   }
 

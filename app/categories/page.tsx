@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { ArrowLeft, Package, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ import {
   type FeedProduct,
 } from '@/lib/landing-data';
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
+import { createCategoryDrillDownMetadata, createPageMetadata } from '@/lib/seo/metadata';
+import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
 import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
 
 type CategoryQuery = {
@@ -38,6 +41,31 @@ function categoriesQueryLink(opts: { services: boolean; category: string; subcat
   p.set('category', opts.category);
   if (opts.subcategory) p.set('subcategory', opts.subcategory);
   return `/categories?${p.toString()}`;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<CategoryQuery>;
+}): Promise<Metadata> {
+  const qp = await searchParams;
+  const selectedCategory = decodeURIComponent(firstValue(qp.category)).trim();
+  const selectedSubcategory = decodeURIComponent(firstValue(qp.subcategory)).trim();
+
+  if (selectedCategory) {
+    const label = selectedSubcategory
+      ? `${selectedCategory} — ${selectedSubcategory}`
+      : selectedCategory;
+    return createCategoryDrillDownMetadata(label);
+  }
+
+  return createPageMetadata({
+    title: 'Browse Categories — Wholesale Products & Services',
+    description:
+      'Explore B2B product and service categories: agriculture, manufacturing, textiles, construction, electronics, and more from African suppliers.',
+    path: '/categories',
+    keywords: [...KEYWORD_CATEGORIES.industries, ...KEYWORD_CATEGORIES.products],
+  });
 }
 
 export default async function CategoriesPage({

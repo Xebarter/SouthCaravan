@@ -40,3 +40,10 @@ export function shouldNoIndexPath(pathname: string): boolean {
   }
   return NOINDEX_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
+
+/** Filtered category views must not compete with the homepage for brand searches. */
+export function shouldNoIndexCategorySearch(pathname: string, search: string): boolean {
+  if (pathname !== '/categories') return false
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  return params.has('category') || params.has('subcategory') || params.has('type')
+}

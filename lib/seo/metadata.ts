@@ -52,6 +52,16 @@ export function createNoIndexMetadata(title: string): Metadata {
   }
 }
 
+/** Filtered /categories views: noindex with canonical pointing at browse-all. */
+export function createCategoryDrillDownMetadata(categoryLabel: string): Metadata {
+  const canonical = absoluteUrl('/categories')
+  return {
+    ...createNoIndexMetadata(categoryLabel),
+    alternates: { canonical },
+    openGraph: { url: canonical },
+  }
+}
+
 export function createPageMetadata(options: PageMetadataOptions): Metadata {
   const description = (options.description ?? DEFAULT_DESCRIPTION).trim()
   const canonical = options.path ? absoluteUrl(options.path) : SITE_URL
