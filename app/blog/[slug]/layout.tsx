@@ -26,7 +26,6 @@ export async function generateMetadata({ params }: Props) {
     description: post.excerpt ?? `Read ${post.title} on the South Caravan trade insights blog.`,
     path: `/blog/${post.slug}`,
     ogType: 'article',
-    ogImage: post.cover_image ?? undefined,
     publishedTime: post.published_at ?? undefined,
     modifiedTime: post.updated_at ?? undefined,
     authors: post.author_name ? [post.author_name] : undefined,

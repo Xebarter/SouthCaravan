@@ -45,7 +45,6 @@ export async function generateMetadata({
     title: `${product.name} — Wholesale B2B`,
     description,
     path: `/product/${id}`,
-    ogImage: product.images?.[0] ?? undefined,
     keywords: [product.category, product.subcategory, 'wholesale', 'B2B', vendorDisplay].filter(Boolean),
   });
 }

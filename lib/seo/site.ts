@@ -20,6 +20,12 @@ export const DEFAULT_DESCRIPTION =
 
 export const DEFAULT_OG_IMAGE = '/opengraph-image'
 
+/** PNG logo for social previews (SVG is poorly supported by OG crawlers). */
+export const SITE_OG_LOGO = '/web-app-manifest-512x512.png'
+
+export const OG_IMAGE_WIDTH = 1200
+export const OG_IMAGE_HEIGHT = 630
+
 export const TWITTER_HANDLE = '@southcaravan'
 
 export const CONTACT_EMAIL = 'hello@southcaravan.com'

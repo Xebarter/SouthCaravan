@@ -5,6 +5,8 @@ import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
   LOCALE,
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_WIDTH,
   SITE_HOME_TITLE,
   SITE_NAME,
   SITE_NAME_ALT,
@@ -19,7 +21,6 @@ export type PageMetadataOptions = {
   path?: string
   keywords?: string[]
   noIndex?: boolean
-  ogImage?: string | null
   ogType?: 'website' | 'article'
   publishedTime?: string
   modifiedTime?: string
@@ -40,6 +41,15 @@ function buildTitle(title: string) {
   return `${t} | ${SITE_NAME}`
 }
 
+/** Same logo-based preview on every public page. */
+function getSiteOgImages() {
+  const url = absoluteUrl(DEFAULT_OG_IMAGE)
+  return {
+    openGraph: [{ url, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: SITE_NAME }],
+    twitter: [url],
+  }
+}
+
 /** Pages that must never compete with the homepage in search results. */
 export function createNoIndexMetadata(title: string): Metadata {
   return {
@@ -55,17 +65,19 @@ export function createNoIndexMetadata(title: string): Metadata {
 /** Filtered /categories views: noindex with canonical pointing at browse-all. */
 export function createCategoryDrillDownMetadata(categoryLabel: string): Metadata {
   const canonical = absoluteUrl('/categories')
+  const { openGraph: ogImages, twitter: twitterImages } = getSiteOgImages()
   return {
     ...createNoIndexMetadata(categoryLabel),
     alternates: { canonical },
-    openGraph: { url: canonical },
+    openGraph: { url: canonical, images: ogImages },
+    twitter: { images: twitterImages },
   }
 }
 
 export function createPageMetadata(options: PageMetadataOptions): Metadata {
   const description = (options.description ?? DEFAULT_DESCRIPTION).trim()
   const canonical = options.path ? absoluteUrl(options.path) : SITE_URL
-  const ogImage = options.ogImage === null ? undefined : absoluteUrl(options.ogImage ?? DEFAULT_OG_IMAGE)
+  const { openGraph: ogImages, twitter: twitterImages } = getSiteOgImages()
   const keywords = [...new Set([...(options.keywords ?? []), ...PRIMARY_META_KEYWORDS])].slice(0, 50)
 
   const robots = options.noIndex
@@ -101,7 +113,7 @@ export function createPageMetadata(options: PageMetadataOptions): Metadata {
       siteName: SITE_NAME,
       title: buildTitle(options.title),
       description,
-      ...(ogImage ? { images: [{ url: ogImage, width: 1200, height: 630, alt: SITE_NAME }] } : {}),
+      images: ogImages,
       ...(options.publishedTime ? { publishedTime: options.publishedTime } : {}),
       ...(options.modifiedTime ? { modifiedTime: options.modifiedTime } : {}),
     },
@@ -111,7 +123,7 @@ export function createPageMetadata(options: PageMetadataOptions): Metadata {
       creator: TWITTER_HANDLE,
       title: buildTitle(options.title),
       description,
-      ...(ogImage ? { images: [ogImage] } : {}),
+      images: twitterImages,
     },
     robots,
     metadataBase: new URL(SITE_URL),
