@@ -3,6 +3,7 @@ import {
   CATEGORIES_PAGE_MAX_PAGE_SIZE,
   CATEGORIES_PAGE_MAX_PER_CATEGORY,
   getCategoriesPageFeedSections,
+  getServicesPageFeedSections,
 } from '@/lib/landing-data';
 
 export const revalidate = 60;
@@ -27,12 +28,11 @@ export async function GET(request: NextRequest) {
       12,
       CATEGORIES_PAGE_MAX_PER_CATEGORY,
     );
+    const isServices = searchParams.get('type')?.toLowerCase() === 'services';
 
-    const { sections, hasMore } = await getCategoriesPageFeedSections({
-      page,
-      pageSize,
-      perCategory,
-    });
+    const { sections, hasMore } = isServices
+      ? await getServicesPageFeedSections({ page, pageSize, perCategory })
+      : await getCategoriesPageFeedSections({ page, pageSize, perCategory });
 
     return NextResponse.json(
       { sections, hasMore, page },

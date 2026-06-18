@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images';
+import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
 
 export type LandingProduct = {
   id: string;
@@ -359,6 +360,95 @@ export async function getCategoriesPageFeedSections(params: {
     perCategory: params.perCategory ?? CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
     maxPageSize: CATEGORIES_PAGE_MAX_PAGE_SIZE,
     maxPerCategory: CATEGORIES_PAGE_MAX_PER_CATEGORY,
+  });
+}
+
+async function fetchServiceBrowseCategoryNames(): Promise<string[]> {
+  const taxonomyTitles = DEFAULT_SERVICES_TAXONOMY.map((section) => section.title);
+  const taxonomySet = new Set(taxonomyTitles);
+
+  const { data, error } = await supabaseAdmin
+    .from('service_offerings')
+    .select('category')
+    .eq('is_active', true)
+    .limit(LANDING_CATEGORIES_MAX);
+
+  if (error && !isMissingServiceOfferingsTable(error)) {
+    console.error('[service browse categories]', error.message);
+    return taxonomyTitles;
+  }
+
+  const dbCategories = Array.from(
+    new Set((data ?? []).map((row: any) => String(row.category ?? '').trim()).filter(Boolean)),
+  ).filter((name) => !taxonomySet.has(name));
+
+  dbCategories.sort((a, b) => a.localeCompare(b));
+  return [...taxonomyTitles, ...dbCategories];
+}
+
+export async function getServiceBrowseCategoryNames(): Promise<string[]> {
+  return getCached('service-browse-category-names-v1', 60_000, fetchServiceBrowseCategoryNames);
+}
+
+export async function getServicesPageFeedSections(params: {
+  page: number;
+  pageSize?: number;
+  perCategory?: number;
+}): Promise<{ sections: FeedSection[]; hasMore: boolean; page: number }> {
+  const page = Math.max(0, Math.floor(params.page || 0));
+  const pageSize = parsePositiveInt(params.pageSize, CATEGORIES_PAGE_DEFAULT_PAGE_SIZE, CATEGORIES_PAGE_MAX_PAGE_SIZE);
+  const perCategory = parsePositiveInt(
+    params.perCategory,
+    CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
+    CATEGORIES_PAGE_MAX_PER_CATEGORY,
+  );
+
+  const cacheKey = `services-category-feed-v1:${page}:${pageSize}:${perCategory}`;
+  return getCached(cacheKey, 30_000, async () => {
+    const uniqueCategories = await fetchServiceBrowseCategoryNames();
+    const start = page * pageSize;
+    const end = start + pageSize;
+    const pageCategories = uniqueCategories.slice(start, end);
+
+    const servicesByCategory = new Map<string, FeedProduct[]>();
+    if (pageCategories.length > 0) {
+      const { data: serviceRows, error: servicesErr } = await supabaseAdmin
+        .from('service_offerings')
+        .select(
+          'id,title,description,category,subcategory,pricing_type,rate,currency,is_active,is_featured,images,created_at',
+        )
+        .eq('is_active', true)
+        .in('category', pageCategories)
+        .order('is_featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (servicesErr && !isMissingServiceOfferingsTable(servicesErr)) {
+        console.error('[services/category-feed]', servicesErr.message);
+      } else {
+        for (const row of serviceRows ?? []) {
+          const cat = String((row as any).category ?? '').trim();
+          if (!cat) continue;
+          const list = servicesByCategory.get(cat) ?? [];
+          if (list.length >= perCategory) continue;
+          list.push(serviceRowToFeedProduct(row));
+          servicesByCategory.set(cat, list);
+        }
+      }
+    }
+
+    const sections = pageCategories
+      .map((category) => ({
+        category,
+        products: servicesByCategory.get(category) ?? [],
+      }))
+      .filter((section) => section.products.length > 0);
+
+    return {
+      sections,
+      hasMore: end < uniqueCategories.length,
+      page,
+    };
   });
 }
 

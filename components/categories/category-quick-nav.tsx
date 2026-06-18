@@ -18,10 +18,12 @@ export function CategoryQuickNav({
   categories,
   activeCategory,
   compact = false,
+  servicesMode = false,
 }: {
   categories: string[];
   activeCategory?: string;
   compact?: boolean;
+  servicesMode?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -51,15 +53,23 @@ export function CategoryQuickNav({
         : 'border-border bg-background text-foreground hover:bg-muted',
     );
 
+  const categoryHref = (category?: string) => {
+    const params = new URLSearchParams();
+    if (servicesMode) params.set('type', 'services');
+    if (category) params.set('category', category);
+    const qs = params.toString();
+    return qs ? `/categories?${qs}` : '/categories';
+  };
+
   const pills = (
     <div className="flex flex-wrap gap-1.5">
-      <Link href="/categories" className={pillClass(!activeCategory)}>
+      <Link href={categoryHref()} className={pillClass(!activeCategory)}>
         All
       </Link>
       {visible.map((category) => (
         <Link
           key={category}
-          href={`/categories?category=${encodeURIComponent(category)}`}
+          href={categoryHref(category)}
           className={pillClass(activeCategory === category)}
           title={category}
         >
@@ -96,7 +106,7 @@ export function CategoryQuickNav({
             <CommandItem
               onSelect={() => {
                 setOpen(false);
-                router.push('/categories');
+                router.push(categoryHref());
               }}
             >
               All categories
@@ -106,7 +116,7 @@ export function CategoryQuickNav({
                 key={category}
                 onSelect={() => {
                   setOpen(false);
-                  router.push(`/categories?category=${encodeURIComponent(category)}`);
+                  router.push(categoryHref(category));
                 }}
               >
                 {category}

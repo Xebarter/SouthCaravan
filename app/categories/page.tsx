@@ -12,7 +12,9 @@ import {
   getCategoriesPageFeedSections,
   getMarketplaceCategoryNames,
   getProductsByCategory,
+  getServiceBrowseCategoryNames,
   getServiceOfferingsByCategory,
+  getServicesPageFeedSections,
   mergeFeaturedFeedItems,
   offeringSummaryToFeedProduct,
   type FeedProduct,
@@ -60,6 +62,18 @@ export async function generateMetadata({
     return createCategoryDrillDownMetadata(label);
   }
 
+  const isServicesBrowse = firstValue(qp.type).toLowerCase() === 'services';
+
+  if (isServicesBrowse) {
+    return createPageMetadata({
+      title: 'Browse Services — Professional B2B Service Providers',
+      description:
+        'Explore professional services on South Caravan: consulting, technology, logistics, construction, HR, and more from verified providers.',
+      path: '/categories?type=services',
+      keywords: [...KEYWORD_CATEGORIES.industries, 'B2B services', 'professional services'],
+    });
+  }
+
   return createPageMetadata({
     title: 'Browse Categories — Wholesale Products & Services',
     description:
@@ -76,46 +90,71 @@ export default async function CategoriesPage({
 }) {
   const qp = await searchParams;
   const selectedCategory = decodeURIComponent(firstValue(qp.category)).trim();
+  const isServicesBrowse = firstValue(qp.type).toLowerCase() === 'services';
 
   if (!selectedCategory) {
     const [initialFeed, categoryNames] = await Promise.all([
-      getCategoriesPageFeedSections({
-        page: 0,
-        pageSize: 6,
-        perCategory: CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
-      }),
-      getMarketplaceCategoryNames(),
+      isServicesBrowse
+        ? getServicesPageFeedSections({
+            page: 0,
+            pageSize: 6,
+            perCategory: CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
+          })
+        : getCategoriesPageFeedSections({
+            page: 0,
+            pageSize: 6,
+            perCategory: CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
+          }),
+      isServicesBrowse ? getServiceBrowseCategoryNames() : getMarketplaceCategoryNames(),
     ]);
 
     const sectionCount = initialFeed.sections.length;
-    const productCount = initialFeed.sections.reduce((sum, s) => sum + s.products.length, 0);
+    const listingCount = initialFeed.sections.reduce((sum, s) => sum + s.products.length, 0);
 
     return (
       <section className="min-h-screen bg-background">
         <div className={'mx-auto max-w-[1500px] ' + productPageInsetClassName + ' pt-4 pb-8 md:pt-5 md:pb-10'}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
             <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Categories</h1>
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+                {isServicesBrowse ? 'Services' : 'Categories'}
+              </h1>
               <p className="text-xs text-muted-foreground">
-                {sectionCount} categor{sectionCount === 1 ? 'y' : 'ies'} · {productCount}+ products
+                {sectionCount} categor{sectionCount === 1 ? 'y' : 'ies'} · {listingCount}+{' '}
+                {isServicesBrowse ? 'services' : 'products'}
               </p>
             </div>
-            <Link href="/featured" className="text-sm font-medium text-primary hover:underline shrink-0">
-              Featured
-            </Link>
+            <div className="flex items-center gap-3 shrink-0">
+              {isServicesBrowse ? (
+                <Link href="/categories" className="text-sm font-medium text-primary hover:underline">
+                  Products
+                </Link>
+              ) : (
+                <Link href="/categories?type=services" className="text-sm font-medium text-primary hover:underline">
+                  Services
+                </Link>
+              )}
+              {!isServicesBrowse ? (
+                <Link href="/featured" className="text-sm font-medium text-primary hover:underline">
+                  Featured
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           {categoryNames.length > 0 ? (
             <div className="mb-3">
-              <CategoryQuickNav categories={categoryNames} compact />
+              <CategoryQuickNav categories={categoryNames} compact servicesMode={isServicesBrowse} />
             </div>
           ) : null}
 
           <CategoriesBrowseFeed
+            key={isServicesBrowse ? 'services' : 'products'}
             initialSections={initialFeed.sections}
             initialHasMore={initialFeed.hasMore}
             initialPage={1}
             perCategory={CATEGORIES_PAGE_DEFAULT_PER_CATEGORY}
+            servicesMode={isServicesBrowse}
           />
         </div>
       </section>
@@ -139,7 +178,7 @@ export default async function CategoriesPage({
   const effectiveSubcategory =
     selectedSubcategory && subcategories.includes(selectedSubcategory) ? selectedSubcategory : '';
 
-  const [products, offerings, categoryNames] = await Promise.all([
+  const [products, offerings, categoryNames, serviceCategoryNames] = await Promise.all([
     isServices
       ? Promise.resolve([])
       : getProductsByCategory({
@@ -155,7 +194,10 @@ export default async function CategoriesPage({
         })
       : Promise.resolve([]),
     getMarketplaceCategoryNames(),
+    isServices ? getServiceBrowseCategoryNames() : Promise.resolve([] as string[]),
   ]);
+
+  const quickNavCategories = isServices ? serviceCategoryNames : categoryNames;
 
   const feedItems: FeedProduct[] = isServices
     ? offerings.map(offeringSummaryToFeedProduct)
@@ -172,7 +214,7 @@ export default async function CategoriesPage({
       <div className={'mx-auto max-w-[1500px] ' + productPageInsetClassName + ' pt-4 pb-8 md:pt-5 md:pb-10'}>
         <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/50 pb-3 text-sm">
           <Button variant="ghost" size="sm" className="h-7 gap-1 px-2" asChild>
-            <Link href="/categories">
+            <Link href={isServices ? '/categories?type=services' : '/categories'}>
               <ArrowLeft className="h-3.5 w-3.5" />
               All
             </Link>
@@ -190,9 +232,14 @@ export default async function CategoriesPage({
           </span>
         </div>
 
-        {categoryNames.length > 0 ? (
+        {quickNavCategories.length > 0 ? (
           <div className="mb-3">
-            <CategoryQuickNav categories={categoryNames} activeCategory={effectiveCategory} compact />
+            <CategoryQuickNav
+              categories={quickNavCategories}
+              activeCategory={effectiveCategory}
+              compact
+              servicesMode={isServices}
+            />
           </div>
         ) : null}
 

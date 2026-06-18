@@ -20,11 +20,13 @@ export function CategoriesBrowseFeed({
   initialHasMore,
   initialPage = 1,
   perCategory = 12,
+  servicesMode = false,
 }: {
   initialSections: FeedSection[];
   initialHasMore: boolean;
   initialPage?: number;
   perCategory?: number;
+  servicesMode?: boolean;
 }) {
   const [sections, setSections] = useState<FeedSection[]>(initialSections);
   const [page, setPage] = useState(initialPage);
@@ -59,9 +61,14 @@ export function CategoriesBrowseFeed({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/categories/feed?page=${nextPage}&pageSize=4&perCategory=${perCategory}`,
-      );
+      const params = new URLSearchParams({
+        page: String(nextPage),
+        pageSize: '4',
+        perCategory: String(perCategory),
+      });
+      if (servicesMode) params.set('type', 'services');
+
+      const response = await fetch(`/api/categories/feed?${params.toString()}`);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error ?? 'Failed to load more categories');
 
@@ -82,7 +89,7 @@ export function CategoriesBrowseFeed({
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [perCategory]);
+  }, [perCategory, servicesMode]);
 
   const loadNextPageRef = useRef(loadNextPage);
   useEffect(() => {
@@ -102,9 +109,16 @@ export function CategoriesBrowseFeed({
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [perCategory]);
+  }, [perCategory, servicesMode]);
 
   const isEmpty = useMemo(() => sections.length === 0 && !loading, [sections.length, loading]);
+
+  const sectionHref = (category: string) => {
+    const params = new URLSearchParams();
+    if (servicesMode) params.set('type', 'services');
+    params.set('category', category);
+    return `/categories?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-3 [overflow-anchor:none]">
@@ -118,7 +132,7 @@ export function CategoriesBrowseFeed({
           <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-2 sm:px-4">
             <h2 className="text-sm font-semibold text-foreground truncate">{section.category}</h2>
             <Link
-              href={`/categories?category=${encodeURIComponent(section.category)}`}
+              href={sectionHref(section.category)}
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline shrink-0"
             >
               All
