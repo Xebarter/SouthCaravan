@@ -38,7 +38,7 @@ export function CategoryProductCard({
                 src={product.images[0]}
                 alt={product.name}
                 className={cn(
-                  'h-full w-full object-center transition-transform duration-300 group-hover:scale-[1.02]',
+                  'h-full w-full object-center transition-transform duration-300 motion-safe:md:group-hover:scale-[1.02]',
                   imageFit === 'cover' ? 'object-cover' : 'object-contain',
                 )}
                 loading={priority ? 'eager' : 'lazy'}

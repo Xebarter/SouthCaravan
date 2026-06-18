@@ -81,7 +81,7 @@ export default async function CategoriesPage({
     const [initialFeed, categoryNames] = await Promise.all([
       getCategoriesPageFeedSections({
         page: 0,
-        pageSize: 4,
+        pageSize: 6,
         perCategory: CATEGORIES_PAGE_DEFAULT_PER_CATEGORY,
       }),
       getMarketplaceCategoryNames(),
