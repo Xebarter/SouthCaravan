@@ -195,7 +195,6 @@ export default function VendorSettingsPage() {
   const [savedNotifsSnapshot, setSavedNotifsSnapshot] = useState<string>('');
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputId = 'vendor-logo-input';
-  const [logoUploading, setLogoUploading] = useState(false);
   const [showcaseImages, setShowcaseImages] = useState<ShowcaseImage[]>([]);
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
     orders: true,
