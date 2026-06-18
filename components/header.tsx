@@ -17,6 +17,7 @@ import {
   SignedOutProfileMenu,
 } from '@/components/header-profile-menu';
 import { useDashboardNav } from '@/components/dashboard-nav-context';
+import { useOverlayHistory } from '@/hooks/use-overlay-history';
 import { useAuth } from '@/lib/auth-context';
 import { getDashboardConsoleKind, getMessagesHrefForPath } from '@/lib/dashboard-console-path';
 import {
@@ -74,6 +75,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileMenuMode, setProfileMenuMode] = useState<'login' | 'join'>('login');
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const profileCloseTimerRef = useRef<number | null>(null);
   const mobileProfileMenuRef = useRef<HTMLDivElement | null>(null);
   const mobileProfilePopoverRef = useRef<HTMLDivElement | null>(null);
@@ -106,6 +108,16 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
     setPinned(false);
     setHoverOpen(false);
   };
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useOverlayHistory(open, 'marketplace-menu', closeSidebar, isMobileViewport);
 
   const togglePinned = () => {
     cancelCloseTimer();
@@ -162,6 +174,8 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
     setProfileMenuOpen(false);
     setProfileMenuMode('login');
   };
+
+  useOverlayHistory(profileMenuOpen, 'profile-menu', closeProfileMenu, isMobileViewport);
 
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {

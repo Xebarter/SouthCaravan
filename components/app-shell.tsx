@@ -5,8 +5,10 @@ import { usePathname } from 'next/navigation';
 import { MainNav } from '@/components/main-nav';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
+import { MarketplaceActionStrip, shouldShowMarketplaceActionStrip } from '@/components/marketplace/marketplace-action-strip';
 import { DashboardNavProvider } from '@/components/dashboard-nav-context';
 import { AuthProvider } from '@/lib/auth-context';
+import { MobileNavigationRoot } from '@/components/navigation/mobile-navigation-root';
 import { isAnyDashboardConsolePath } from '@/lib/dashboard-console-path';
 import { Toaster } from '@/components/ui/sonner';
 import {
@@ -23,6 +25,7 @@ const publicRoutePrefixes = [
   '/supplier',
   '/public',
   '/categories',
+  '/featured',
   '/cart',
   '/checkout',
   '/features',
@@ -72,6 +75,11 @@ export function AppShell({
   const pathname = usePathname();
   const publicPage = useMemo(() => isPublicRoute(pathname), [pathname]);
   const dashboardConsolePage = useMemo(() => isAnyDashboardConsolePath(pathname), [pathname]);
+  const showActionStrip = useMemo(() => shouldShowMarketplaceActionStrip(pathname), [pathname]);
+  const stripCategories = useMemo(
+    () => menuSections.map((section) => section.title).filter(Boolean),
+    [menuSections],
+  );
 
   let shell: ReactNode;
 
@@ -110,6 +118,7 @@ export function AppShell({
     shell = (
       <>
         <Header />
+        {showActionStrip ? <MarketplaceActionStrip categories={stripCategories} /> : null}
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 min-w-0 flex flex-col">
             <main className="flex-1 min-w-0">{children}</main>
@@ -121,5 +130,9 @@ export function AppShell({
     );
   }
 
-  return <AuthProvider>{shell}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <MobileNavigationRoot>{shell}</MobileNavigationRoot>
+    </AuthProvider>
+  );
 }

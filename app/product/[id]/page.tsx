@@ -2,7 +2,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, Building2, CheckCircle2, Package } from 'lucide-react';
+import { Building2, CheckCircle2, Package } from 'lucide-react';
+import { MarketplaceBackLink } from '@/components/navigation/marketplace-back-link';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -145,10 +146,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <link key={url} rel="preload" as="image" href={url} />
       ))}
       <div className="max-w-[1500px] mx-auto space-y-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-          <ArrowLeft className="h-4 w-4" />
-          Back to marketplace
-        </Link>
+        <MarketplaceBackLink />
 
         {/* One column on small screens (gallery → buy → overview → supplier). On lg, two rows: [media|buy] then [overview|supplier] so long copy never scrolls under the sticky buy box. */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">

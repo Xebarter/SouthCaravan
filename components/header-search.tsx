@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Tag } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { useOverlayHistory } from '@/hooks/use-overlay-history';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 type SearchProduct = {
   id: string;
@@ -90,6 +91,9 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   };
 
   const showDropdown = useMemo(() => open, [open]);
+
+  const closeDropdown = () => setOpen(false);
+  useOverlayHistory(mobile && showDropdown, 'header-search', closeDropdown, mobile);
   const trimmedQuery = useMemo(() => query.trim(), [query]);
   const safeCategories = useMemo(
     () => normalizeCategories(categories as unknown as SearchResponse['categories']),

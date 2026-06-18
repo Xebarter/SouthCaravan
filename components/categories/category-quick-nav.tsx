@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Search } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -13,13 +12,16 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 export function CategoryQuickNav({
   categories,
   activeCategory,
+  compact = false,
 }: {
   categories: string[];
   activeCategory?: string;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -38,78 +40,59 @@ export function CategoryQuickNav({
     return items;
   }, [categories]);
 
-  const visible = useMemo(() => normalized.slice(0, 12), [normalized]);
+  const visible = useMemo(() => normalized.slice(0, compact ? 14 : 12), [compact, normalized]);
   const remainingCount = Math.max(0, normalized.length - visible.length);
 
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <LayoutGrid className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm font-semibold text-foreground">Browse by category</p>
-        </div>
-        <Badge variant="secondary" className="tabular-nums">
-          {normalized.length} categories
-        </Badge>
-      </div>
+  const pillClass = (active: boolean) =>
+    cn(
+      'inline-flex h-7 max-w-[36ch] items-center truncate rounded-full border px-2.5 text-xs font-medium transition-colors',
+      active
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border bg-background text-foreground hover:bg-muted',
+    );
 
-      <div className="flex flex-wrap gap-2">
+  const pills = (
+    <div className="flex flex-wrap gap-1.5">
+      <Link href="/categories" className={pillClass(!activeCategory)}>
+        All
+      </Link>
+      {visible.map((category) => (
         <Link
-          href="/categories"
-          className={[
-            'inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition',
-            !activeCategory
-              ? 'border-primary bg-primary/10 font-medium text-primary'
-              : 'border-border bg-muted/40 text-foreground hover:bg-muted',
-          ].join(' ')}
+          key={category}
+          href={`/categories?category=${encodeURIComponent(category)}`}
+          className={pillClass(activeCategory === category)}
+          title={category}
         >
-          All categories
+          {category}
         </Link>
-
-        {visible.map((category) => {
-          const isActive = activeCategory === category;
-          return (
-            <Link
-              key={category}
-              href={`/categories?category=${encodeURIComponent(category)}`}
-              className={[
-                'inline-flex max-w-[42ch] items-center truncate rounded-full border px-3 py-1.5 text-sm transition',
-                isActive
-                  ? 'border-primary bg-primary/10 font-medium text-primary'
-                  : 'border-border bg-muted/40 text-foreground hover:bg-muted',
-              ].join(' ')}
-              title={category}
-            >
-              <span className="truncate">{category}</span>
-            </Link>
-          );
-        })}
-
-        {remainingCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-muted"
-          >
-            +{remainingCount} more
-          </button>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <Search className="h-3.5 w-3.5" />
-          Search
+      ))}
+      {remainingCount > 0 ? (
+        <button type="button" onClick={() => setOpen(true)} className={pillClass(false)}>
+          +{remainingCount}
         </button>
-      </div>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(pillClass(false), 'gap-1')}
+        aria-label="Search categories"
+      >
+        <Search className="h-3 w-3" />
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      {compact ? pills : (
+        <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm sm:p-4">{pills}</div>
+      )}
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Search categories…" />
         <CommandList>
           <CommandEmpty>No categories found.</CommandEmpty>
-          <CommandGroup heading="Marketplace categories">
+          <CommandGroup heading="Categories">
             <CommandItem
               onSelect={() => {
                 setOpen(false);
@@ -132,6 +115,6 @@ export function CategoryQuickNav({
           </CommandGroup>
         </CommandList>
       </CommandDialog>
-    </div>
+    </>
   );
 }

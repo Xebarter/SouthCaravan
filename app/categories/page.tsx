@@ -20,6 +20,7 @@ import {
 import { getMarketplaceMenuSections } from '@/lib/marketplace-menu';
 import { createCategoryDrillDownMetadata, createPageMetadata } from '@/lib/seo/metadata';
 import { KEYWORD_CATEGORIES } from '@/lib/seo/keywords';
+import { productGridClassName, productPageInsetClassName } from '@/lib/product-grid-layout';
 import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
 
 type CategoryQuery = {
@@ -86,25 +87,29 @@ export default async function CategoriesPage({
       getMarketplaceCategoryNames(),
     ]);
 
+    const sectionCount = initialFeed.sections.length;
+    const productCount = initialFeed.sections.reduce((sum, s) => sum + s.products.length, 0);
+
     return (
-      <section className="min-h-screen bg-background px-4 py-6 md:px-6 md:py-8">
-        <div className="mx-auto max-w-[1500px] space-y-6">
-          <div className="overflow-hidden rounded-2xl border border-border/70 bg-linear-to-br from-muted/50 via-card to-card p-6 shadow-sm md:p-8">
-            <div className="max-w-3xl space-y-3">
-              <Badge variant="secondary" className="rounded-full">
-                B2B marketplace
-              </Badge>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-                Shop every category
-              </h1>
-              <p className="text-sm text-muted-foreground md:text-base">
-                Browse verified products and services across all marketplace categories. Compare pricing,
-                minimum orders, and featured picks — then request a quote or buy with confidence.
+      <section className="min-h-screen bg-background">
+        <div className={'mx-auto max-w-[1500px] ' + productPageInsetClassName + ' pt-4 pb-8 md:pt-5 md:pb-10'}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Categories</h1>
+              <p className="text-xs text-muted-foreground">
+                {sectionCount} categor{sectionCount === 1 ? 'y' : 'ies'} · {productCount}+ products
               </p>
             </div>
+            <Link href="/featured" className="text-sm font-medium text-primary hover:underline shrink-0">
+              Featured
+            </Link>
           </div>
 
-          <CategoryQuickNav categories={categoryNames} />
+          {categoryNames.length > 0 ? (
+            <div className="mb-3">
+              <CategoryQuickNav categories={categoryNames} compact />
+            </div>
+          ) : null}
 
           <CategoriesBrowseFeed
             initialSections={initialFeed.sections}
@@ -161,104 +166,88 @@ export default async function CategoriesPage({
       );
 
   const itemCount = feedItems.length;
-  const categoryLabel = isServices ? 'Service category' : 'Marketplace category';
 
   return (
-    <section className="min-h-screen bg-background px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-[1500px] space-y-6">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2" asChild>
+    <section className="min-h-screen bg-background">
+      <div className={'mx-auto max-w-[1500px] ' + productPageInsetClassName + ' pt-4 pb-8 md:pt-5 md:pb-10'}>
+        <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/50 pb-3 text-sm">
+          <Button variant="ghost" size="sm" className="h-7 gap-1 px-2" asChild>
             <Link href="/categories">
-              <ArrowLeft className="h-4 w-4" />
-              All categories
+              <ArrowLeft className="h-3.5 w-3.5" />
+              All
             </Link>
           </Button>
-          <span aria-hidden>/</span>
-          <span className="font-medium text-foreground">{effectiveCategory}</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium truncate">{effectiveCategory}</span>
           {effectiveSubcategory ? (
             <>
-              <span aria-hidden>/</span>
-              <span className="font-medium text-foreground">{effectiveSubcategory}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="font-medium truncate">{effectiveSubcategory}</span>
             </>
           ) : null}
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums shrink-0">
+            {itemCount} listing{itemCount === 1 ? '' : 's'}
+          </span>
         </div>
 
-        <CategoryQuickNav categories={categoryNames} activeCategory={effectiveCategory} />
-
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-border/60 bg-muted/25 p-5 md:flex-row md:items-start md:justify-between md:p-6">
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {categoryLabel}
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-                {effectiveCategory}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {effectiveSubcategory
-                  ? `Listings under ${effectiveSubcategory}`
-                  : 'All listings in this category — compare, quote, and purchase'}
-              </p>
-            </div>
-            <div className="shrink-0 rounded-xl border border-border/60 bg-background px-4 py-2.5 text-sm">
-              <span className="font-bold tabular-nums text-foreground">{itemCount}</span>
-              <span className="text-muted-foreground">
-                {' '}
-                listing{itemCount === 1 ? '' : 's'}
-              </span>
-            </div>
+        {categoryNames.length > 0 ? (
+          <div className="mb-3">
+            <CategoryQuickNav categories={categoryNames} activeCategory={effectiveCategory} compact />
           </div>
+        ) : null}
 
-          {subcategories.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-b border-border/60 px-5 py-4 md:px-6">
-              <Badge variant={effectiveSubcategory ? 'outline' : 'default'} className="rounded-full">
-                <Link href={categoriesQueryLink({ services: isServices, category: effectiveCategory })}>
-                  All
+        {subcategories.length > 0 ? (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            <Badge variant={effectiveSubcategory ? 'outline' : 'default'} className="rounded-full h-7">
+              <Link href={categoriesQueryLink({ services: isServices, category: effectiveCategory })}>All</Link>
+            </Badge>
+            {subcategories.map((item) => (
+              <Badge
+                key={item}
+                variant={effectiveSubcategory === item ? 'default' : 'outline'}
+                className="rounded-full h-7"
+              >
+                <Link
+                  href={categoriesQueryLink({
+                    services: isServices,
+                    category: effectiveCategory,
+                    subcategory: item,
+                  })}
+                >
+                  {item}
                 </Link>
               </Badge>
-              {subcategories.map((item) => {
-                const active = effectiveSubcategory === item;
-                return (
-                  <Badge key={item} variant={active ? 'default' : 'outline'} className="rounded-full">
-                    <Link
-                      href={categoriesQueryLink({
-                        services: isServices,
-                        category: effectiveCategory,
-                        subcategory: item,
-                      })}
-                    >
-                      {item}
-                    </Link>
-                  </Badge>
-                );
-              })}
-            </div>
-          ) : null}
+            ))}
+          </div>
+        ) : null}
 
-          {feedItems.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:gap-4 sm:p-6 lg:grid-cols-4 xl:grid-cols-4">
-              {feedItems.map((product, index) => (
-                <CategoryProductCard key={`${product.item_kind ?? 'product'}-${product.id}`} product={product} priority={index < 8} />
-              ))}
-            </div>
-          ) : (
-            <Card className="m-4 border-dashed sm:m-6">
-              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                {isServices ? (
-                  <Sparkles className="h-10 w-10 text-sky-600/50" />
-                ) : (
-                  <Package className="h-10 w-10 text-muted-foreground/40" />
-                )}
-                <p className="text-muted-foreground">No listings found for this category selection.</p>
-                <Button variant="outline" asChild>
-                  <Link href={categoriesQueryLink({ services: isServices, category: effectiveCategory })}>
-                    Reset subcategory
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        {feedItems.length > 0 ? (
+          <div className={productGridClassName}>
+            {feedItems.map((product, index) => (
+              <CategoryProductCard
+                key={`${product.item_kind ?? 'product'}-${product.id}`}
+                product={product}
+                priority={index < 12}
+              />
+            ))}
+          </div>
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+              {isServices ? (
+                <Sparkles className="h-8 w-8 text-sky-600/50" />
+              ) : (
+                <Package className="h-8 w-8 text-muted-foreground/40" />
+              )}
+              <p className="text-sm text-muted-foreground">No listings found</p>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={categoriesQueryLink({ services: isServices, category: effectiveCategory })}>
+                  Reset
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </section>
   );

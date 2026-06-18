@@ -15,10 +15,13 @@ export function CategoryProductCard({
   product,
   priority = false,
   className,
+  imageFit = 'cover',
 }: {
   product: FeedProduct;
   priority?: boolean;
   className?: string;
+  /** `cover` fills the frame (center-cropped). `contain` shows the full image with letterboxing. */
+  imageFit?: 'cover' | 'contain';
 }) {
   const isService = product.item_kind === 'service';
   const href = product.href ?? `/product/${product.id}`;
@@ -26,15 +29,18 @@ export function CategoryProductCard({
 
   return (
     <Link href={href} className={cn('group block h-full', className)}>
-      <Card className="h-full overflow-hidden rounded-xl border border-border/70 bg-card py-0 gap-0 shadow-sm transition-shadow hover:shadow-md">
+      <Card className="h-full overflow-hidden rounded-lg border border-border/60 bg-card py-0 gap-0 shadow-none transition-shadow hover:shadow-sm">
         <CardContent className="flex h-full flex-col p-0">
-          <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/40">
+          <div className="relative aspect-square w-full overflow-hidden bg-muted/30">
             {product.images?.[0] ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={product.images[0]}
                 alt={product.name}
-                className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.02]"
+                className={cn(
+                  'h-full w-full object-center transition-transform duration-300 group-hover:scale-[1.02]',
+                  imageFit === 'cover' ? 'object-cover' : 'object-contain',
+                )}
                 loading={priority ? 'eager' : 'lazy'}
                 decoding="async"
               />
@@ -55,8 +61,8 @@ export function CategoryProductCard({
             ) : null}
           </div>
 
-          <div className="flex flex-1 flex-col gap-2 p-3">
-            <div className="flex items-start gap-1.5 min-h-[2.5rem]">
+          <div className="flex flex-1 flex-col gap-1.5 p-2">
+            <div className="flex items-start gap-1 min-h-[2.25rem]">
               {isService ? (
                 <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0 h-5">
                   Service
@@ -84,7 +90,7 @@ export function CategoryProductCard({
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-border/50 bg-muted/30 px-3 py-2">
+          <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-2 py-1.5">
             <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
               {product.is_featured ? 'Top pick' : isService ? 'Service' : 'In catalog'}
             </span>

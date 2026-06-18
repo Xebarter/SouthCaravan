@@ -8,7 +8,8 @@ import { Separator } from '@/components/ui/separator';
 import { Money } from '@/components/money';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { isUuid } from '@/lib/is-uuid';
-import { ArrowLeft, Building2, Globe, Mail, MapPin, Package, Phone } from 'lucide-react';
+import { Building2, Globe, Mail, MapPin, Package, Phone } from 'lucide-react';
+import { MarketplaceBackLink } from '@/components/navigation/marketplace-back-link';
 import { SupplierProductCard } from '@/components/supplier/supplier-product-card';
 import { getShowcaseKindLabel } from '@/lib/vendor-showcase';
 
@@ -52,10 +53,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
     return (
       <div className="bg-background px-4 md:px-6 py-6 md:py-10 pb-24 md:pb-10">
         <div className="max-w-[980px] mx-auto space-y-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft className="h-4 w-4" />
-            Back to marketplace
-          </Link>
+          <MarketplaceBackLink />
 
           <Card className="border-slate-200 shadow-sm overflow-hidden">
             <div className="h-1.5 w-full bg-slate-200" />
@@ -96,10 +94,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
   return (
     <div className="bg-background px-4 md:px-6 py-6 md:py-10 pb-24 md:pb-10">
       <div className="max-w-[1200px] mx-auto space-y-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-          <ArrowLeft className="h-4 w-4" />
-          Back to marketplace
-        </Link>
+        <MarketplaceBackLink />
 
         {/* Header */}
         <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
