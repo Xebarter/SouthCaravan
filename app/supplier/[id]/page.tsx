@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { isUuid } from '@/lib/is-uuid';
 import { ArrowLeft, Building2, Globe, Mail, MapPin, Package, Phone } from 'lucide-react';
 import { SupplierProductCard } from '@/components/supplier/supplier-product-card';
+import { getShowcaseKindLabel } from '@/lib/vendor-showcase';
 
 function splitCommaList(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -287,8 +288,8 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
                     </div>
                     <div className="p-3 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <Badge variant="outline" className="capitalize">
-                          {String(img.kind || 'other')}
+                        <Badge variant="outline">
+                          {getShowcaseKindLabel(String(img.kind || 'other'))}
                         </Badge>
                       </div>
                       {img.caption ? (
