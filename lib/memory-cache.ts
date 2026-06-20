@@ -22,3 +22,15 @@ export async function getCached<T>(key: string, ttlMs: number, loader: () => Pro
   return value;
 }
 
+export function clearAllCached() {
+  memoryCache.clear();
+}
+
+export function clearCachedByPrefix(prefix: string) {
+  for (const key of memoryCache.keys()) {
+    if (key.startsWith(prefix)) {
+      memoryCache.delete(key);
+    }
+  }
+}
+

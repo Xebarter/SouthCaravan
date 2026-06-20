@@ -1,8 +1,10 @@
+import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { clearAllCached } from '@/lib/memory-cache';
 import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
-import { getVendorVerificationStatus } from '@/lib/vendor-verification-status'
+import { getVendorVerificationStatus } from '@/lib/vendor-verification-status';
 
 const BUCKET = 'product-images';
 
@@ -448,6 +450,12 @@ export async function DELETE(req: NextRequest) {
     console.error('[vendor/products DELETE]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  clearAllCached();
+  revalidatePath('/');
+  revalidatePath('/featured');
+  revalidatePath('/categories');
+  revalidatePath(`/product/${id}`);
 
   return NextResponse.json({ success: true });
 }
