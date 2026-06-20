@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Sparkles, UserRound, BriefcaseBusiness } from 'lucide-react'
+import { BriefcaseBusiness, Loader2, Sparkles, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -56,13 +57,13 @@ export default function AdminServiceProvidersPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Service Providers</h1>
+            <h2 className="text-3xl font-bold tracking-tight">Service Providers</h2>
             <Badge variant="secondary" className="text-xs">
               Services Portal
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Manage service provider accounts and monitor catalogue activity.
+            Monitor service provider accounts and catalogue activity.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -152,6 +153,14 @@ export default function AdminServiceProvidersPage() {
                           </span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/admin/services?provider=${p.user_id}`}>
+                          <BriefcaseBusiness className="h-4 w-4 mr-1.5" />
+                          Manage listings
+                        </Link>
+                      </Button>
                     </div>
                   </div>
                 )

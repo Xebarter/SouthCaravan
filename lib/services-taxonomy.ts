@@ -161,6 +161,19 @@ export function serviceCatalogKey(category: string, item: string) {
   return `${category.trim().toLowerCase()}|||${item.trim().toLowerCase()}`
 }
 
+/** Returns an error message when invalid, or null when category + subcategory are valid. */
+export function validateServiceTaxonomy(category: string, subcategory: string): string | null {
+  const cat = category.trim()
+  const sub = subcategory.trim()
+  if (!cat || !sub) return 'Category and service type are required'
+
+  const section = DEFAULT_SERVICES_TAXONOMY.find((s) => s.title === cat)
+  if (!section) return 'Invalid category'
+
+  if (!section.items.includes(sub)) return 'Invalid service type for the selected category'
+  return null
+}
+
 export function filterTaxonomy(
   sections: ServiceTaxonomySection[],
   query: string,
