@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Tag } from 'lucide-react';
+import { Search, Sparkles, Tag } from 'lucide-react';
 import { useOverlayHistory } from '@/hooks/use-overlay-history';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Money } from '@/components/money';
 
 type SearchProduct = {
   id: string;
@@ -16,6 +17,18 @@ type SearchProduct = {
   subSubcategory: string;
   image: string | null;
   inStock: boolean;
+  featured: boolean;
+};
+
+type SearchService = {
+  id: string;
+  title: string;
+  category: string;
+  subcategory: string;
+  image: string | null;
+  pricingType: 'fixed' | 'hourly';
+  rate: number;
+  currency: string;
   featured: boolean;
 };
 
@@ -33,7 +46,9 @@ type CategorySuggestion = {
 
 type SearchResponse = {
   products: SearchProduct[];
+  services?: SearchService[];
   categories: CategorySuggestion[] | string[];
+  serviceCategories?: CategorySuggestion[];
   error?: string;
 };
 
@@ -48,6 +63,34 @@ function categoryBrowseHrefForProduct(product: SearchProduct): string {
   return `/categories?${params.toString()}`;
 }
 
+function serviceCategoryBrowseHref(s: CategorySuggestion): string {
+  const params = new URLSearchParams();
+  params.set('type', 'services');
+  if (s.type === 'category') {
+    params.set('category', s.value);
+  } else {
+    if (s.parentCategory) params.set('category', s.parentCategory);
+    params.set('subcategory', s.value);
+  }
+  return `/categories?${params.toString()}`;
+}
+
+function productCategoryBrowseHref(s: CategorySuggestion, trimmedQuery: string): string {
+  const params = new URLSearchParams();
+  if (trimmedQuery) params.set('query', trimmedQuery);
+  if (s.type === 'category') {
+    params.set('category', s.value);
+  } else if (s.type === 'subcategory') {
+    if (s.parentCategory) params.set('category', s.parentCategory);
+    params.set('subcategory', s.value);
+  } else {
+    if (s.parentCategory) params.set('category', s.parentCategory);
+    if (s.parentSubcategory) params.set('subcategory', s.parentSubcategory);
+    params.set('subSubcategory', s.value);
+  }
+  return `/?${params.toString()}`;
+}
+
 export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -57,7 +100,9 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<SearchProduct[]>([]);
+  const [services, setServices] = useState<SearchService[]>([]);
   const [categories, setCategories] = useState<CategorySuggestion[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<CategorySuggestion[]>([]);
   const [mobileDropdownTop, setMobileDropdownTop] = useState<number>(56);
 
   const normalizeCategories = (raw: SearchResponse['categories'] | undefined): CategorySuggestion[] => {
@@ -100,6 +145,11 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
     [categories],
   );
 
+  const safeServiceCategories = useMemo(
+    () => normalizeCategories(serviceCategories as unknown as SearchResponse['categories']),
+    [serviceCategories],
+  );
+
   const rankedProducts = useMemo(() => {
     const q = trimmedQuery.toLowerCase();
     const score = (p: SearchProduct) => {
@@ -128,6 +178,32 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name))
       .slice(0, 8);
   }, [products, trimmedQuery]);
+
+  const rankedServices = useMemo(() => {
+    const q = trimmedQuery.toLowerCase();
+    const score = (s: SearchService) => {
+      if (!q) {
+        return (s.featured ? 20 : 0);
+      }
+
+      const title = (s.title ?? '').toLowerCase();
+      const category = (s.category ?? '').toLowerCase();
+      const subcategory = (s.subcategory ?? '').toLowerCase();
+
+      let value = 0;
+      if (title === q) value += 140;
+      if (title.startsWith(q)) value += 110;
+      if (title.includes(q)) value += 70;
+      if (category.includes(q)) value += 30;
+      if (subcategory.includes(q)) value += 20;
+      if (s.featured) value += 8;
+      return value;
+    };
+
+    return [...services]
+      .sort((a, b) => score(b) - score(a) || a.title.localeCompare(b.title))
+      .slice(0, 8);
+  }, [services, trimmedQuery]);
 
   useEffect(() => {
     function onOutside(event: MouseEvent | TouchEvent) {
@@ -178,7 +254,11 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
       setProducts(cached.products ?? []);
+      setServices(cached.services ?? []);
       setCategories(normalizeCategories(cached.categories as SearchResponse['categories']));
+      setServiceCategories(
+        normalizeCategories(cached.serviceCategories as SearchResponse['categories']),
+      );
       setLoading(false);
       return;
     }
@@ -193,11 +273,17 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
         const payload: SearchResponse = await response.json();
         if (!response.ok) throw new Error(payload.error ?? 'Search failed');
         setProducts(payload.products ?? []);
+        setServices(payload.services ?? []);
         setCategories(normalizeCategories(payload.categories));
+        setServiceCategories(normalizeCategories(payload.serviceCategories));
 
         cacheRef.current.set(cacheKey, {
           products: payload.products ?? [],
+          services: payload.services ?? [],
           categories: normalizeCategories(payload.categories) as unknown as SearchResponse['categories'],
+          serviceCategories: normalizeCategories(
+            payload.serviceCategories,
+          ) as unknown as SearchResponse['categories'],
         });
         if (cacheRef.current.size > 30) {
           const firstKey = cacheRef.current.keys().next().value as string | undefined;
@@ -206,7 +292,9 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       } catch (error) {
         if (controller.signal.aborted) return;
         setProducts([]);
+        setServices([]);
         setCategories([]);
+        setServiceCategories([]);
         console.error('[header-search]', error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -236,12 +324,12 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
         <Input
           ref={inputRef}
           type="search"
-          placeholder={mobile ? 'Search products...' : 'Search products, vendors, categories...'}
+          placeholder={mobile ? 'Search products & services...' : 'Search products, services, categories...'}
           className={mobile ? 'pl-9 bg-secondary h-9' : 'pl-9 bg-secondary'}
           value={query}
           onFocus={() => {
             setOpen(true);
-            if (!products.length && !categories.length) {
+            if (!products.length && !services.length && !categories.length && !serviceCategories.length) {
               setQuery('');
             }
           }}
@@ -288,7 +376,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                   ? 'Loading suggestions…'
                   : trimmedQuery
                     ? `Results for "${trimmedQuery}"`
-                    : 'Popular products and categories'}
+                    : 'Popular products, services, and categories'}
               </span>
               {mobile && (
                 <button
@@ -312,63 +400,143 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                   Related Categories
                 </p>
                 <div className="space-y-2">
-                  {safeCategories.map((s, idx) => {
-                    const params = new URLSearchParams();
-                    if (trimmedQuery) params.set('query', trimmedQuery);
-                    if (s.type === 'category') {
-                      params.set('category', s.value);
-                    } else if (s.type === 'subcategory') {
-                      if (s.parentCategory) params.set('category', s.parentCategory);
-                      params.set('subcategory', s.value);
-                    } else {
-                      if (s.parentCategory) params.set('category', s.parentCategory);
-                      if (s.parentSubcategory) params.set('subcategory', s.parentSubcategory);
-                      params.set('subSubcategory', s.value);
-                    }
-
-                    return (
-                      <Link
-                        key={`${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
-                        href={`/?${params.toString()}`}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                          mobile ? 'p-3 min-h-13' : 'p-2'
-                        }`}
+                  {safeCategories.map((s, idx) => (
+                    <Link
+                      key={`product-cat::${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
+                      href={productCategoryBrowseHref(s, trimmedQuery)}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                        mobile ? 'p-3 min-h-13' : 'p-2'
+                      }`}
+                    >
+                      <div
+                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
                       >
-                        <div
-                          className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
-                        >
-                          {s.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
-                          ) : null}
-                        </div>
+                        {s.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
+                        ) : null}
+                      </div>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {s.context ? `in ${s.context}` : 'Category'}
-                          </p>
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {s.context ? `in ${s.context}` : 'Product category'}
+                        </p>
+                      </div>
 
-                        <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Tag className="h-3 w-3" />
-                          {s.type === 'subSubcategory'
-                            ? 'Subcategory'
-                            : s.type === 'subcategory'
-                              ? 'Category'
-                              : 'Category'}
+                      <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Tag className="h-3 w-3" />
+                        {s.type === 'subSubcategory'
+                          ? 'Subcategory'
+                          : s.type === 'subcategory'
+                            ? 'Category'
+                            : 'Category'}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Related service categories */}
+            {safeServiceCategories.length > 0 && (
+              <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">
+                  Service Categories
+                </p>
+                <div className="space-y-2">
+                  {safeServiceCategories.map((s, idx) => (
+                    <Link
+                      key={`service-cat::${s.type}::${s.value}::${s.parentCategory ?? ''}::${idx}`}
+                      href={serviceCategoryBrowseHref(s)}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                        mobile ? 'p-3 min-h-13' : 'p-2'
+                      }`}
+                    >
+                      <div
+                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
+                      >
+                        {s.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Sparkles className="h-4 w-4 text-sky-600/70" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {s.context ? `in ${s.context}` : 'Service category'}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Sparkles className="h-3 w-3" />
+                        {s.type === 'subcategory' ? 'Service' : 'Services'}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Service matches */}
+            {rankedServices.length > 0 && (
+              <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Services</p>
+                <div className="space-y-2">
+                  {rankedServices.map((service) => (
+                    <Link
+                      key={service.id}
+                      href={`/public/services/${service.id}`}
+                      onClick={() => setOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                        mobile ? 'p-3 min-h-16' : 'p-2'
+                      }`}
+                    >
+                      <div
+                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-14 w-14' : 'h-14 w-14'}`}
+                      >
+                        {service.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={service.image} alt={service.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-sky-600/70" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-5 line-clamp-1">{service.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {service.subcategory || service.category}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <Badge variant="secondary" className="text-[10px]">
+                            Service
+                          </Badge>
+                          <span className="text-[11px] font-medium text-foreground">
+                            <Money amount={service.rate} baseCurrency={service.currency} />
+                            {service.pricingType === 'hourly' ? '/hr' : ''}
+                          </span>
+                          {service.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
                         </div>
-                      </Link>
-                    );
-                  })}
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* Product matches */}
             <div className={mobile ? 'px-4 pb-4 space-y-2' : 'space-y-1'}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Top matches</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Products</p>
               {rankedProducts.length > 0 ? (
                 <div className="space-y-2">
                   {rankedProducts.map((product) => (
@@ -405,7 +573,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                     </Link>
                   ))}
                 </div>
-              ) : !loading ? (
+              ) : !loading && rankedServices.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">No matching products.</p>
               ) : null}
             </div>
