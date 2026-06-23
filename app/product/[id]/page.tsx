@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ProductImageGallery } from '@/components/product-image-gallery';
 import { ProductRichText } from '@/components/product-rich-text';
 import { ProductPurchaseActions } from '@/components/product-purchase-actions';
+import { ProductPricingDisplay } from '@/components/product/product-pricing-display';
 import { Money } from '@/components/money';
 import { getProductById, getRelatedProducts } from '@/lib/product-data';
 import { getVendorDisplayName } from '@/lib/vendor-display';
@@ -178,27 +179,18 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <p className="text-xs font-medium text-slate-500">Reference unit price</p>
-                    <p className="mt-0.5 text-xl font-bold text-slate-900">
-                      <Money amountUSD={Number(product.price)} />
-                    </p>
-                    <p className="text-xs text-slate-500">Per {product.unit}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-500">Minimum order</p>
-                    <p className="mt-0.5 text-xl font-bold text-slate-900">
-                      {product.minimum_order} {product.unit}
-                    </p>
-                    <p className="text-xs text-slate-500">MOQ</p>
-                  </div>
-                </div>
+                <ProductPricingDisplay
+                  price={Number(product.price)}
+                  retailPrice={product.retail_price}
+                  minimumOrder={product.minimum_order}
+                  unit={product.unit}
+                />
 
                 <ProductPurchaseActions
                   productId={product.id}
                   name={product.name}
-                  unitPrice={Number(product.price)}
+                  bulkPrice={Number(product.price)}
+                  retailPrice={product.retail_price}
                   minimumOrder={product.minimum_order}
                   unit={product.unit}
                   inStock={product.in_stock}

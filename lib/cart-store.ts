@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth-context';
 import { resolveCoupon } from '@/lib/cart-coupons';
 import type { CartLineItem, CartState } from '@/lib/cart-types';
 import { checkoutTotals } from '@/lib/checkout-session';
+import { applyPricingToCartLine } from '@/lib/product-pricing';
 
 export type { AppliedCoupon } from '@/lib/cart-coupons';
 export { KNOWN_COUPONS } from '@/lib/cart-coupons';
@@ -38,10 +39,11 @@ function isValidItem(x: unknown): x is CartLineItem {
 }
 
 function normalizeItem(item: CartLineItem): CartLineItem {
-  const minQty = Math.max(1, Math.floor(item.minQty ?? 1));
-  const maxQty = Math.max(minQty, Math.floor(item.maxQty ?? 999));
-  const qty = Math.min(maxQty, Math.max(minQty, Math.floor(item.quantity)));
-  return { ...item, quantity: qty, minQty, maxQty };
+  const withPricing = applyPricingToCartLine(item);
+  const minQty = Math.max(1, Math.floor(withPricing.minQty ?? 1));
+  const maxQty = Math.max(minQty, Math.floor(withPricing.maxQty ?? 999));
+  const qty = Math.min(maxQty, Math.max(minQty, Math.floor(withPricing.quantity)));
+  return { ...withPricing, quantity: qty, minQty, maxQty };
 }
 
 function mergeItem(existing: CartLineItem, incoming: CartLineItem): CartLineItem {

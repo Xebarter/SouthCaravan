@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Money } from '@/components/money';
+import { getPricingTier, hasDualPricing, pricingFieldsFromProduct } from '@/lib/product-pricing';
 import { cn } from '@/lib/utils';
 import { useCart, type CartLineItem } from '@/lib/cart-store';
 import { setCheckoutLineItems } from '@/lib/checkout-session';
@@ -172,6 +173,16 @@ function CartLine({
   onSaveForLater: () => void;
 }) {
   const lineTotal = item.price * item.quantity;
+  const pricingFields =
+    item.bulkPrice != null
+      ? pricingFieldsFromProduct({
+          price: item.bulkPrice,
+          retail_price: item.retailPrice,
+          minimum_order: item.minimumOrder ?? item.minQty ?? 1,
+        })
+      : null;
+  const showTier = pricingFields && hasDualPricing(pricingFields);
+  const tier = pricingFields ? getPricingTier(pricingFields, item.quantity) : 'bulk';
 
   return (
     <div className="group relative px-5 py-5">
@@ -217,6 +228,11 @@ function CartLine({
           {/* Unit price */}
           <p className="mt-2.5 text-xs text-muted-foreground">
             <Money amountUSD={item.price} showUsdInBrackets={false} /> per unit
+            {showTier ? (
+              <span className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
+                {tier === 'bulk' ? 'Bulk price' : 'Retail price'}
+              </span>
+            ) : null}
           </p>
 
           {/* Bottom row: stepper + save + line total */}

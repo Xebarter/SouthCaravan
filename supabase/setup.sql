@@ -37,6 +37,7 @@ create table if not exists public.products (
   subcategory   text        not null default 'General',
   sub_subcategory text      not null default 'General',
   price         numeric(12, 2) not null default 0,
+  retail_price  numeric(12, 2),
   minimum_order integer     not null default 1,
   unit          text        not null default 'piece',
   images        text[]      not null default '{}',

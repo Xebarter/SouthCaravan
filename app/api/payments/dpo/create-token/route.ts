@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { dpoCreateToken, dpoBuildCheckoutUrl, getDpoConfig } from '@/lib/dpo';
 import { checkoutTotals, type CheckoutLineItem } from '@/lib/checkout-session';
+import { normalizeCheckoutItemsFromCatalog } from '@/lib/checkout-pricing';
 
 /** Return true if a string looks like a UUID. */
 function isUuid(s: string) {
@@ -56,8 +57,13 @@ export async function POST(req: NextRequest) {
   }
 
   const items = rawItems as CheckoutLineItem[];
+  const normalized = await normalizeCheckoutItemsFromCatalog(items);
+  if ('error' in normalized) {
+    return NextResponse.json({ error: normalized.error }, { status: normalized.status });
+  }
+  const verifiedItems = normalized.items;
   const discount = typeof b.discount === 'number' && b.discount > 0 ? b.discount : 0;
-  const { total } = checkoutTotals(items, discount);
+  const { total } = checkoutTotals(verifiedItems, discount);
 
   const shippingAddress = typeof b.shippingAddress === 'string' ? b.shippingAddress.trim() : '';
   if (!shippingAddress) {
@@ -74,7 +80,7 @@ export async function POST(req: NextRequest) {
   //    If the payments-dpo.sql migration has been run this column is
   //    nullable and we can pass null instead. Either way we need a value.
   // ------------------------------------------------------------------
-  const vendorUserId = await resolveVendorUserId(items, auth.buyerId);
+  const vendorUserId = await resolveVendorUserId(verifiedItems, auth.buyerId);
 
   // ------------------------------------------------------------------
   // 2. Create a pending order.
@@ -135,7 +141,7 @@ export async function POST(req: NextRequest) {
   // ------------------------------------------------------------------
   // 3. Insert order items
   // ------------------------------------------------------------------
-  const orderItems = items.map((item) => ({
+  const orderItems = verifiedItems.map((item) => ({
     order_id: orderId,
     product_id: item.id ?? null,
     quantity: item.quantity,
@@ -171,7 +177,7 @@ export async function POST(req: NextRequest) {
   const redirectUrl = `${baseUrl}/checkout/payment-return`;
   const backUrl = `${baseUrl}/api/payments/dpo/callback`;
 
-  const itemCount = items.reduce((n, i) => n + i.quantity, 0);
+  const itemCount = verifiedItems.reduce((n, i) => n + i.quantity, 0);
   const description = `SouthCaravan order – ${itemCount} item${itemCount === 1 ? '' : 's'}`;
 
   let transToken: string;

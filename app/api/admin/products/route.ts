@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { clearAllCached } from '@/lib/memory-cache';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
+import { parseRetailPriceFromForm, validateDualPricingConfig } from '@/lib/product-pricing';
 
 const BUCKET = 'product-images';
 
@@ -145,7 +146,10 @@ export async function POST(req: NextRequest) {
 
   const description = (formData.get('description') as string | null) ?? '';
   const price = parseFloat((formData.get('price') as string | null) ?? '0');
+  const retailPrice = parseRetailPriceFromForm(formData.get('retailPrice'));
   const minimumOrder = parseInt((formData.get('minimumOrder') as string | null) ?? '1', 10);
+  const pricingError = validateDualPricingConfig(price, retailPrice, minimumOrder);
+  if (pricingError) return NextResponse.json({ error: pricingError }, { status: 422 });
   const unit = (formData.get('unit') as string | null) ?? 'piece';
   const inStock = parseBoolean(formData.get('inStock'), true);
   const isFeatured = parseBoolean(formData.get('isFeatured'), false);
@@ -183,6 +187,7 @@ export async function POST(req: NextRequest) {
       subcategory: subcategory || 'General',
       sub_subcategory: subSubcategory || 'General',
       price,
+      retail_price: retailPrice,
       minimum_order: minimumOrder,
       unit,
       images: imageUrls,
@@ -233,6 +238,7 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.name === 'string') patchData.name = body.name;
     if (typeof body.description === 'string') patchData.description = body.description;
     if (typeof body.price === 'number') patchData.price = body.price;
+    if (body.retailPrice !== undefined) patchData.retail_price = parseRetailPriceFromForm(body.retailPrice);
     if (typeof body.minimumOrder === 'number') patchData.minimum_order = body.minimumOrder;
     if (typeof body.unit === 'string') patchData.unit = body.unit;
     if (typeof body.vendorId === 'string' || body.vendorId === null) patchData.vendor_id = body.vendorId;
@@ -298,6 +304,7 @@ export async function PATCH(req: NextRequest) {
   const description = formData.get('description') as string | null;
   const vendorIdRaw = formData.get('vendorId') as string | null;
   const priceRaw = formData.get('price') as string | null;
+  const retailPriceRaw = formData.get('retailPrice') as string | null;
   const minimumOrderRaw = formData.get('minimumOrder') as string | null;
   const unit = formData.get('unit') as string | null;
   const inStockRaw = formData.get('inStock');
@@ -309,6 +316,7 @@ export async function PATCH(req: NextRequest) {
   if (description !== null) patchData.description = description;
   if (vendorIdRaw !== null) patchData.vendor_id = vendorIdRaw.trim() || null;
   if (priceRaw !== null && !Number.isNaN(parseFloat(priceRaw))) patchData.price = parseFloat(priceRaw);
+  if (retailPriceRaw !== null) patchData.retail_price = parseRetailPriceFromForm(retailPriceRaw);
   if (minimumOrderRaw !== null && !Number.isNaN(parseInt(minimumOrderRaw, 10))) {
     patchData.minimum_order = parseInt(minimumOrderRaw, 10);
   }

@@ -4,6 +4,13 @@ import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { resolveCoupon } from '@/lib/cart-coupons';
 import { getVendorDisplayName } from '@/lib/vendor-display';
 import type { CartLineItem, CartState } from '@/lib/cart-types';
+import {
+  applyPricingToCartLine,
+  clampQuantityForCart,
+  getCartMinQuantity,
+  pricingFieldsFromProduct,
+  resolveUnitPrice,
+} from '@/lib/product-pricing';
 
 type ListKind = 'cart' | 'saved';
 
@@ -11,12 +18,6 @@ const MAX_QTY = 999;
 
 function asString(v: unknown) {
   return typeof v === 'string' ? v : '';
-}
-
-function clampQtyForProduct(qty: number, minOrder: number): number {
-  const q = Math.floor(qty);
-  if (!Number.isFinite(q) || q < 1) return Math.max(1, minOrder);
-  return Math.min(MAX_QTY, Math.max(minOrder, q));
 }
 
 function skuFromSpecs(specs: unknown): string | undefined {
@@ -28,21 +29,28 @@ function skuFromSpecs(specs: unknown): string | undefined {
 
 function productToLine(product: Record<string, unknown>, quantity: number): CartLineItem {
   const id = String(product.id ?? '');
-  const minOrder = Math.max(1, Math.floor(Number(product.minimum_order) || 1));
+  const fields = pricingFieldsFromProduct(product);
+  const qty = clampQuantityForCart(fields, quantity);
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
   const image = images[0];
-  return {
+
+  const line: CartLineItem = {
     id,
     name: String(product.name ?? ''),
     vendor: getVendorDisplayName((product.vendor_id as string | null) ?? null),
-    price: Number(product.price),
-    quantity: clampQtyForProduct(quantity, minOrder),
+    price: resolveUnitPrice(fields, qty),
+    quantity: qty,
     image,
     sku: skuFromSpecs(product.specifications),
-    minQty: minOrder,
+    minQty: getCartMinQuantity(fields),
     maxQty: MAX_QTY,
+    bulkPrice: fields.price,
+    retailPrice: fields.retail_price,
+    minimumOrder: fields.minimum_order,
     addedAt: Date.now(),
   };
+
+  return applyPricingToCartLine(line);
 }
 
 async function fetchProduct(
@@ -50,7 +58,9 @@ async function fetchProduct(
 ): Promise<{ ok: true; product: Record<string, unknown> } | { ok: false; notFound?: boolean }> {
   const { data, error } = await supabaseAdmin
     .from('products')
-    .select('id, name, price, minimum_order, unit, images, vendor_id, specifications, in_stock')
+    .select(
+      'id, name, price, retail_price, minimum_order, unit, images, vendor_id, specifications, in_stock',
+    )
     .eq('id', productId)
     .maybeSingle();
   if (error) {
@@ -85,7 +95,9 @@ async function loadCartState(buyerId: string): Promise<CartState> {
 
   const { data: products, error: pErr } = await supabaseAdmin
     .from('products')
-    .select('id, name, price, minimum_order, unit, images, vendor_id, specifications, in_stock')
+    .select(
+      'id, name, price, retail_price, minimum_order, unit, images, vendor_id, specifications, in_stock',
+    )
     .in('id', ids);
 
   if (pErr) {
@@ -160,6 +172,10 @@ async function getRowQty(
   return data.quantity as number;
 }
 
+function clampQtyForProduct(product: Record<string, unknown>, qty: number): number {
+  return clampQuantityForCart(pricingFieldsFromProduct(product), qty);
+}
+
 export async function GET() {
   const auth = await getAuthedBuyer();
   if (!auth.ok) return auth.response;
@@ -207,17 +223,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Product is not available' }, { status: 409 });
         }
 
-        const minOrder = Math.max(1, Math.floor(Number(fp.product.minimum_order) || 1));
-        const addQty = clampQtyForProduct(Number.isFinite(qtyRaw) ? qtyRaw : minOrder, minOrder);
+        const addQty = clampQtyForProduct(fp.product, Number.isFinite(qtyRaw) ? qtyRaw : 1);
 
         if (listKind === 'cart') {
           await deleteRow(buyerId, productId, 'saved');
           const existing = await getRowQty(buyerId, productId, 'cart');
-          const nextQty = existing != null ? clampQtyForProduct(existing + addQty, minOrder) : addQty;
+          const nextQty = existing != null ? clampQtyForProduct(fp.product, existing + addQty) : addQty;
           await upsertRow(buyerId, productId, 'cart', nextQty);
         } else {
           const existing = await getRowQty(buyerId, productId, 'saved');
-          const nextQty = existing != null ? clampQtyForProduct(existing + addQty, minOrder) : addQty;
+          const nextQty = existing != null ? clampQtyForProduct(fp.product, existing + addQty) : addQty;
           await upsertRow(buyerId, productId, 'saved', nextQty);
         }
 
@@ -242,8 +257,7 @@ export async function POST(req: NextRequest) {
           if (!fp.ok) {
             return NextResponse.json({ error: 'Product not found' }, { status: 404 });
           }
-          const minOrder = Math.max(1, Math.floor(Number(fp.product.minimum_order) || 1));
-          const nextQty = clampQtyForProduct(q, minOrder);
+          const nextQty = clampQtyForProduct(fp.product, q);
           await upsertRow(buyerId, productId, listKind, nextQty);
         }
 
@@ -287,11 +301,10 @@ export async function POST(req: NextRequest) {
 
         const savedExisting = await getRowQty(buyerId, productId, 'saved');
         await deleteRow(buyerId, productId, 'cart');
-        const minOrder = Math.max(1, Math.floor(Number(fp.product.minimum_order) || 1));
         const merged =
           savedExisting != null
-            ? clampQtyForProduct(savedExisting + qty, minOrder)
-            : clampQtyForProduct(qty, minOrder);
+            ? clampQtyForProduct(fp.product, savedExisting + qty)
+            : clampQtyForProduct(fp.product, qty);
         await upsertRow(buyerId, productId, 'saved', merged);
 
         const state = await loadCartState(buyerId);
@@ -315,12 +328,11 @@ export async function POST(req: NextRequest) {
         }
 
         await deleteRow(buyerId, productId, 'saved');
-        const minOrder = Math.max(1, Math.floor(Number(fp.product.minimum_order) || 1));
         const cartExisting = await getRowQty(buyerId, productId, 'cart');
         const nextQty =
           cartExisting != null
-            ? clampQtyForProduct(cartExisting + qty, minOrder)
-            : clampQtyForProduct(qty, minOrder);
+            ? clampQtyForProduct(fp.product, cartExisting + qty)
+            : clampQtyForProduct(fp.product, qty);
         await upsertRow(buyerId, productId, 'cart', nextQty);
 
         const state = await loadCartState(buyerId);
@@ -389,17 +401,16 @@ export async function POST(req: NextRequest) {
           const fp = await fetchProduct(productId);
           if (!fp.ok) continue;
           if (!fp.product.in_stock) continue;
-          const minOrder = Math.max(1, Math.floor(Number(fp.product.minimum_order) || 1));
-          const addQty = clampQtyForProduct(qSum, minOrder);
+          const addQty = clampQtyForProduct(fp.product, qSum);
 
           if (lk === 'cart') {
             await deleteRow(buyerId, productId, 'saved');
             const existing = await getRowQty(buyerId, productId, 'cart');
-            const nextQty = existing != null ? clampQtyForProduct(existing + addQty, minOrder) : addQty;
+            const nextQty = existing != null ? clampQtyForProduct(fp.product, existing + addQty) : addQty;
             await upsertRow(buyerId, productId, 'cart', nextQty);
           } else {
             const existing = await getRowQty(buyerId, productId, 'saved');
-            const nextQty = existing != null ? clampQtyForProduct(existing + addQty, minOrder) : addQty;
+            const nextQty = existing != null ? clampQtyForProduct(fp.product, existing + addQty) : addQty;
             await upsertRow(buyerId, productId, 'saved', nextQty);
           }
         }

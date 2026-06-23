@@ -5,6 +5,7 @@ import { clearAllCached } from '@/lib/memory-cache';
 import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { getVendorVerificationStatus } from '@/lib/vendor-verification-status';
+import { parseRetailPriceFromForm, validateDualPricingConfig } from '@/lib/product-pricing';
 
 const BUCKET = 'product-images';
 
@@ -186,7 +187,14 @@ export async function POST(req: NextRequest) {
 
     const description = (formData.get('description') as string | null) ?? '';
     const price = parseFloat((formData.get('price') as string | null) ?? '0');
+    const retailPrice = parseRetailPriceFromForm(formData.get('retailPrice'));
     const minimumOrder = parseInt((formData.get('minimumOrder') as string | null) ?? '1', 10);
+    const pricingError = validateDualPricingConfig(
+      Number.isFinite(price) ? price : 0,
+      retailPrice,
+      Number.isFinite(minimumOrder) ? minimumOrder : 1,
+    );
+    if (pricingError) return NextResponse.json({ error: pricingError }, { status: 422 });
     const unit = (formData.get('unit') as string | null) ?? 'piece';
     const inStock = parseBoolean(formData.get('inStock'), true);
     const specificationsRaw = (formData.get('specifications') as string | null) ?? '{}';
@@ -218,6 +226,7 @@ export async function POST(req: NextRequest) {
         subcategory: subcategory || 'General',
         sub_subcategory: subSubcategory || 'General',
         price: Number.isFinite(price) ? price : 0,
+        retail_price: retailPrice,
         minimum_order: Number.isFinite(minimumOrder) ? minimumOrder : 1,
         unit,
         images: imageUrls,
@@ -247,6 +256,13 @@ export async function POST(req: NextRequest) {
   const taxonomyError = await validateTaxonomy(category, subcategory || undefined, subSubCategory || undefined);
   if (taxonomyError) return NextResponse.json({ error: taxonomyError }, { status: 422 });
 
+  const bodyPrice = typeof body?.price === 'number' ? body.price : Number(body?.price ?? 0) || 0;
+  const bodyRetail = parseRetailPriceFromForm(body?.retailPrice);
+  const bodyMoq =
+    typeof body?.minimumOrder === 'number' ? body.minimumOrder : parseInt(String(body?.minimumOrder ?? 1), 10) || 1;
+  const bodyPricingError = validateDualPricingConfig(bodyPrice, bodyRetail, bodyMoq);
+  if (bodyPricingError) return NextResponse.json({ error: bodyPricingError }, { status: 422 });
+
   const { data: product, error } = await supabaseAdmin
     .from('products')
     .insert({
@@ -256,9 +272,9 @@ export async function POST(req: NextRequest) {
       category,
       subcategory: subcategory || 'General',
       sub_subcategory: subSubCategory || 'General',
-      price: typeof body?.price === 'number' ? body.price : Number(body?.price ?? 0) || 0,
-      minimum_order:
-        typeof body?.minimumOrder === 'number' ? body.minimumOrder : parseInt(String(body?.minimumOrder ?? 1), 10) || 1,
+      price: bodyPrice,
+      retail_price: bodyRetail,
+      minimum_order: bodyMoq,
       unit: typeof body?.unit === 'string' ? body.unit : 'piece',
       images: Array.isArray(body?.images) ? body.images : [],
       in_stock: typeof body?.inStock === 'boolean' ? body.inStock : parseBoolean(body?.inStock, true),
@@ -312,6 +328,8 @@ export async function PATCH(req: NextRequest) {
     if (subSubCategory != null) patchData.sub_subcategory = subSubCategory;
     const price = formData.get('price') as string | null;
     if (price != null) patchData.price = parseFloat(price);
+    const retailPriceRaw = formData.get('retailPrice') as string | null;
+    if (retailPriceRaw !== null) patchData.retail_price = parseRetailPriceFromForm(retailPriceRaw);
     const minimumOrder = formData.get('minimumOrder') as string | null;
     if (minimumOrder != null) patchData.minimum_order = parseInt(minimumOrder, 10);
     const unit = formData.get('unit') as string | null;
@@ -346,6 +364,7 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.subcategory === 'string') patchData.subcategory = body.subcategory;
     if (typeof body.subSubCategory === 'string') patchData.sub_subcategory = body.subSubCategory;
     if (typeof body.price === 'number') patchData.price = body.price;
+    if (body.retailPrice !== undefined) patchData.retail_price = parseRetailPriceFromForm(body.retailPrice);
     if (typeof body.minimumOrder === 'number') patchData.minimum_order = body.minimumOrder;
     if (typeof body.unit === 'string') patchData.unit = body.unit;
     if (typeof body.inStock === 'boolean') patchData.in_stock = body.inStock;

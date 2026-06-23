@@ -1,39 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle2, Loader2, ShoppingBag, ShoppingCart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Money } from '@/components/money';
 import { setCheckoutLineItems, type CheckoutLineItem } from '@/lib/checkout-session';
 import { addToCart } from '@/lib/cart-store';
 import { useAuth } from '@/lib/auth-context';
+import {
+  clampQuantityForMode,
+  getPricingTier,
+  getQuantityBounds,
+  hasDualPricing,
+  pricingFieldsFromProduct,
+  resolveUnitPrice,
+  type PurchaseMode,
+} from '@/lib/product-pricing';
 
 export type ProductPurchaseActionsProps = {
   productId: string;
   name: string;
-  unitPrice: number;
+  bulkPrice: number;
+  retailPrice?: number | null;
   minimumOrder: number;
   unit: string;
   inStock: boolean;
   vendorLabel: string;
-  /** Supabase auth user id for the vendor that owns this product */
   vendorUserId?: string;
   imageUrl?: string;
-  /** False for platform-owned SKUs without a vendor auth id */
   rfqEnabled?: boolean;
-  /** Render an always-available bottom CTA bar on mobile. */
   showMobileStickyBar?: boolean;
 };
 
 export function ProductPurchaseActions({
   productId,
   name,
-  unitPrice,
+  bulkPrice,
+  retailPrice,
   minimumOrder,
   unit,
   inStock,
@@ -45,34 +54,70 @@ export function ProductPurchaseActions({
 }: ProductPurchaseActionsProps) {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const [quantity, setQuantity] = useState(Math.max(1, minimumOrder));
+
+  const pricing = useMemo(
+    () =>
+      pricingFieldsFromProduct({
+        price: bulkPrice,
+        retail_price: retailPrice,
+        minimum_order: minimumOrder,
+      }),
+    [bulkPrice, retailPrice, minimumOrder],
+  );
+
+  const dual = hasDualPricing(pricing);
+  const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>(dual ? 'single' : 'bulk');
+  const bounds = getQuantityBounds(pricing, purchaseMode);
+  const [quantity, setQuantity] = useState(bounds.min);
   const [busy, setBusy] = useState(false);
 
-  const clampQty = (n: number) => {
-    if (!Number.isFinite(n) || n < minimumOrder) return minimumOrder;
-    return Math.floor(n);
+  useEffect(() => {
+    setQuantity((current) => clampQuantityForMode(pricing, current, purchaseMode));
+  }, [purchaseMode, pricing]);
+
+  const clampedQty = clampQuantityForMode(pricing, quantity, purchaseMode);
+  const unitPrice = resolveUnitPrice(pricing, clampedQty);
+  const tier = getPricingTier(pricing, clampedQty);
+  const lineTotal = unitPrice * clampedQty;
+
+  const switchMode = (mode: PurchaseMode) => {
+    setPurchaseMode(mode);
+    const nextBounds = getQuantityBounds(pricing, mode);
+    setQuantity(nextBounds.min);
   };
+
+  const buildLine = (): CheckoutLineItem => ({
+    id: productId,
+    name,
+    vendor: vendorLabel,
+    price: unitPrice,
+    quantity: clampedQty,
+    image: imageUrl,
+  });
+
+  const buildCartPayload = () => ({
+    id: productId,
+    name,
+    vendor: vendorLabel,
+    price: unitPrice,
+    quantity: clampedQty,
+    image: imageUrl,
+    minQty: bounds.min,
+    bulkPrice: pricing.price,
+    retailPrice: pricing.retail_price,
+    minimumOrder: pricing.minimum_order,
+  });
 
   const handleBuyNow = () => {
     if (!inStock || busy) return;
     setBusy(true);
-    const qty = clampQty(quantity);
-    const line: CheckoutLineItem = {
-      id: productId,
-      name,
-      vendor: vendorLabel,
-      price: unitPrice,
-      quantity: qty,
-      image: imageUrl,
-    };
-    setCheckoutLineItems([line]);
+    setCheckoutLineItems([buildLine()]);
     router.push('/checkout');
   };
 
   const handleRequestQuote = () => {
     if (!inStock || !rfqEnabled || authLoading) return;
-    const qty = clampQty(quantity);
-    const next = `/buyer/quotes?add=${encodeURIComponent(productId)}&qty=${encodeURIComponent(String(qty))}`;
+    const next = `/buyer/quotes?add=${encodeURIComponent(productId)}&qty=${encodeURIComponent(String(clampedQty))}`;
     if (user) {
       router.push(next);
       return;
@@ -85,7 +130,6 @@ export function ProductPurchaseActions({
 
   const handleAddToCart = async () => {
     if (!inStock) return;
-    const qty = clampQty(quantity);
 
     const toastId = toast.custom((id) => (
       <div className="flex w-[360px] items-start gap-3 rounded-xl border border-border bg-popover p-4 shadow-lg">
@@ -105,10 +149,13 @@ export function ProductPurchaseActions({
           </div>
           <p className="mt-0.5 truncate text-sm text-foreground">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {qty} {unit} · {vendorLabel}
+            {clampedQty} {unit} · <Money amountUSD={unitPrice} showUsdInBrackets={false} /> each
           </p>
           <button
-            onClick={() => { toast.dismiss(id); router.push('/cart'); }}
+            onClick={() => {
+              toast.dismiss(id);
+              router.push('/cart');
+            }}
             className="mt-2.5 w-full rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             View cart →
@@ -125,15 +172,7 @@ export function ProductPurchaseActions({
     ), { duration: 5000 });
 
     try {
-      await addToCart({
-        id: productId,
-        name,
-        vendor: vendorLabel,
-        price: unitPrice,
-        quantity: qty,
-        image: imageUrl,
-        minQty: minimumOrder,
-      });
+      await addToCart(buildCartPayload());
     } catch (e) {
       toast.dismiss(toastId);
       const msg = e instanceof Error ? e.message : 'Could not add to cart';
@@ -178,6 +217,44 @@ export function ProductPurchaseActions({
   return (
     <>
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+        {dual ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Purchase type</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => switchMode('single')}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  purchaseMode === 'single'
+                    ? 'border-sky-300 bg-sky-50 ring-1 ring-sky-200'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-900">Single purchase</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  <Money amountUSD={pricing.retail_price ?? 0} showUsdInBrackets={false} /> / {unit}
+                </p>
+                <p className="text-[11px] text-slate-500">Below {pricing.minimum_order} {unit}</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode('bulk')}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  purchaseMode === 'bulk'
+                    ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-900">Bulk purchase</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  <Money amountUSD={pricing.price} showUsdInBrackets={false} /> / {unit}
+                </p>
+                <p className="text-[11px] text-slate-500">From {pricing.minimum_order} {unit}</p>
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Quantity</p>
@@ -188,34 +265,46 @@ export function ProductPurchaseActions({
               <Input
                 id="order-qty"
                 type="number"
-                min={minimumOrder}
+                min={bounds.min}
+                max={bounds.max}
                 step={1}
                 value={quantity}
                 disabled={!inStock}
-                onChange={(e) => setQuantity(clampQty(parseInt(e.target.value, 10) || minimumOrder))}
+                onChange={(e) =>
+                  setQuantity(clampQuantityForMode(pricing, parseInt(e.target.value, 10) || bounds.min, purchaseMode))
+                }
                 className="h-10 max-w-[160px]"
               />
               <span className="text-xs text-slate-500">
-                Min {minimumOrder} {unit}
+                {dual
+                  ? purchaseMode === 'single'
+                    ? `1–${bounds.max} ${unit}`
+                    : `Min ${bounds.min} ${unit}`
+                  : `Min ${bounds.min} ${unit}`}
               </span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-slate-500">Selected</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 min-w-[140px]">
+            <p className="text-xs text-slate-500">Line total</p>
             <p className="text-sm font-semibold text-slate-900">
-              {clampQty(quantity)} {unit}
+              <Money amountUSD={lineTotal} showUsdInBrackets={false} />
             </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-slate-500">
+                <Money amountUSD={unitPrice} showUsdInBrackets={false} /> each
+              </span>
+              {dual ? (
+                <Badge variant={tier === 'bulk' ? 'default' : 'secondary'} className="text-[10px]">
+                  {tier === 'bulk' ? 'Bulk rate' : 'Retail rate'}
+                </Badge>
+              ) : null}
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            type="button"
-            className="h-11 rounded-xl"
-            disabled={!inStock || busy}
-            onClick={handleBuyNow}
-          >
+          <Button type="button" className="h-11 rounded-xl" disabled={!inStock || busy} onClick={handleBuyNow}>
             {busy ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
@@ -280,16 +369,11 @@ export function ProductPurchaseActions({
             >
               <p className="text-[11px] font-medium text-slate-500">Qty</p>
               <p className="text-sm font-semibold text-slate-900">
-                {clampQty(quantity)} {unit}
+                {clampedQty} {unit}
               </p>
             </button>
 
-            <Button
-              type="button"
-              className="h-11 flex-1 rounded-xl"
-              disabled={!inStock || busy}
-              onClick={handleBuyNow}
-            >
+            <Button type="button" className="h-11 flex-1 rounded-xl" disabled={!inStock || busy} onClick={handleBuyNow}>
               {busy ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />

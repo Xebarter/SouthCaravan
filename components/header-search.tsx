@@ -3,92 +3,76 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Sparkles, Tag } from 'lucide-react';
+import { Package, Search, Sparkles, Tag } from 'lucide-react';
 import { useOverlayHistory } from '@/hooks/use-overlay-history';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Money } from '@/components/money';
-
-type SearchProduct = {
-  id: string;
-  name: string;
-  category: string;
-  subcategory: string;
-  subSubcategory: string;
-  image: string | null;
-  inStock: boolean;
-  featured: boolean;
-};
-
-type SearchService = {
-  id: string;
-  title: string;
-  category: string;
-  subcategory: string;
-  image: string | null;
-  pricingType: 'fixed' | 'hourly';
-  rate: number;
-  currency: string;
-  featured: boolean;
-};
-
-type CategorySuggestionType = 'category' | 'subcategory' | 'subSubcategory';
-
-type CategorySuggestion = {
-  type: CategorySuggestionType;
-  value: string;
-  parentCategory: string | null;
-  parentSubcategory: string | null;
-  label: string;
-  context: string | null;
-  image: string | null;
-};
+import {
+  categorySuggestionHref,
+  productDetailHref,
+  rankSearchItems,
+  scoreSearchText,
+  searchResultsHref,
+  serviceDetailHref,
+  type CategorySuggestion,
+  type RankedSearchItem,
+  type SearchProductResult,
+  type SearchServiceResult,
+} from '@/lib/site-search-utils';
 
 type SearchResponse = {
-  products: SearchProduct[];
-  services?: SearchService[];
+  products: SearchProductResult[];
+  services?: SearchServiceResult[];
   categories: CategorySuggestion[] | string[];
   serviceCategories?: CategorySuggestion[];
   error?: string;
 };
 
-/** Marketplace browse URL for a product's taxonomy (matches `/categories` query params). */
-function categoryBrowseHrefForProduct(product: SearchProduct): string {
-  const category = (product.category ?? '').trim();
-  if (!category) return `/product/${product.id}`;
-  const params = new URLSearchParams();
-  params.set('category', category);
-  const sub = (product.subcategory ?? '').trim();
-  if (sub) params.set('subcategory', sub);
-  return `/categories?${params.toString()}`;
+function normalizeCategories(raw: SearchResponse['categories'] | undefined): CategorySuggestion[] {
+  if (!raw) return [];
+
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'string') {
+    return (raw as string[])
+      .filter((value) => value.trim().length > 0)
+      .map((value) => ({
+        kind: 'product' as const,
+        type: 'category' as const,
+        value,
+        parentCategory: null,
+        parentSubcategory: null,
+        label: value,
+        context: 'Product category',
+        image: null,
+      }));
+  }
+
+  return (raw as CategorySuggestion[])
+    .filter(
+      (suggestion) =>
+        !!suggestion &&
+        (suggestion.type === 'category' ||
+          suggestion.type === 'subcategory' ||
+          suggestion.type === 'subSubcategory') &&
+        typeof suggestion.value === 'string' &&
+        suggestion.value.trim().length > 0,
+    )
+    .map((suggestion) => ({
+      ...suggestion,
+      kind: suggestion.kind === 'service' ? 'service' : 'product',
+      label: suggestion.label || suggestion.value,
+      context: suggestion.context ?? null,
+      image: suggestion.image ?? null,
+    }));
 }
 
-function serviceCategoryBrowseHref(s: CategorySuggestion): string {
-  const params = new URLSearchParams();
-  params.set('type', 'services');
-  if (s.type === 'category') {
-    params.set('category', s.value);
-  } else {
-    if (s.parentCategory) params.set('category', s.parentCategory);
-    params.set('subcategory', s.value);
+function categoryTypeLabel(suggestion: CategorySuggestion) {
+  if (suggestion.kind === 'service') {
+    return suggestion.type === 'subcategory' ? 'Service type' : 'Service category';
   }
-  return `/categories?${params.toString()}`;
-}
-
-function productCategoryBrowseHref(s: CategorySuggestion, trimmedQuery: string): string {
-  const params = new URLSearchParams();
-  if (trimmedQuery) params.set('query', trimmedQuery);
-  if (s.type === 'category') {
-    params.set('category', s.value);
-  } else if (s.type === 'subcategory') {
-    if (s.parentCategory) params.set('category', s.parentCategory);
-    params.set('subcategory', s.value);
-  } else {
-    if (s.parentCategory) params.set('category', s.parentCategory);
-    if (s.parentSubcategory) params.set('subcategory', s.parentSubcategory);
-    params.set('subSubcategory', s.value);
-  }
-  return `/?${params.toString()}`;
+  if (suggestion.type === 'subSubcategory') return 'Product type';
+  if (suggestion.type === 'subcategory') return 'Product subcategory';
+  return 'Product category';
 }
 
 export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
@@ -99,111 +83,42 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [products, setProducts] = useState<SearchProduct[]>([]);
-  const [services, setServices] = useState<SearchService[]>([]);
+  const [products, setProducts] = useState<SearchProductResult[]>([]);
+  const [services, setServices] = useState<SearchServiceResult[]>([]);
   const [categories, setCategories] = useState<CategorySuggestion[]>([]);
-  const [serviceCategories, setServiceCategories] = useState<CategorySuggestion[]>([]);
   const [mobileDropdownTop, setMobileDropdownTop] = useState<number>(56);
 
-  const normalizeCategories = (raw: SearchResponse['categories'] | undefined): CategorySuggestion[] => {
-    if (!raw) return [];
-
-    // Backward compatibility: older API returned string[].
-    if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'string') {
-      return (raw as string[])
-        .filter((v) => typeof v === 'string' && v.trim().length > 0)
-        .map((v) => ({
-          type: 'category' as const,
-          value: v,
-          parentCategory: null,
-          parentSubcategory: null,
-          label: v,
-          context: null,
-          image: null,
-        }));
-    }
-
-    // Current shape: CategorySuggestion[]
-    return (raw as CategorySuggestion[]).filter(
-      (s) =>
-        !!s &&
-        (s.type === 'category' || s.type === 'subcategory' || s.type === 'subSubcategory') &&
-        typeof s.value === 'string' &&
-        s.value.trim().length > 0 &&
-        typeof s.label === 'string' &&
-        s.label.trim().length > 0,
-    );
-  };
-
   const showDropdown = useMemo(() => open, [open]);
-
   const closeDropdown = () => setOpen(false);
   useOverlayHistory(mobile && showDropdown, 'header-search', closeDropdown, mobile);
   const trimmedQuery = useMemo(() => query.trim(), [query]);
-  const safeCategories = useMemo(
-    () => normalizeCategories(categories as unknown as SearchResponse['categories']),
-    [categories],
+
+  const safeCategories = useMemo(() => {
+    const merged = normalizeCategories(categories as SearchResponse['categories']);
+    return merged.sort((a, b) => {
+      const scoreDiff = scoreSearchText(trimmedQuery, b.value) - scoreSearchText(trimmedQuery, a.value);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.label.localeCompare(b.label);
+    });
+  }, [categories, trimmedQuery]);
+
+  const productCategories = useMemo(
+    () => safeCategories.filter((item) => item.kind === 'product').slice(0, 6),
+    [safeCategories],
   );
 
-  const safeServiceCategories = useMemo(
-    () => normalizeCategories(serviceCategories as unknown as SearchResponse['categories']),
-    [serviceCategories],
+  const serviceCategories = useMemo(
+    () => safeCategories.filter((item) => item.kind === 'service').slice(0, 6),
+    [safeCategories],
   );
 
-  const rankedProducts = useMemo(() => {
-    const q = trimmedQuery.toLowerCase();
-    const score = (p: SearchProduct) => {
-      if (!q) {
-        return (p.featured ? 20 : 0) + (p.inStock ? 3 : 0);
-      }
+  const rankedItems = useMemo(
+    () => rankSearchItems(trimmedQuery, products, services, 8),
+    [products, services, trimmedQuery],
+  );
 
-      const name = (p.name ?? '').toLowerCase();
-      const category = (p.category ?? '').toLowerCase();
-      const subcategory = (p.subcategory ?? '').toLowerCase();
-      const subSubcategory = (p.subSubcategory ?? '').toLowerCase();
-
-      let s = 0;
-      if (name === q) s += 140;
-      if (name.startsWith(q)) s += 110;
-      if (name.includes(q)) s += 70;
-      if (category.includes(q)) s += 30;
-      if (subcategory.includes(q)) s += 20;
-      if (subSubcategory.includes(q)) s += 10;
-      if (p.featured) s += 8;
-      if (p.inStock) s += 4;
-      return s;
-    };
-
-    return [...products]
-      .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name))
-      .slice(0, 8);
-  }, [products, trimmedQuery]);
-
-  const rankedServices = useMemo(() => {
-    const q = trimmedQuery.toLowerCase();
-    const score = (s: SearchService) => {
-      if (!q) {
-        return (s.featured ? 20 : 0);
-      }
-
-      const title = (s.title ?? '').toLowerCase();
-      const category = (s.category ?? '').toLowerCase();
-      const subcategory = (s.subcategory ?? '').toLowerCase();
-
-      let value = 0;
-      if (title === q) value += 140;
-      if (title.startsWith(q)) value += 110;
-      if (title.includes(q)) value += 70;
-      if (category.includes(q)) value += 30;
-      if (subcategory.includes(q)) value += 20;
-      if (s.featured) value += 8;
-      return value;
-    };
-
-    return [...services]
-      .sort((a, b) => score(b) - score(a) || a.title.localeCompare(b.title))
-      .slice(0, 8);
-  }, [services, trimmedQuery]);
+  const hasResults =
+    rankedItems.length > 0 || productCategories.length > 0 || serviceCategories.length > 0;
 
   useEffect(() => {
     function onOutside(event: MouseEvent | TouchEvent) {
@@ -227,8 +142,6 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
       raf = 0;
       const rect = inputRef.current?.getBoundingClientRect();
       if (!rect) return;
-      // Anchor the dropdown to the input's bottom, so it stays correct whether the
-      // mobile header is in 1-row or 2-row state and across device sizes.
       setMobileDropdownTop(Math.max(0, Math.round(rect.bottom)));
     };
 
@@ -239,7 +152,6 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
 
     measure();
     window.addEventListener('resize', schedule);
-    // Use capture so we respond even when scrolling within nested containers.
     window.addEventListener('scroll', schedule, true);
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
@@ -255,10 +167,7 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
     if (cached) {
       setProducts(cached.products ?? []);
       setServices(cached.services ?? []);
-      setCategories(normalizeCategories(cached.categories as SearchResponse['categories']));
-      setServiceCategories(
-        normalizeCategories(cached.serviceCategories as SearchResponse['categories']),
-      );
+      setCategories(normalizeCategories(cached.categories));
       setLoading(false);
       return;
     }
@@ -272,18 +181,29 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
         });
         const payload: SearchResponse = await response.json();
         if (!response.ok) throw new Error(payload.error ?? 'Search failed');
+
+        const legacyServiceCategories = normalizeCategories(payload.serviceCategories);
+        const unifiedCategories = [
+          ...normalizeCategories(payload.categories),
+          ...legacyServiceCategories.filter(
+            (legacy) =>
+              !normalizeCategories(payload.categories).some(
+                (item) =>
+                  item.kind === legacy.kind &&
+                  item.type === legacy.type &&
+                  item.value === legacy.value,
+              ),
+          ),
+        ];
+
         setProducts(payload.products ?? []);
         setServices(payload.services ?? []);
-        setCategories(normalizeCategories(payload.categories));
-        setServiceCategories(normalizeCategories(payload.serviceCategories));
+        setCategories(unifiedCategories);
 
         cacheRef.current.set(cacheKey, {
           products: payload.products ?? [],
           services: payload.services ?? [],
-          categories: normalizeCategories(payload.categories) as unknown as SearchResponse['categories'],
-          serviceCategories: normalizeCategories(
-            payload.serviceCategories,
-          ) as unknown as SearchResponse['categories'],
+          categories: unifiedCategories,
         });
         if (cacheRef.current.size > 30) {
           const firstKey = cacheRef.current.keys().next().value as string | undefined;
@@ -294,12 +214,11 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
         setProducts([]);
         setServices([]);
         setCategories([]);
-        setServiceCategories([]);
         console.error('[header-search]', error);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    }, 0);
+    }, 200);
 
     return () => {
       controller.abort();
@@ -307,9 +226,14 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
     };
   }, [query]);
 
+  const goToFullSearch = () => {
+    if (!trimmedQuery) return;
+    router.push(searchResultsHref(trimmedQuery));
+    setOpen(false);
+  };
+
   return (
     <>
-      {/* Backdrop — dims the page when the mobile dropdown is open */}
       {mobile && showDropdown && (
         <div
           className="fixed inset-0 z-69 bg-black/30 md:hidden"
@@ -329,18 +253,15 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
           value={query}
           onFocus={() => {
             setOpen(true);
-            if (!products.length && !services.length && !categories.length && !serviceCategories.length) {
-              setQuery('');
-            }
+            if (!hasResults) setQuery('');
           }}
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && query.trim()) {
-              router.push(`/?query=${encodeURIComponent(query.trim())}`);
-              setOpen(false);
+            if (event.key === 'Enter') {
+              goToFullSearch();
             }
           }}
         />
@@ -350,20 +271,16 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
             className={
               mobile
                 ? [
-                    // Fixed panel that spans the full viewport width, sitting just below the sticky nav (h-14 = 3.5rem).
                     'fixed left-0 right-0 z-70',
                     'bg-background border-t border-border shadow-2xl',
-                    // Use dynamic viewport height so the panel respects the on-screen keyboard.
                     'max-h-[calc(100dvh-3.5rem)]',
                     'overflow-y-auto overscroll-contain',
-                    // Smooth momentum scrolling on iOS.
                     'scroll-smooth [-webkit-overflow-scrolling:touch]',
                   ].join(' ')
                 : 'absolute left-0 right-0 top-[calc(100%+0.4rem)] z-70 rounded-lg border border-border bg-background shadow-lg p-3 space-y-3'
             }
             style={mobile ? { top: `${mobileDropdownTop}px` } : undefined}
           >
-            {/* Status / header row */}
             <div
               className={
                 mobile
@@ -373,10 +290,10 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
             >
               <span className="text-xs text-muted-foreground">
                 {loading
-                  ? 'Loading suggestions…'
+                  ? 'Searching…'
                   : trimmedQuery
                     ? `Results for "${trimmedQuery}"`
-                    : 'Popular products, services, and categories'}
+                    : 'Popular listings and categories'}
               </span>
               {mobile && (
                 <button
@@ -385,7 +302,6 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
                   onClick={() => setOpen(false)}
                   className="ml-3 shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-secondary active:bg-secondary/80 transition-colors"
                 >
-                  {/* ✕ icon */}
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                   </svg>
@@ -393,207 +309,184 @@ export function HeaderSearch({ mobile = false }: { mobile?: boolean }) {
               )}
             </div>
 
-            {/* Related categories */}
-            {safeCategories.length > 0 && (
+            {rankedItems.length > 0 && (
               <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">
-                  Related Categories
+                  Listings
                 </p>
                 <div className="space-y-2">
-                  {safeCategories.map((s, idx) => (
-                    <Link
-                      key={`product-cat::${s.type}::${s.value}::${s.parentCategory ?? ''}::${s.parentSubcategory ?? ''}::${idx}`}
-                      href={productCategoryBrowseHref(s, trimmedQuery)}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                        mobile ? 'p-3 min-h-13' : 'p-2'
-                      }`}
-                    >
-                      <div
-                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
-                      >
-                        {s.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
-                        ) : null}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {s.context ? `in ${s.context}` : 'Product category'}
-                        </p>
-                      </div>
-
-                      <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Tag className="h-3 w-3" />
-                        {s.type === 'subSubcategory'
-                          ? 'Subcategory'
-                          : s.type === 'subcategory'
-                            ? 'Category'
-                            : 'Category'}
-                      </div>
-                    </Link>
+                  {rankedItems.map((item) => (
+                    <SearchItemRow key={`${item.kind}-${item.id}`} item={item} mobile={mobile} onNavigate={closeDropdown} />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Related service categories */}
-            {safeServiceCategories.length > 0 && (
-              <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">
-                  Service Categories
-                </p>
-                <div className="space-y-2">
-                  {safeServiceCategories.map((s, idx) => (
-                    <Link
-                      key={`service-cat::${s.type}::${s.value}::${s.parentCategory ?? ''}::${idx}`}
-                      href={serviceCategoryBrowseHref(s)}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                        mobile ? 'p-3 min-h-13' : 'p-2'
-                      }`}
-                    >
-                      <div
-                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
-                      >
-                        {s.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={s.image} alt={s.label} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Sparkles className="h-4 w-4 text-sky-600/70" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-1">{s.label}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {s.context ? `in ${s.context}` : 'Service category'}
-                        </p>
-                      </div>
-
-                      <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Sparkles className="h-3 w-3" />
-                        {s.type === 'subcategory' ? 'Service' : 'Services'}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            {productCategories.length > 0 && (
+              <CategorySection
+                title="Product categories"
+                suggestions={productCategories}
+                mobile={mobile}
+                onNavigate={closeDropdown}
+              />
             )}
 
-            {/* Service matches */}
-            {rankedServices.length > 0 && (
-              <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Services</p>
-                <div className="space-y-2">
-                  {rankedServices.map((service) => (
-                    <Link
-                      key={service.id}
-                      href={`/public/services/${service.id}`}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                        mobile ? 'p-3 min-h-16' : 'p-2'
-                      }`}
-                    >
-                      <div
-                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-14 w-14' : 'h-14 w-14'}`}
-                      >
-                        {service.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={service.image} alt={service.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Sparkles className="h-5 w-5 text-sky-600/70" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-1">{service.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {service.subcategory || service.category}
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <Badge variant="secondary" className="text-[10px]">
-                            Service
-                          </Badge>
-                          <span className="text-[11px] font-medium text-foreground">
-                            <Money amount={service.rate} baseCurrency={service.currency} />
-                            {service.pricingType === 'hourly' ? '/hr' : ''}
-                          </span>
-                          {service.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            {serviceCategories.length > 0 && (
+              <CategorySection
+                title="Service categories"
+                suggestions={serviceCategories}
+                mobile={mobile}
+                onNavigate={closeDropdown}
+              />
             )}
 
-            {/* Product matches */}
-            <div className={mobile ? 'px-4 pb-4 space-y-2' : 'space-y-1'}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">Products</p>
-              {rankedProducts.length > 0 ? (
-                <div className="space-y-2">
-                  {rankedProducts.map((product) => (
-                    <Link
-                      key={product.id}
-                      href={categoryBrowseHrefForProduct(product)}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
-                        mobile ? 'p-3 min-h-16' : 'p-2'
-                      }`}
-                    >
-                      <div
-                        className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-14 w-14' : 'h-14 w-14'}`}
-                      >
-                        {product.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
-                        ) : null}
-                      </div>
+            {!loading && !hasResults && (
+              <p className={`text-xs text-muted-foreground ${mobile ? 'px-4 py-3' : 'py-2'}`}>
+                {trimmedQuery ? 'No matching listings or categories.' : 'Start typing to search.'}
+              </p>
+            )}
 
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-5 line-clamp-1">{product.name}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {product.subcategory || product.category}
-                          {product.subSubcategory ? ` • ${product.subSubcategory}` : ''}
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <Badge variant={product.inStock ? 'default' : 'outline'} className="text-[10px]">
-                            {product.inStock ? 'In Stock' : 'Out'}
-                          </Badge>
-                          {product.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : !loading && rankedServices.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">No matching products.</p>
-              ) : null}
-            </div>
-
-            {/* "View all" footer — only on mobile when there's a query */}
-            {mobile && trimmedQuery && (
-              <div className="sticky bottom-0 bg-background border-t border-border/60 px-4 py-3">
-                <Link
-                  href={`/?query=${encodeURIComponent(trimmedQuery)}`}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground text-sm font-medium py-3 hover:bg-primary/90 active:bg-primary/80 transition-colors"
+            {trimmedQuery && (
+              <div
+                className={
+                  mobile
+                    ? 'sticky bottom-0 bg-background border-t border-border/60 px-4 py-3'
+                    : 'pt-1'
+                }
+              >
+                <button
+                  type="button"
+                  onClick={goToFullSearch}
+                  className={`flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground text-sm font-medium py-2.5 hover:bg-primary/90 active:bg-primary/80 transition-colors ${
+                    mobile ? 'py-3' : ''
+                  }`}
                 >
                   <Search className="h-4 w-4" />
                   View all results for &ldquo;{trimmedQuery}&rdquo;
-                </Link>
+                </button>
               </div>
             )}
           </div>
         )}
       </div>
     </>
+  );
+}
+
+function SearchItemRow({
+  item,
+  mobile,
+  onNavigate,
+}: {
+  item: RankedSearchItem;
+  mobile: boolean;
+  onNavigate: () => void;
+}) {
+  const href = item.kind === 'product' ? productDetailHref(item.id) : serviceDetailHref(item.id);
+  const title = item.kind === 'product' ? item.name : item.title;
+  const subtitle =
+    item.kind === 'product'
+      ? [item.subcategory || item.category, item.subSubcategory].filter(Boolean).join(' • ')
+      : item.subcategory || item.category;
+
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+        mobile ? 'p-3 min-h-16' : 'p-2'
+      }`}
+    >
+      <div className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-14 w-14' : 'h-14 w-14'}`}>
+        {item.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.image} alt={title} className="h-full w-full object-cover" />
+        ) : item.kind === 'service' ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <Sparkles className="h-5 w-5 text-sky-600/70" />
+          </div>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <Package className="h-5 w-5 text-muted-foreground/60" />
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium leading-5 line-clamp-1">{title}</p>
+        <p className="text-xs text-muted-foreground line-clamp-1">{subtitle}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <Badge variant={item.kind === 'service' ? 'secondary' : item.inStock ? 'default' : 'outline'} className="text-[10px]">
+            {item.kind === 'service' ? 'Service' : item.inStock ? 'In Stock' : 'Out of stock'}
+          </Badge>
+          <span className="text-[11px] font-medium text-foreground">
+            <Money
+              amount={item.kind === 'product' ? item.price : item.rate}
+              baseCurrency={item.currency}
+            />
+            {item.kind === 'service' && item.pricingType === 'hourly' ? '/hr' : ''}
+          </span>
+          {item.featured ? <Badge className="text-[10px]">Featured</Badge> : null}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function CategorySection({
+  title,
+  suggestions,
+  mobile,
+  onNavigate,
+}: {
+  title: string;
+  suggestions: CategorySuggestion[];
+  mobile: boolean;
+  onNavigate: () => void;
+}) {
+  return (
+    <div className={mobile ? 'px-4 pb-1 space-y-2' : 'space-y-1'}>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{title}</p>
+      <div className="space-y-2">
+        {suggestions.map((suggestion, index) => {
+          const Icon = suggestion.kind === 'service' ? Sparkles : Tag;
+          return (
+            <Link
+              key={`${suggestion.kind}-${suggestion.type}-${suggestion.value}-${index}`}
+              href={categorySuggestionHref(suggestion)}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-lg border border-border hover:bg-secondary/60 active:bg-secondary transition-colors ${
+                mobile ? 'p-3 min-h-13' : 'p-2'
+              }`}
+            >
+              <div
+                className={`shrink-0 overflow-hidden rounded bg-secondary ${mobile ? 'h-11 w-11' : 'h-10 w-10'}`}
+              >
+                {suggestion.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={suggestion.image} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Icon className={`h-4 w-4 ${suggestion.kind === 'service' ? 'text-sky-600/70' : 'text-muted-foreground/70'}`} />
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium leading-5 line-clamp-1">{suggestion.label}</p>
+                <p className="text-xs text-muted-foreground line-clamp-1">
+                  {suggestion.context ?? categoryTypeLabel(suggestion)}
+                </p>
+              </div>
+
+              <div className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Icon className="h-3 w-3" />
+                Browse
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }

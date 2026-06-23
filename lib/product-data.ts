@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
+import { normalizeRetailPrice } from '@/lib/product-pricing';
 
 export type ProductRecord = {
   id: string;
@@ -11,6 +12,7 @@ export type ProductRecord = {
   subcategory: string;
   sub_subcategory: string;
   price: number;
+  retail_price: number | null;
   minimum_order: number;
   unit: string;
   images: string[];
@@ -33,14 +35,19 @@ export async function getProductById(productId: string): Promise<ProductRecord |
     const { data, error } = await supabaseAdmin
       .from('products')
       .select(
-        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, specifications, created_at',
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, retail_price, minimum_order, unit, images, in_stock, specifications, created_at',
       )
       .eq('id', productId)
       .single();
 
     if (error || !data) return null;
     const filtered = await filterProductsByVerifiedVendor([data as ProductRecord]);
-    return filtered[0] ?? null;
+    const row = filtered[0];
+    if (!row) return null;
+    return {
+      ...row,
+      retail_price: normalizeRetailPrice((row as ProductRecord).retail_price),
+    };
   });
 }
 

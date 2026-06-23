@@ -56,6 +56,8 @@ import { stripHtmlForPreview } from '@/lib/strip-html';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { Money } from '@/components/money';
 import { useAuth } from '@/lib/auth-context';
+import { validateDualPricingConfig } from '@/lib/product-pricing';
+import { DualPricingFormSection } from '@/components/product/dual-pricing-form-section';
 
 const ProductDescriptionEditor = dynamic(
   () => import('@/components/product-description-editor').then((m) => m.ProductDescriptionEditor),
@@ -79,6 +81,7 @@ interface SupabaseProduct {
   subcategory: string;
   sub_subcategory: string;
   price: number;
+  retail_price: number | null;
   minimum_order: number;
   unit: string;
   images: string[];
@@ -133,11 +136,18 @@ const productFormSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   subcategory: z.string().default(''),
   subSubCategory: z.string().default(''),
-  price: z.coerce.number().min(0, 'Price must be 0 or more'),
+  price: z.coerce.number().min(0, 'Bulk price must be 0 or more'),
+  retailPrice: z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
   minimumOrder: z.coerce.number().int().min(1, 'Minimum order must be at least 1'),
   unit: z.string().min(1, 'Unit is required'),
   inStock: z.boolean().default(true),
   specifications: z.array(specificationSchema).default([]),
+}).superRefine((data, ctx) => {
+  const retail = data.retailPrice === '' || data.retailPrice == null ? null : Number(data.retailPrice);
+  const err = validateDualPricingConfig(data.price, retail, data.minimumOrder);
+  if (err) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: err, path: ['retailPrice'] });
+  }
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -503,6 +513,7 @@ export default function VendorProductsPage() {
       subcategory: '',
       subSubCategory: '',
       price: 0,
+      retailPrice: '',
       minimumOrder: 1,
       unit: 'piece',
       inStock: true,
@@ -639,6 +650,7 @@ export default function VendorProductsPage() {
       subcategory: firstSubcategory,
       subSubCategory: firstSubSubcategory,
       price: 0,
+      retailPrice: '',
       minimumOrder: 1,
       unit: 'piece',
       inStock: true,
@@ -673,6 +685,7 @@ export default function VendorProductsPage() {
       subcategory: product.subcategory ?? '',
       subSubCategory: product.sub_subcategory ?? '',
       price: Number(product.price ?? 0),
+      retailPrice: product.retail_price == null ? '' : Number(product.retail_price),
       minimumOrder: product.minimum_order ?? 1,
       unit: product.unit ?? 'piece',
       inStock: Boolean(product.in_stock),
@@ -727,6 +740,10 @@ export default function VendorProductsPage() {
       formData.append('subcategory', values.subcategory);
       formData.append('subSubCategory', values.subSubCategory);
       formData.append('price', String(values.price));
+      formData.append(
+        'retailPrice',
+        values.retailPrice === '' || values.retailPrice == null ? '' : String(values.retailPrice),
+      );
       formData.append('minimumOrder', String(values.minimumOrder));
       formData.append('unit', values.unit);
       formData.append('inStock', String(values.inStock));
@@ -1158,25 +1175,9 @@ export default function VendorProductsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-3 sm:space-y-4">
-                    <h3 className="text-sm font-semibold sm:text-base">Pricing & availability</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <FormField control={form.control} name="price" render={({ field }) => (
-                        <FormItem data-field="price" className="min-w-0">
-                          <FormLabel>Base Price (USD) *</FormLabel>
-                          <FormControl><Input {...field} type="number" step="0.01" min={0} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="minimumOrder" render={({ field }) => (
-                        <FormItem data-field="minimumOrder" className="min-w-0">
-                          <FormLabel>Minimum Order *</FormLabel>
-                          <FormControl><Input {...field} type="number" step="1" min={1} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
+                  <DualPricingFormSection control={form.control} />
 
+                  <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
                     <FormField control={form.control} name="inStock" render={({ field }) => (
                       <FormItem className="flex items-center gap-2">
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
