@@ -65,7 +65,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const portal = portalFromPath(pathname);
 
-  const [preference, setPreferenceState] = useState(() => getSavedCurrencyPreference('AUTO'));
+  const [preference, setPreferenceState] = useState('AUTO');
+  const [hasMounted, setHasMounted] = useState(false);
   const [geoCurrency, setGeoCurrency] = useState<string | null>(null);
   const [dashboardCurrency, setDashboardCurrency] = useState<string | null>(null);
   const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
@@ -91,13 +92,10 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       if (userPref) return { displayCurrency: userPref.code, displaySource: userPref.source };
     }
 
-    if (preference === 'AUTO') {
+    if (preference === 'AUTO' && hasMounted) {
       const geo = pick(geoCurrency, 'geo_detected');
       if (geo) return { displayCurrency: geo.code, displaySource: geo.source };
-      const localeCode = detectUserCurrencyCode(
-        typeof navigator !== 'undefined' ? navigator.language : undefined,
-        defaultCur,
-      );
+      const localeCode = detectUserCurrencyCode(navigator.language, defaultCur);
       const loc = pick(localeCode, 'locale_detected');
       if (loc) return { displayCurrency: loc.code, displaySource: loc.source };
     }
@@ -106,7 +104,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       return { displayCurrency: defaultCur, displaySource: 'platform_default' };
     }
     return { displayCurrency: 'USD', displaySource: 'usd_fallback' };
-  }, [preference, geoCurrency, dashboardCurrency, platformConfig, portal]);
+  }, [preference, geoCurrency, dashboardCurrency, platformConfig, portal, hasMounted]);
+
+  useEffect(() => {
+    setPreferenceState(getSavedCurrencyPreference('AUTO'));
+    setHasMounted(true);
+  }, []);
 
   const setPreference = useCallback((code: string) => {
     const next = code.trim().toUpperCase() || 'AUTO';

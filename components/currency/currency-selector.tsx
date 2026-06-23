@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronsUpDown, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,11 @@ const PRIORITY_CODES = ['AUTO', 'USD', 'EUR', 'GBP', 'KES', 'UGX', 'TZS', 'RWF',
 export function CurrencySelector({ compact = false }: { compact?: boolean }) {
   const ctx = useCurrencyOptional();
   const [open, setOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const options = useMemo(() => {
     const enabled = ctx?.enabledCurrencies ?? CURRENCIES;
@@ -30,9 +35,12 @@ export function CurrencySelector({ compact = false }: { compact?: boolean }) {
     return [...priority, ...rest];
   }, [ctx?.enabledCurrencies]);
 
-  const label = ctx?.preference === 'AUTO'
-    ? `Auto (${ctx.displayCurrency})`
-    : (ctx?.displayCurrency ?? 'USD');
+  const label = useMemo(() => {
+    if (!hasMounted || !ctx) return 'USD';
+    return ctx.preference === 'AUTO'
+      ? `Auto (${ctx.displayCurrency})`
+      : ctx.displayCurrency;
+  }, [hasMounted, ctx]);
 
   if (!ctx) return null;
 

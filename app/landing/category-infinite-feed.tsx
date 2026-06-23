@@ -36,7 +36,7 @@ export default function CategoryInfiniteFeed({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/landing/products?page=${nextPage}&pageSize=3&perCategory=4`);
+      const response = await fetch(`/api/landing/products?page=${nextPage}&pageSize=3&perCategory=5`);
       const contentType = response.headers.get('content-type') ?? '';
       if (!contentType.includes('application/json')) {
         const text = await response.text().catch(() => '');
@@ -117,12 +117,12 @@ export default function CategoryInfiniteFeed({
                 </Link>
               </div>
               <div className={productSectionGridClassName}>
-                {section.products.slice(0, 4).map((product, index) => (
+                {section.products.slice(0, 5).map((product, index) => (
                   <CategoryProductCard
                     key={`${product.item_kind ?? 'product'}-${product.id}`}
                     product={product}
                     priority={isInitialSection && index < 4}
-                    className={index >= 3 ? 'lg:hidden' : undefined}
+                    className={index >= 4 ? 'hidden lg:block' : undefined}
                   />
                 ))}
               </div>

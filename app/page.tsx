@@ -33,7 +33,7 @@ export default async function HomePage() {
   const heroProducts = (featuredProducts.length > 0 ? featuredProducts : fallbackProducts).slice(0, 5);
   const extraFeaturedProducts = featuredProducts.slice(5);
   const sponsoredItems = await getSponsoredProducts();
-  const initialCategoryFeed = await getLandingCategoryFeedSections({ page: 0, pageSize: 3, perCategory: 4 });
+  const initialCategoryFeed = await getLandingCategoryFeedSections({ page: 0, pageSize: 3, perCategory: 5 });
 
   return (
     <div className="min-h-screen bg-background">
