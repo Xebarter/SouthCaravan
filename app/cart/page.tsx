@@ -227,7 +227,7 @@ function CartLine({
 
           {/* Unit price */}
           <p className="mt-2.5 text-xs text-muted-foreground">
-            <Money amountUSD={item.price} showUsdInBrackets={false} /> per unit
+            <Money amountUSD={item.price} /> per unit
             {showTier ? (
               <span className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
                 {tier === 'bulk' ? 'Bulk price' : 'Retail price'}
@@ -253,7 +253,7 @@ function CartLine({
               </button>
             </div>
             <p className="text-[15px] font-semibold tabular-nums text-foreground">
-              <Money amountUSD={lineTotal} showUsdInBrackets={false} />
+              <Money amountUSD={lineTotal} />
             </p>
           </div>
         </div>
@@ -294,7 +294,7 @@ function ShippingProgressBar({ remaining, threshold }: { remaining: number; thre
           <p className="text-sm text-foreground">
             Add{' '}
             <span className="font-semibold">
-              <Money amountUSD={remaining} showUsdInBrackets={false} />
+              <Money amountUSD={remaining} />
             </span>{' '}
             more to qualify for free shipping
           </p>
@@ -359,7 +359,7 @@ function SavedForLaterSection({
                 {item.name}
               </Link>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {item.vendor} · Qty {item.quantity} · <Money amountUSD={item.price} showUsdInBrackets={false} /> each
+                {item.vendor} · Qty {item.quantity} · <Money amountUSD={item.price} /> each
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -599,7 +599,7 @@ export default function CartPage() {
                   <div className="text-right">
                     <span className="text-xs text-muted-foreground">Subtotal </span>
                     <span className="text-sm font-semibold tabular-nums text-foreground">
-                      <Money amountUSD={group.subtotal} showUsdInBrackets={false} />
+                      <Money amountUSD={group.subtotal} />
                     </span>
                   </div>
                 </div>
@@ -647,7 +647,7 @@ export default function CartPage() {
                     Subtotal ({derived.itemCount} {pluralize(derived.itemCount, 'unit', 'units')})
                   </dt>
                   <dd className="font-medium tabular-nums text-foreground">
-                    <Money amountUSD={derived.subtotal} showUsdInBrackets={false} />
+                    <Money amountUSD={derived.subtotal} />
                   </dd>
                 </div>
 
@@ -666,7 +666,7 @@ export default function CartPage() {
                       </button>
                     </dt>
                     <dd className="font-medium tabular-nums text-primary">
-                      −<Money amountUSD={derived.discount} showUsdInBrackets={false} />
+                      −<Money amountUSD={derived.discount} />
                     </dd>
                   </div>
                 )}
@@ -678,7 +678,7 @@ export default function CartPage() {
                       <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Free</span>
                     ) : (
                       <span className="font-medium tabular-nums text-foreground">
-                        <Money amountUSD={derived.shipping} showUsdInBrackets={false} />
+                        <Money amountUSD={derived.shipping} />
                       </span>
                     )}
                   </dd>
@@ -687,7 +687,7 @@ export default function CartPage() {
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Estimated tax (8%)</dt>
                   <dd className="font-medium tabular-nums text-foreground">
-                    <Money amountUSD={derived.tax} showUsdInBrackets={false} />
+                    <Money amountUSD={derived.tax} />
                   </dd>
                 </div>
               </dl>
@@ -697,7 +697,7 @@ export default function CartPage() {
               <div className="flex items-baseline justify-between gap-4">
                 <span className="text-sm font-semibold text-foreground">Estimated total</span>
                 <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
-                  <Money amountUSD={derived.total} showUsdInBrackets={false} />
+                  <Money amountUSD={derived.total} />
                 </span>
               </div>
             </div>
@@ -773,7 +773,7 @@ export default function CartPage() {
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Total</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              <Money amountUSD={derived.total} showUsdInBrackets={false} />
+              <Money amountUSD={derived.total} />
             </p>
           </div>
           <Button size="lg" className="h-11 shrink-0 px-6 font-semibold" onClick={handleCheckout}>

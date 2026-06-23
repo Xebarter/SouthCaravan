@@ -27,6 +27,7 @@ alter table public.products add column if not exists subcategory text not null d
 alter table public.products add column if not exists sub_subcategory text not null default 'General';
 alter table public.products add column if not exists is_featured boolean not null default false;
 alter table public.products add column if not exists retail_price numeric(12, 2);
+alter table public.products add column if not exists currency text not null default 'USD';
 
 create index if not exists products_category_idx on public.products (category, subcategory, sub_subcategory);
 create index if not exists products_featured_idx on public.products (is_featured);

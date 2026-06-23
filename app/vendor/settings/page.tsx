@@ -46,6 +46,7 @@ import { useAuth } from '@/lib/auth-context';
 import { getBrowserSupabaseClient } from '@/lib/supabase/client';
 import { ProductDescriptionEditor } from '@/components/product-description-editor';
 import { VendorShowcaseGalleryCard } from '@/components/vendor/vendor-showcase-gallery-card';
+import { DashboardCurrencySettings } from '@/components/currency/dashboard-currency-settings';
 import { sanitizeProductHtml } from '@/lib/sanitize-product-html';
 import { notifyVendorCompanyNameUpdated, resolveVendorSidebarDisplayName } from '@/lib/vendor-display-name';
 import { stripHtmlForPreview } from '@/lib/strip-html';
@@ -815,6 +816,12 @@ export default function VendorSettingsPage() {
             publicProfileEnabled={Boolean(profile?.public_profile_enabled)}
             publicProfileHref={publicProfileHref}
             onError={setError}
+          />
+
+          <DashboardCurrencySettings
+            apiBase="/api/vendor/currency"
+            title="Vendor currency"
+            description="Choose how sales, earnings, and analytics appear in your vendor dashboard. New products default to your base pricing currency."
           />
 
           {/* Location */}

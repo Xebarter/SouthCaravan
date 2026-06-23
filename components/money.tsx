@@ -2,44 +2,22 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useCurrency } from '@/hooks/use-currency';
+import { formatMoneyAmount } from '@/lib/currency/format';
 import { cn } from '@/lib/utils';
 
 type MoneyProps = {
-  /** Amount in base currency. Prefer `amount` + `baseCurrency`. */
   amountUSD?: number;
   amount?: number;
   baseCurrency?: string;
   className?: string;
-  showUsdInBrackets?: boolean;
   notation?: 'standard' | 'compact';
 };
-
-function formatCurrencySafe(
-  value: number,
-  currency: string,
-  locale: string | undefined,
-  notation: 'standard' | 'compact',
-) {
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      notation,
-      compactDisplay: notation === 'compact' ? 'short' : undefined,
-      maximumFractionDigits: notation === 'compact' ? 1 : 2,
-    }).format(value);
-  } catch {
-    // If a currency code is invalid in the runtime, fall back gracefully.
-    return value.toLocaleString(locale ?? 'en-US', { maximumFractionDigits: 2 });
-  }
-}
 
 export function Money({
   amountUSD,
   amount,
   baseCurrency = 'USD',
   className,
-  showUsdInBrackets = true,
   notation = 'standard',
 }: MoneyProps) {
   const { selectedCurrency, convertCurrency } = useCurrency('AUTO');
@@ -49,11 +27,7 @@ export function Money({
     setHasMounted(true);
   }, []);
 
-  // Important: this component is server-rendered (even as a Client Component).
-  // To avoid hydration mismatches, keep the first render deterministic and only
-  // switch to user/auto locale-currency after mount.
   const locale = hasMounted ? navigator.language : 'en-US';
-
   const normalizedBase = baseCurrency.toUpperCase();
   const displayCurrency = hasMounted ? selectedCurrency : normalizedBase;
   const normalizedAmount =
@@ -66,34 +40,18 @@ export function Money({
   }, [normalizedAmount, normalizedBase, convertCurrency, displayCurrency]);
 
   const localFormatted = useMemo(
-    () => formatCurrencySafe(localAmount, displayCurrency, locale, notation),
+    () => formatMoneyAmount(localAmount, displayCurrency, locale, notation),
     [localAmount, displayCurrency, locale, notation],
-  );
-  const usdAmount = useMemo(
-    () => convertCurrency(normalizedAmount, normalizedBase, 'USD'),
-    [normalizedAmount, normalizedBase, convertCurrency],
-  );
-  const usdFormatted = useMemo(
-    () => formatCurrencySafe(usdAmount, 'USD', locale, notation),
-    [usdAmount, locale, notation],
   );
 
   return (
     <span
       className={cn(
-        // Mobile-first: stack to avoid cramped inline prices.
-        // Desktop+: show inline to reduce vertical noise in dense tables.
-        'inline-flex flex-col items-start gap-0.5 leading-tight tabular-nums sm:flex-row sm:items-baseline sm:gap-1.5',
+        'inline-flex items-baseline leading-tight tabular-nums',
         className,
       )}
     >
       <span className="font-semibold tracking-tight text-foreground">{localFormatted}</span>
-      {hasMounted && showUsdInBrackets && selectedCurrency !== 'USD' && (
-        <span className="text-[0.78em] font-medium text-muted-foreground/70 sm:font-normal">
-          <span className="sr-only">USD </span>({usdFormatted})
-        </span>
-      )}
     </span>
   );
 }
-

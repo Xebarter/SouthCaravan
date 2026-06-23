@@ -16,6 +16,7 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
+  Coins,
   GripVertical,
   Loader2,
   Palette,
@@ -27,6 +28,7 @@ import {
   Trash2,
   Lock,
 } from 'lucide-react';
+import { AdminCurrencySettings } from '@/components/admin/admin-currency-settings';
 
 type CategoryRow = {
   id: string;
@@ -698,6 +700,10 @@ export default function AdminSettingsPage() {
               <ShieldCheck className="w-4 h-4 mr-2" />
               Cartegories
             </TabsTrigger>
+            <TabsTrigger value="currency">
+              <Coins className="w-4 h-4 mr-2" />
+              Currency
+            </TabsTrigger>
           </TabsList>
 
           {/* General Settings */}
@@ -891,6 +897,10 @@ export default function AdminSettingsPage() {
           {/* Categories / Taxonomy */}
           <TabsContent value="categories" className="space-y-4">
             <AdminCategoriesSettings />
+          </TabsContent>
+
+          <TabsContent value="currency" className="space-y-4">
+            <AdminCurrencySettings />
           </TabsContent>
         </Tabs>
       </div>

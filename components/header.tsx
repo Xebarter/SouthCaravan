@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, LayoutGrid, Menu, MessagesSquare, UserCircle2 } from 'lucide-react';
 import { CartNavButton } from '@/components/cart-nav-button';
+import { CurrencySelector } from '@/components/currency/currency-selector';
 import { Button } from '@/components/ui/button';
 import { HeaderSearch } from '@/components/header-search';
 import { AddItemsSidebar } from '@/components/additems-sidebar';
@@ -251,6 +252,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                 <MessagesSquare className="w-5 h-5" />
               </Link>
             </Button>
+            <CurrencySelector compact />
             <CartNavButton />
             <div
               ref={desktopProfileMenuRef}
@@ -316,6 +318,7 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
               </Link>
 
               <div className="flex items-center gap-1.5">
+                <CurrencySelector compact />
                 <Button variant="ghost" size="icon" aria-label="Messages" asChild>
                   <Link href={messagesHref}>
                     <MessagesSquare className="h-5 w-5" />

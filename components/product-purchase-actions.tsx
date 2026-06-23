@@ -149,7 +149,7 @@ export function ProductPurchaseActions({
           </div>
           <p className="mt-0.5 truncate text-sm text-foreground">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {clampedQty} {unit} · <Money amountUSD={unitPrice} showUsdInBrackets={false} /> each
+            {clampedQty} {unit} · <Money amountUSD={unitPrice} /> each
           </p>
           <button
             onClick={() => {
@@ -232,7 +232,7 @@ export function ProductPurchaseActions({
               >
                 <p className="text-sm font-semibold text-slate-900">Single purchase</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  <Money amountUSD={pricing.retail_price ?? 0} showUsdInBrackets={false} /> / {unit}
+                  <Money amountUSD={pricing.retail_price ?? 0} /> / {unit}
                 </p>
                 <p className="text-[11px] text-slate-500">Below {pricing.minimum_order} {unit}</p>
               </button>
@@ -247,7 +247,7 @@ export function ProductPurchaseActions({
               >
                 <p className="text-sm font-semibold text-slate-900">Bulk purchase</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  <Money amountUSD={pricing.price} showUsdInBrackets={false} /> / {unit}
+                  <Money amountUSD={pricing.price} /> / {unit}
                 </p>
                 <p className="text-[11px] text-slate-500">From {pricing.minimum_order} {unit}</p>
               </button>
@@ -288,11 +288,11 @@ export function ProductPurchaseActions({
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 min-w-[140px]">
             <p className="text-xs text-slate-500">Line total</p>
             <p className="text-sm font-semibold text-slate-900">
-              <Money amountUSD={lineTotal} showUsdInBrackets={false} />
+              <Money amountUSD={lineTotal} />
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-slate-500">
-                <Money amountUSD={unitPrice} showUsdInBrackets={false} /> each
+                <Money amountUSD={unitPrice} /> each
               </span>
               {dual ? (
                 <Badge variant={tier === 'bulk' ? 'default' : 'secondary'} className="text-[10px]">

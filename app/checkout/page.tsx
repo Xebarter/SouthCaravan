@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useCurrency } from '@/hooks/use-currency';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,6 +116,7 @@ function CheckoutProgressStrip({ step }: { step: (typeof CHECKOUT_STEP_ORDER)[nu
 export default function CheckoutPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { selectedCurrency } = useCurrency('AUTO');
 
   const [step, setStep] = useState<'shipping' | 'payment'>('shipping');
   const [loading, setLoading] = useState(false);
@@ -190,6 +192,8 @@ export default function CheckoutPage() {
           customerFirstName: shippingData.firstName || undefined,
           customerLastName: shippingData.lastName || undefined,
           customerEmail: shippingData.email || undefined,
+          displayCurrency: selectedCurrency,
+          productCurrency: 'USD',
         }),
       });
 

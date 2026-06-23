@@ -8,6 +8,7 @@ import { Footer } from '@/components/footer';
 import { MarketplaceActionStrip, shouldShowMarketplaceActionStrip } from '@/components/marketplace/marketplace-action-strip';
 import { DashboardNavProvider } from '@/components/dashboard-nav-context';
 import { AuthProvider } from '@/lib/auth-context';
+import { CurrencyProvider } from '@/components/currency/currency-provider';
 import { MobileNavigationRoot } from '@/components/navigation/mobile-navigation-root';
 import { isAnyDashboardConsolePath } from '@/lib/dashboard-console-path';
 import { Toaster } from '@/components/ui/sonner';
@@ -132,7 +133,9 @@ export function AppShell({
 
   return (
     <AuthProvider>
-      <MobileNavigationRoot>{shell}</MobileNavigationRoot>
+      <CurrencyProvider>
+        <MobileNavigationRoot>{shell}</MobileNavigationRoot>
+      </CurrencyProvider>
     </AuthProvider>
   );
 }

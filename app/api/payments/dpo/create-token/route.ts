@@ -4,6 +4,8 @@ import { getAuthedBuyer } from '@/lib/api/buyer-auth';
 import { dpoCreateToken, dpoBuildCheckoutUrl, getDpoConfig } from '@/lib/dpo';
 import { checkoutTotals, type CheckoutLineItem } from '@/lib/checkout-session';
 import { normalizeCheckoutItemsFromCatalog } from '@/lib/checkout-pricing';
+import { buildOrderCurrencyFields } from '@/lib/currency/checkout-snapshot';
+import { getDefaultPlatformCurrency } from '@/lib/currency/config';
 
 /** Return true if a string looks like a UUID. */
 function isUuid(s: string) {
@@ -74,6 +76,10 @@ export async function POST(req: NextRequest) {
   const customerLastName = typeof b.customerLastName === 'string' ? b.customerLastName.trim() : '';
   const customerEmail =
     typeof b.customerEmail === 'string' ? b.customerEmail.trim() : auth.email;
+  const displayCurrency =
+    typeof b.displayCurrency === 'string' ? b.displayCurrency.trim().toUpperCase() : await getDefaultPlatformCurrency();
+  const productCurrency =
+    typeof b.productCurrency === 'string' ? b.productCurrency.trim().toUpperCase() : 'USD';
 
   // ------------------------------------------------------------------
   // 1. Resolve vendor_user_id (required NOT NULL in existing schema).
@@ -89,12 +95,19 @@ export async function POST(req: NextRequest) {
   // ------------------------------------------------------------------
   let orderId: string;
 
+  const currencyFields = await buildOrderCurrencyFields(total, productCurrency, displayCurrency);
+
   const baseInsert = {
     buyer_id: auth.buyerId,
     vendor_user_id: vendorUserId,
     status: 'pending' as const,
     shipping_address: shippingAddress,
-    total_amount: parseFloat(total.toFixed(2)),
+    total_amount: currencyFields.total_amount,
+    original_currency: currencyFields.original_currency,
+    original_amount: currencyFields.original_amount,
+    display_currency: currencyFields.display_currency,
+    display_amount: currencyFields.display_amount,
+    exchange_rate: currencyFields.exchange_rate,
   };
 
   // Try post-migration insert (includes payment_status column).
@@ -147,6 +160,9 @@ export async function POST(req: NextRequest) {
     quantity: item.quantity,
     unit_price: parseFloat(item.price.toFixed(2)),
     subtotal: parseFloat((item.price * item.quantity).toFixed(2)),
+    unit_currency: productCurrency,
+    original_unit_price: parseFloat(item.price.toFixed(4)),
+    original_subtotal: parseFloat((item.price * item.quantity).toFixed(4)),
   }));
 
   const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItems);
