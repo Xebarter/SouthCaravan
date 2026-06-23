@@ -29,7 +29,7 @@ import {
   ShoppingBag,
   Truck,
 } from 'lucide-react';
-import { Money } from '@/components/money';
+import { resolveOrderCurrency } from '@/lib/product-currency';
 
 const CHECKOUT_STEP_ORDER = ['shipping', 'payment'] as const;
 
@@ -144,6 +144,8 @@ export default function CheckoutPage() {
     [lineItems, sessionDiscount],
   );
 
+  const orderCurrency = useMemo(() => resolveOrderCurrency(lineItems), [lineItems]);
+
   const itemCount = useMemo(() => lineItems.reduce((n, i) => n + i.quantity, 0), [lineItems]);
 
   const [shippingData, setShippingData] = useState({
@@ -193,7 +195,7 @@ export default function CheckoutPage() {
           customerLastName: shippingData.lastName || undefined,
           customerEmail: shippingData.email || undefined,
           displayCurrency: selectedCurrency,
-          productCurrency: 'USD',
+          productCurrency: orderCurrency,
         }),
       });
 
@@ -462,14 +464,14 @@ export default function CheckoutPage() {
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Subtotal</dt>
                     <dd className="font-medium tabular-nums">
-                      <Money amountUSD={subtotal} />
+                      <Money amount={subtotal} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                   {sessionDiscount > 0 && (
                     <div className="flex justify-between text-primary">
                       <dt>Discount</dt>
                       <dd className="font-medium tabular-nums">
-                        −<Money amountUSD={sessionDiscount} />
+                        −<Money amount={sessionDiscount} baseCurrency={orderCurrency} />
                       </dd>
                     </div>
                   )}
@@ -478,19 +480,19 @@ export default function CheckoutPage() {
                       Shipping {shipping === 0 ? '(free)' : ''}
                     </dt>
                     <dd className="font-medium tabular-nums">
-                      <Money amountUSD={shipping} />
+                      <Money amount={shipping} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Estimated tax</dt>
                     <dd className="font-medium tabular-nums">
-                      <Money amountUSD={tax} />
+                      <Money amount={tax} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                   <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                     <dt>Total due</dt>
                     <dd className="text-primary tabular-nums">
-                      <Money amountUSD={total} />
+                      <Money amount={total} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                 </dl>
@@ -579,11 +581,11 @@ export default function CheckoutPage() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{item.vendor}</p>
                       <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                        {item.quantity} × <Money amountUSD={item.price} />
+                        {item.quantity} × <Money amount={item.price} baseCurrency={item.currency ?? orderCurrency} />
                       </p>
                     </div>
                     <span className="shrink-0 font-semibold tabular-nums">
-                      <Money amountUSD={item.price * item.quantity} />
+                      <Money amount={item.price * item.quantity} baseCurrency={item.currency ?? orderCurrency} />
                     </span>
                   </li>
                 ))}
@@ -595,34 +597,34 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
                   <dd className="tabular-nums">
-                    <Money amountUSD={subtotal} />
+                    <Money amount={subtotal} baseCurrency={orderCurrency} />
                   </dd>
                 </div>
                 {sessionDiscount > 0 && (
                   <div className="flex justify-between text-primary">
                     <dt>Discount</dt>
                     <dd className="tabular-nums">
-                      −<Money amountUSD={sessionDiscount} />
+                      −<Money amount={sessionDiscount} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Shipping</dt>
                   <dd className="tabular-nums">
-                    <Money amountUSD={shipping} />
+                    <Money amount={shipping} baseCurrency={orderCurrency} />
                   </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Tax</dt>
                   <dd className="tabular-nums">
-                    <Money amountUSD={tax} />
+                    <Money amount={tax} baseCurrency={orderCurrency} />
                   </dd>
                 </div>
               </dl>
               <div className="flex justify-between border-t border-border pt-4 text-lg font-bold">
                 <span>Total</span>
                 <span className="text-primary tabular-nums">
-                  <Money amountUSD={total} />
+                  <Money amount={total} baseCurrency={orderCurrency} />
                 </span>
               </div>
             </CardContent>

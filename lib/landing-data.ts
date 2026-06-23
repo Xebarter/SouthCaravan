@@ -3,6 +3,7 @@ import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images';
 import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
+import { mapProductPriceCurrency } from '@/lib/product-currency';
 
 export type LandingProduct = {
   id: string;
@@ -18,6 +19,8 @@ export type LandingProduct = {
   images: string[];
   in_stock: boolean;
   is_featured: boolean;
+  /** Catalog pricing currency for `<Money baseCurrency={...} />` */
+  price_currency?: string;
 };
 
 /** Active service offering row for category browse (public). */
@@ -44,6 +47,7 @@ export type SponsoredProductSummary = {
   images: string[];
   category: string;
   subcategory: string;
+  currency?: string;
 } | null;
 
 export type SponsoredItem = {
@@ -173,14 +177,15 @@ export async function getLandingProducts(limit = DEFAULT_LANDING_LIMIT): Promise
     const { data, error } = await supabaseAdmin
       .from('products')
       .select(
-        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured',
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, currency, minimum_order, unit, images, in_stock, is_featured',
       )
       .order('is_featured', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error || !data) return [];
-    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    const rows = (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    return rows.map((row) => mapProductPriceCurrency(row as Record<string, unknown>)) as LandingProduct[];
   });
 }
 
@@ -190,14 +195,16 @@ export async function getFeaturedLandingProducts(limit = DEFAULT_FEATURED_LIMIT)
     const { data, error } = await supabaseAdmin
       .from('products')
       .select(
-        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured',
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, currency, minimum_order, unit, images, in_stock, is_featured',
       )
       .eq('is_featured', true)
+      .order('featured_sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error || !data) return [];
-    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    const rows = (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    return rows.map((row) => mapProductPriceCurrency(row as Record<string, unknown>)) as LandingProduct[];
   });
 }
 
@@ -207,7 +214,7 @@ export async function getSponsoredProducts(limit = DEFAULT_SPONSORED_LIMIT): Pro
     const { data, error } = await supabaseAdmin
       .from('product_ads')
       .select(
-        'id, product_id, banner_image_url, headline, cta_label, sort_order, products(id, vendor_id, name, description, price, in_stock, images, category, subcategory)',
+        'id, product_id, banner_image_url, headline, cta_label, sort_order, products(id, vendor_id, name, description, price, currency, in_stock, images, category, subcategory)',
       )
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
@@ -318,7 +325,7 @@ export async function getLandingCategoryFeedSections(params: {
         const { data, error } = await supabaseAdmin
           .from('products')
           .select(
-            'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured, created_at',
+            'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, currency, minimum_order, unit, images, in_stock, is_featured, created_at',
           )
           .eq('category', category)
           .order('is_featured', { ascending: false })
@@ -330,11 +337,13 @@ export async function getLandingCategoryFeedSections(params: {
         }
 
         const filtered = await filterProductsByVerifiedVendor((data ?? []) as FeedProduct[]);
-        const productsWithMeta = (filtered as FeedProduct[]).map((p) => ({
-          ...p,
-          item_kind: 'product' as const,
-          created_at: (p as any).created_at,
-        }));
+        const productsWithMeta = (filtered as FeedProduct[]).map((p) =>
+          mapProductPriceCurrency({
+            ...(p as Record<string, unknown>),
+            item_kind: 'product' as const,
+            created_at: (p as any).created_at,
+          }) as FeedProduct,
+        );
         const serviceItems = servicesByCategory.get(category) ?? [];
         const merged = mergeFeaturedFeedItems(productsWithMeta, serviceItems, perCategory);
         return { category, products: merged };
@@ -466,7 +475,7 @@ export async function getProductsByCategory(params: {
     let query = supabaseAdmin
       .from('products')
       .select(
-        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured',
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, currency, minimum_order, unit, images, in_stock, is_featured',
       )
       .order('is_featured', { ascending: false })
       .order('created_at', { ascending: false })
@@ -477,7 +486,8 @@ export async function getProductsByCategory(params: {
 
     const { data, error } = await query;
     if (error || !data) return [];
-    return (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    const rows = (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
+    return rows.map((row) => mapProductPriceCurrency(row as Record<string, unknown>)) as LandingProduct[];
   });
 }
 

@@ -69,7 +69,10 @@ export function FeaturedPicksCard({ products }: Props) {
                   {spotlight?.subcategory ?? spotlight?.category ?? 'Category'}
                 </Badge>
                 <p className="text-base font-semibold text-slate-950">
-                  <Money amountUSD={Number(spotlight?.price ?? 0)} />
+                  <Money
+                    amount={Number(spotlight?.price ?? 0)}
+                    baseCurrency={spotlight?.price_currency ?? 'USD'}
+                  />
                 </p>
               </div>
             </div>
@@ -110,7 +113,10 @@ export function FeaturedPicksCard({ products }: Props) {
                       {product.subcategory || product.category}
                     </Badge>
                     <p className="text-sm font-semibold text-slate-950 whitespace-nowrap">
-                      <Money amountUSD={Number(product.price)} />
+                      <Money
+                        amount={Number(product.price)}
+                        baseCurrency={product.price_currency ?? 'USD'}
+                      />
                     </p>
                   </div>
                 </div>

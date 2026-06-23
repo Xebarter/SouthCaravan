@@ -43,7 +43,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
       .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('products')
-      .select('id,name,price,minimum_order,unit,images,in_stock,category,subcategory')
+      .select('id,name,price,currency,minimum_order,unit,images,in_stock,category,subcategory')
       .eq('vendor_id', vendorUserId)
       .order('created_at', { ascending: false })
       .limit(24),
@@ -319,6 +319,7 @@ export default async function SupplierPublicPage({ params }: { params: Promise<{
                       id: String(p.id),
                       name: String(p.name ?? ''),
                       price: Number(p.price ?? 0),
+                      currency: String(p.currency ?? 'USD').toUpperCase(),
                       minimumOrder: Math.max(1, Number(p.minimum_order ?? 1)),
                       unit: String(p.unit ?? 'unit'),
                       imageUrl: Array.isArray(p.images) && p.images[0] ? String(p.images[0]) : '',

@@ -7,9 +7,11 @@ export type CheckoutLineItem = {
   id: string;
   name: string;
   vendor: string;
-  /** Unit price (same basis as product catalog `price`) */
+  /** Unit price in `currency` */
   price: number;
   quantity: number;
+  /** ISO currency code for `price` */
+  currency?: string;
   /** Image URL or short placeholder label */
   image?: string;
 };

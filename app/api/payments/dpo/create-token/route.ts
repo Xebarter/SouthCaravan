@@ -6,6 +6,7 @@ import { checkoutTotals, type CheckoutLineItem } from '@/lib/checkout-session';
 import { normalizeCheckoutItemsFromCatalog } from '@/lib/checkout-pricing';
 import { buildOrderCurrencyFields } from '@/lib/currency/checkout-snapshot';
 import { getDefaultPlatformCurrency } from '@/lib/currency/config';
+import { normalizeProductCurrency, resolveOrderCurrency } from '@/lib/product-currency';
 
 /** Return true if a string looks like a UUID. */
 function isUuid(s: string) {
@@ -79,7 +80,9 @@ export async function POST(req: NextRequest) {
   const displayCurrency =
     typeof b.displayCurrency === 'string' ? b.displayCurrency.trim().toUpperCase() : await getDefaultPlatformCurrency();
   const productCurrency =
-    typeof b.productCurrency === 'string' ? b.productCurrency.trim().toUpperCase() : 'USD';
+    typeof b.productCurrency === 'string'
+      ? b.productCurrency.trim().toUpperCase()
+      : resolveOrderCurrency(verifiedItems);
 
   // ------------------------------------------------------------------
   // 1. Resolve vendor_user_id (required NOT NULL in existing schema).
@@ -160,7 +163,7 @@ export async function POST(req: NextRequest) {
     quantity: item.quantity,
     unit_price: parseFloat(item.price.toFixed(2)),
     subtotal: parseFloat((item.price * item.quantity).toFixed(2)),
-    unit_currency: productCurrency,
+    unit_currency: normalizeProductCurrency(item.currency ?? productCurrency),
     original_unit_price: parseFloat(item.price.toFixed(4)),
     original_subtotal: parseFloat((item.price * item.quantity).toFixed(4)),
   }));

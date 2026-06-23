@@ -11,6 +11,7 @@ type Props = {
   retailPrice?: number | null;
   minimumOrder: number;
   unit: string;
+  baseCurrency?: string;
   className?: string;
 };
 
@@ -19,6 +20,7 @@ export function ProductPricingDisplay({
   retailPrice,
   minimumOrder,
   unit,
+  baseCurrency = 'USD',
   className,
 }: Props) {
   const fields: ProductPricingFields = pricingFieldsFromProduct({
@@ -35,7 +37,7 @@ export function ProductPricingDisplay({
         <div>
           <p className="text-xs font-medium text-slate-500">Unit price</p>
           <p className="mt-0.5 text-xl font-bold text-slate-900">
-            <Money amountUSD={price} />
+            <Money amount={price} baseCurrency={baseCurrency} />
           </p>
           <p className="text-xs text-slate-500">Per {unit}</p>
         </div>
@@ -61,14 +63,14 @@ export function ProductPricingDisplay({
         <div className="rounded-lg border border-slate-200/80 bg-white px-3 py-2.5">
           <p className="text-xs font-medium text-slate-500">Retail price</p>
           <p className="mt-0.5 text-lg font-bold text-slate-900">
-            <Money amountUSD={fields.retail_price ?? 0} />
+            <Money amount={fields.retail_price ?? 0} baseCurrency={baseCurrency} />
           </p>
           <p className="text-xs text-slate-500">Per {unit} · below MOQ</p>
         </div>
         <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5">
           <p className="text-xs font-medium text-emerald-800/80">Bulk price</p>
           <p className="mt-0.5 text-lg font-bold text-emerald-950">
-            <Money amountUSD={price} />
+            <Money amount={price} baseCurrency={baseCurrency} />
           </p>
           <p className="text-xs text-emerald-800/70">
             Per {unit} · from {moq} {unit}

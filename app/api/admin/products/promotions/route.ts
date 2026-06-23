@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getNextFeaturedSortOrder, invalidateFeaturedProductCaches } from '@/lib/product-featured-order';
 
 function hasAdminAccess(user: { app_metadata?: Record<string, unknown> } | null | undefined) {
   const meta = user?.app_metadata ?? {};
@@ -126,11 +127,15 @@ export async function PATCH(req: NextRequest) {
   if (status === 'approved' && current.kind === 'featured') {
     const { error: prodErr } = await supabaseAdmin
       .from('products')
-      .update({ is_featured: true })
+      .update({
+        is_featured: true,
+        featured_sort_order: await getNextFeaturedSortOrder(),
+      })
       .eq('id', current.product_id)
       .eq('vendor_id', current.vendor_user_id);
 
     if (prodErr) return NextResponse.json({ error: prodErr.message }, { status: 500 });
+    invalidateFeaturedProductCaches();
   }
 
   return NextResponse.json({ ok: true });

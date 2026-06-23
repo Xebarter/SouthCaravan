@@ -43,6 +43,7 @@ create table if not exists public.products (
   images        text[]      not null default '{}',
   in_stock      boolean     not null default true,
   is_featured   boolean     not null default false,
+  featured_sort_order int   not null default 0,
   specifications jsonb       not null default '{}',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -51,9 +52,11 @@ create table if not exists public.products (
 alter table public.products add column if not exists subcategory text not null default 'General';
 alter table public.products add column if not exists sub_subcategory text not null default 'General';
 alter table public.products add column if not exists is_featured boolean not null default false;
+alter table public.products add column if not exists featured_sort_order int not null default 0;
 
 create index if not exists products_category_idx on public.products (category, subcategory, sub_subcategory);
-create index if not exists products_featured_idx on public.products (is_featured);
+create index if not exists products_featured_idx
+  on public.products (is_featured, featured_sort_order asc, updated_at desc);
 
 drop trigger if exists products_set_updated_at on public.products;
 create trigger products_set_updated_at

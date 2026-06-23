@@ -16,6 +16,7 @@ type SupplierCardProduct = {
   id: string;
   name: string;
   price: number;
+  currency?: string;
   minimumOrder: number;
   unit: string;
   imageUrl: string;
@@ -44,6 +45,7 @@ export function SupplierProductCard({
       vendor: vendorLabel,
       price: Number(product.price || 0),
       quantity: qty,
+      currency: product.currency ?? 'USD',
       image: product.imageUrl || undefined,
     };
     setCheckoutLineItems([line]);
@@ -60,6 +62,7 @@ export function SupplierProductCard({
         vendor: vendorLabel,
         price: Number(product.price || 0),
         quantity: qty,
+        currency: product.currency ?? 'USD',
         image: product.imageUrl || undefined,
         minQty: qty,
       });
@@ -122,7 +125,7 @@ export function SupplierProductCard({
           <div className="min-w-0">
             <p className="text-[11px] font-medium text-slate-500">Price</p>
             <p className="text-sm font-semibold text-slate-900">
-              <Money amountUSD={Number(product.price ?? 0)} />
+              <Money amount={Number(product.price ?? 0)} baseCurrency={product.currency ?? 'USD'} />
               <span className="text-xs font-medium text-slate-500"> / {product.unit || 'unit'}</span>
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">

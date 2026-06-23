@@ -184,6 +184,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   retailPrice={product.retail_price}
                   minimumOrder={product.minimum_order}
                   unit={product.unit}
+                  baseCurrency={product.currency}
                 />
 
                 <ProductPurchaseActions
@@ -193,6 +194,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   retailPrice={product.retail_price}
                   minimumOrder={product.minimum_order}
                   unit={product.unit}
+                  currency={product.currency}
                   inStock={product.in_stock}
                   vendorLabel={vendorDisplay}
                   vendorUserId={messagingRecipientUserId}
@@ -293,7 +295,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     <div className="p-2.5 space-y-1.5">
                       <p className="text-sm font-medium text-slate-900 line-clamp-2">{item.name}</p>
                       <p className="text-xs text-slate-600">
-                        <Money amountUSD={Number(item.price)} /> / {item.unit}
+                        <Money amount={Number(item.price)} baseCurrency={item.currency} /> / {item.unit}
                       </p>
                     </div>
                   </Link>

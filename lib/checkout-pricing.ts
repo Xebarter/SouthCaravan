@@ -4,6 +4,7 @@ import {
   resolveUnitPrice,
   validateDualPricingConfig,
 } from '@/lib/product-pricing';
+import { normalizeProductCurrency } from '@/lib/product-currency';
 import type { CheckoutLineItem } from '@/lib/checkout-session';
 
 const PRICE_TOLERANCE = 0.02;
@@ -21,7 +22,7 @@ export async function normalizeCheckoutItemsFromCatalog(
   const ids = [...new Set(items.map((item) => item.id).filter(Boolean))];
   const { data, error } = await supabaseAdmin
     .from('products')
-    .select('id, name, price, retail_price, minimum_order, in_stock')
+    .select('id, name, price, retail_price, minimum_order, currency, in_stock')
     .in('id', ids);
 
   if (error) {
@@ -72,6 +73,7 @@ export async function normalizeCheckoutItemsFromCatalog(
       name: String(product.name ?? item.name),
       price: unitPrice,
       quantity,
+      currency: normalizeProductCurrency(product.currency ?? item.currency),
     });
   }
 

@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Money } from '@/components/money';
+import { resolveOrderCurrency } from '@/lib/product-currency';
 import { getPricingTier, hasDualPricing, pricingFieldsFromProduct } from '@/lib/product-pricing';
 import { cn } from '@/lib/utils';
 import { useCart, type CartLineItem } from '@/lib/cart-store';
@@ -59,6 +60,7 @@ function groupByVendor(items: CartLineItem[]) {
     vendor,
     rows,
     subtotal: rows.reduce((sum, r) => sum + r.price * r.quantity, 0),
+    currency: resolveOrderCurrency(rows),
   }));
 }
 
@@ -173,6 +175,7 @@ function CartLine({
   onSaveForLater: () => void;
 }) {
   const lineTotal = item.price * item.quantity;
+  const lineCurrency = item.currency ?? 'USD';
   const pricingFields =
     item.bulkPrice != null
       ? pricingFieldsFromProduct({
@@ -227,7 +230,7 @@ function CartLine({
 
           {/* Unit price */}
           <p className="mt-2.5 text-xs text-muted-foreground">
-            <Money amountUSD={item.price} /> per unit
+            <Money amount={item.price} baseCurrency={lineCurrency} /> per unit
             {showTier ? (
               <span className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
                 {tier === 'bulk' ? 'Bulk price' : 'Retail price'}
@@ -253,7 +256,7 @@ function CartLine({
               </button>
             </div>
             <p className="text-[15px] font-semibold tabular-nums text-foreground">
-              <Money amountUSD={lineTotal} />
+              <Money amount={lineTotal} baseCurrency={lineCurrency} />
             </p>
           </div>
         </div>
@@ -264,7 +267,15 @@ function CartLine({
 
 // ─── Shipping Progress ───────────────────────────────────────────────────────
 
-function ShippingProgressBar({ remaining, threshold }: { remaining: number; threshold: number }) {
+function ShippingProgressBar({
+  remaining,
+  threshold,
+  currency,
+}: {
+  remaining: number;
+  threshold: number;
+  currency: string;
+}) {
   const unlocked = remaining <= 0 && threshold > 0;
   const pct = threshold === 0 ? 100 : Math.min(100, Math.round(((threshold - remaining) / threshold) * 100));
 
@@ -294,7 +305,7 @@ function ShippingProgressBar({ remaining, threshold }: { remaining: number; thre
           <p className="text-sm text-foreground">
             Add{' '}
             <span className="font-semibold">
-              <Money amountUSD={remaining} />
+              <Money amount={remaining} baseCurrency={currency} />
             </span>{' '}
             more to qualify for free shipping
           </p>
@@ -359,7 +370,7 @@ function SavedForLaterSection({
                 {item.name}
               </Link>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {item.vendor} · Qty {item.quantity} · <Money amountUSD={item.price} /> each
+                {item.vendor} · Qty {item.quantity} · <Money amount={item.price} baseCurrency={item.currency ?? 'USD'} /> each
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -443,6 +454,7 @@ export default function CartPage() {
   const router = useRouter();
   const cart = useCart();
   const { state, derived, hydrated } = cart;
+  const orderCurrency = React.useMemo(() => resolveOrderCurrency(state.items), [state.items]);
 
   const [couponDraft, setCouponDraft] = React.useState('');
   const [couponError, setCouponError] = React.useState<string | null>(null);
@@ -508,6 +520,7 @@ export default function CartPage() {
         vendor: item.vendor,
         price: item.price,
         quantity: item.quantity,
+        currency: item.currency,
         image: item.image,
       })),
       { discount: derived.discount },
@@ -574,6 +587,7 @@ export default function CartPage() {
           <ShippingProgressBar
             remaining={derived.freeShippingRemaining}
             threshold={derived.freeShippingThreshold}
+            currency={orderCurrency}
           />
 
           {/* Vendor groups */}
@@ -599,7 +613,7 @@ export default function CartPage() {
                   <div className="text-right">
                     <span className="text-xs text-muted-foreground">Subtotal </span>
                     <span className="text-sm font-semibold tabular-nums text-foreground">
-                      <Money amountUSD={group.subtotal} />
+                      <Money amount={group.subtotal} baseCurrency={group.currency} />
                     </span>
                   </div>
                 </div>
@@ -647,7 +661,7 @@ export default function CartPage() {
                     Subtotal ({derived.itemCount} {pluralize(derived.itemCount, 'unit', 'units')})
                   </dt>
                   <dd className="font-medium tabular-nums text-foreground">
-                    <Money amountUSD={derived.subtotal} />
+                    <Money amount={derived.subtotal} baseCurrency={orderCurrency} />
                   </dd>
                 </div>
 
@@ -666,7 +680,7 @@ export default function CartPage() {
                       </button>
                     </dt>
                     <dd className="font-medium tabular-nums text-primary">
-                      −<Money amountUSD={derived.discount} />
+                      −<Money amount={derived.discount} baseCurrency={orderCurrency} />
                     </dd>
                   </div>
                 )}
@@ -678,7 +692,7 @@ export default function CartPage() {
                       <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Free</span>
                     ) : (
                       <span className="font-medium tabular-nums text-foreground">
-                        <Money amountUSD={derived.shipping} />
+                        <Money amount={derived.shipping} baseCurrency={orderCurrency} />
                       </span>
                     )}
                   </dd>
@@ -687,7 +701,7 @@ export default function CartPage() {
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Estimated tax (8%)</dt>
                   <dd className="font-medium tabular-nums text-foreground">
-                    <Money amountUSD={derived.tax} />
+                    <Money amount={derived.tax} baseCurrency={orderCurrency} />
                   </dd>
                 </div>
               </dl>
@@ -697,7 +711,7 @@ export default function CartPage() {
               <div className="flex items-baseline justify-between gap-4">
                 <span className="text-sm font-semibold text-foreground">Estimated total</span>
                 <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
-                  <Money amountUSD={derived.total} />
+                  <Money amount={derived.total} baseCurrency={orderCurrency} />
                 </span>
               </div>
             </div>
@@ -773,7 +787,7 @@ export default function CartPage() {
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Total</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              <Money amountUSD={derived.total} />
+              <Money amount={derived.total} baseCurrency={orderCurrency} />
             </p>
           </div>
           <Button size="lg" className="h-11 shrink-0 px-6 font-semibold" onClick={handleCheckout}>

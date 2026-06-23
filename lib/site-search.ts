@@ -1,5 +1,6 @@
 import { PRODUCT_TAXONOMY } from '@/lib/product-taxonomy';
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images';
+import { normalizeProductCurrency } from '@/lib/product-currency';
 import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
@@ -238,7 +239,7 @@ export async function runSiteSearch(
   const productBaseQuery = supabaseAdmin
     .from('products')
     .select(
-      'id, vendor_id, name, category, subcategory, sub_subcategory, price, images, in_stock, is_featured',
+      'id, vendor_id, name, category, subcategory, sub_subcategory, price, currency, images, in_stock, is_featured',
     )
     .order('is_featured', { ascending: false })
     .order('created_at', { ascending: false })
@@ -306,7 +307,7 @@ export async function runSiteSearch(
     subSubcategory: String(item.sub_subcategory ?? ''),
     image: item.images?.[0] ?? null,
     price: Number(item.price ?? 0),
-    currency: 'USD',
+    currency: normalizeProductCurrency(item.currency),
     inStock: Boolean(item.in_stock),
     featured: Boolean(item.is_featured),
   }));

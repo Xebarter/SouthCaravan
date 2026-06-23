@@ -816,7 +816,14 @@ export default function ProductManagementClient() {
         <Card className="border-border/50"><CardContent className="pt-4"><p className="text-2xl font-bold">{stats.total}</p><p className="text-xs text-muted-foreground">Total</p></CardContent></Card>
         <Card className="border-border/50"><CardContent className="pt-4"><p className="text-2xl font-bold">{stats.admin}</p><p className="text-xs text-muted-foreground">Admin-Created</p></CardContent></Card>
         <Card className="border-border/50"><CardContent className="pt-4"><p className="text-2xl font-bold">{stats.vendor}</p><p className="text-xs text-muted-foreground">Vendor-Created</p></CardContent></Card>
-        <Card className="border-border/50"><CardContent className="pt-4"><p className="text-2xl font-bold text-amber-500">{stats.featured}</p><p className="text-xs text-muted-foreground">Featured</p></CardContent></Card>
+        <Link href="/admin/products/featured" className="block">
+          <Card className="border-border/50 transition-colors hover:border-amber-500/40 hover:bg-amber-500/5">
+            <CardContent className="pt-4">
+              <p className="text-2xl font-bold text-amber-500">{stats.featured}</p>
+              <p className="text-xs text-muted-foreground">Featured · Arrange order</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Card>

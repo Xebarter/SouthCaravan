@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
+import { mapProductPriceCurrency } from '@/lib/product-currency';
 import type { LandingProduct } from '@/lib/landing-data';
 
 export const FEATURED_PAGE_DEFAULT_PAGE_SIZE = 24;
@@ -46,9 +47,10 @@ export async function getFeaturedProductsPage(params: {
     let query = supabaseAdmin
       .from('products')
       .select(
-        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, minimum_order, unit, images, in_stock, is_featured, created_at',
+        'id, vendor_id, name, description, category, subcategory, sub_subcategory, price, currency, minimum_order, unit, images, in_stock, is_featured, created_at',
       )
       .eq('is_featured', true)
+      .order('featured_sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (category) query = query.eq('category', category);
@@ -62,7 +64,9 @@ export async function getFeaturedProductsPage(params: {
 
     const filtered = (await filterProductsByVerifiedVendor(data as LandingProduct[])) as LandingProduct[];
     const hasMore = filtered.length > pageSize;
-    const products = filtered.slice(0, pageSize);
+    const products = filtered
+      .slice(0, pageSize)
+      .map((row) => mapProductPriceCurrency(row as Record<string, unknown>)) as LandingProduct[];
 
     return { products, hasMore, page };
   });

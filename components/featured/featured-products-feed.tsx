@@ -14,6 +14,7 @@ function toFeedProduct(product: LandingProduct): FeedProduct {
     ...product,
     item_kind: 'product',
     created_at: (product as LandingProduct & { created_at?: string }).created_at,
+    price_currency: product.price_currency,
   };
 }
 

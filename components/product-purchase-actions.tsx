@@ -34,6 +34,7 @@ export type ProductPurchaseActionsProps = {
   vendorLabel: string;
   vendorUserId?: string;
   imageUrl?: string;
+  currency?: string;
   rfqEnabled?: boolean;
   showMobileStickyBar?: boolean;
 };
@@ -49,6 +50,7 @@ export function ProductPurchaseActions({
   vendorLabel,
   vendorUserId,
   imageUrl,
+  currency = 'USD',
   rfqEnabled = true,
   showMobileStickyBar = true,
 }: ProductPurchaseActionsProps) {
@@ -92,6 +94,7 @@ export function ProductPurchaseActions({
     vendor: vendorLabel,
     price: unitPrice,
     quantity: clampedQty,
+    currency,
     image: imageUrl,
   });
 
@@ -101,6 +104,7 @@ export function ProductPurchaseActions({
     vendor: vendorLabel,
     price: unitPrice,
     quantity: clampedQty,
+    currency,
     image: imageUrl,
     minQty: bounds.min,
     bulkPrice: pricing.price,
@@ -149,7 +153,7 @@ export function ProductPurchaseActions({
           </div>
           <p className="mt-0.5 truncate text-sm text-foreground">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {clampedQty} {unit} · <Money amountUSD={unitPrice} /> each
+            {clampedQty} {unit} · <Money amount={unitPrice} baseCurrency={currency} /> each
           </p>
           <button
             onClick={() => {
@@ -232,7 +236,7 @@ export function ProductPurchaseActions({
               >
                 <p className="text-sm font-semibold text-slate-900">Single purchase</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  <Money amountUSD={pricing.retail_price ?? 0} /> / {unit}
+                  <Money amount={pricing.retail_price ?? 0} baseCurrency={currency} /> / {unit}
                 </p>
                 <p className="text-[11px] text-slate-500">Below {pricing.minimum_order} {unit}</p>
               </button>
@@ -247,7 +251,7 @@ export function ProductPurchaseActions({
               >
                 <p className="text-sm font-semibold text-slate-900">Bulk purchase</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  <Money amountUSD={pricing.price} /> / {unit}
+                  <Money amount={pricing.price} baseCurrency={currency} /> / {unit}
                 </p>
                 <p className="text-[11px] text-slate-500">From {pricing.minimum_order} {unit}</p>
               </button>
@@ -288,11 +292,11 @@ export function ProductPurchaseActions({
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 min-w-[140px]">
             <p className="text-xs text-slate-500">Line total</p>
             <p className="text-sm font-semibold text-slate-900">
-              <Money amountUSD={lineTotal} />
+              <Money amount={lineTotal} baseCurrency={currency} />
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-slate-500">
-                <Money amountUSD={unitPrice} /> each
+                <Money amount={unitPrice} baseCurrency={currency} /> each
               </span>
               {dual ? (
                 <Badge variant={tier === 'bulk' ? 'default' : 'secondary'} className="text-[10px]">

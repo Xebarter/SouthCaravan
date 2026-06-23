@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { clearAllCached } from '@/lib/memory-cache';
+import { getNextFeaturedSortOrder, invalidateFeaturedProductCaches } from '@/lib/product-featured-order';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { parseRetailPriceFromForm, validateDualPricingConfig } from '@/lib/product-pricing';
 
@@ -51,6 +52,25 @@ function parseBoolean(value: FormDataEntryValue | string | null, fallback = fals
   if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
   if (['false', '0', 'no', 'off'].includes(normalized)) return false;
   return fallback;
+}
+
+async function applyFeaturedToggle(
+  productId: string,
+  patchData: Record<string, unknown>,
+  nextFeatured: boolean,
+): Promise<boolean> {
+  const { data: existing } = await supabaseAdmin
+    .from('products')
+    .select('is_featured')
+    .eq('id', productId)
+    .maybeSingle();
+
+  patchData.is_featured = nextFeatured;
+  if (nextFeatured && !existing?.is_featured) {
+    patchData.featured_sort_order = await getNextFeaturedSortOrder();
+  }
+
+  return Boolean(existing?.is_featured) !== nextFeatured;
 }
 
 async function validateTaxonomy(category: string, subcategory?: string, subSubcategory?: string) {
@@ -193,6 +213,7 @@ export async function POST(req: NextRequest) {
       images: imageUrls,
       in_stock: inStock,
       is_featured: isFeatured,
+      featured_sort_order: isFeatured ? await getNextFeaturedSortOrder() : 0,
       specifications,
     })
     .select()
@@ -202,6 +223,8 @@ export async function POST(req: NextRequest) {
     console.error('[admin/products POST]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  if (isFeatured) invalidateFeaturedProductCaches();
 
   return NextResponse.json({ product }, { status: 201 });
 }
@@ -230,7 +253,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     const patchData: Record<string, unknown> = {};
-    if (typeof body.isFeatured === 'boolean') patchData.is_featured = body.isFeatured;
+    let featuredChanged = false;
+    if (typeof body.isFeatured === 'boolean') {
+      featuredChanged = await applyFeaturedToggle(body.id, patchData, body.isFeatured);
+    }
     if (typeof body.inStock === 'boolean') patchData.in_stock = body.inStock;
     if (typeof body.category === 'string') patchData.category = body.category;
     if (typeof body.subcategory === 'string') patchData.subcategory = body.subcategory;
@@ -268,6 +294,8 @@ export async function PATCH(req: NextRequest) {
       console.error('[admin/products PATCH JSON]', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    if (featuredChanged) invalidateFeaturedProductCaches();
 
     return NextResponse.json({ product });
   }
@@ -322,7 +350,10 @@ export async function PATCH(req: NextRequest) {
   }
   if (unit) patchData.unit = unit;
   if (inStockRaw !== null) patchData.in_stock = parseBoolean(inStockRaw, true);
-  if (isFeaturedRaw !== null) patchData.is_featured = parseBoolean(isFeaturedRaw, false);
+  let featuredChanged = false;
+  if (isFeaturedRaw !== null) {
+    featuredChanged = await applyFeaturedToggle(id, patchData, parseBoolean(isFeaturedRaw, false));
+  }
 
   if (category) {
     const taxonomyError = await validateTaxonomy(category, subcategory || undefined, subSubcategory || undefined);
@@ -365,6 +396,8 @@ export async function PATCH(req: NextRequest) {
       console.error('[admin/products PATCH FORM] removed image storage cleanup', storageCleanupError);
     }
   }
+
+  if (featuredChanged) invalidateFeaturedProductCaches();
 
   return NextResponse.json({ product });
 }
