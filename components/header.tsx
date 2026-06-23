@@ -223,8 +223,8 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
     <>
       {/* Desktop (md+) */}
       <nav className="hidden md:block border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-        <div className="flex h-16 items-center justify-between gap-4 px-6 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
+        <div className="flex h-16 items-center justify-between gap-2 md:gap-3 lg:gap-4 px-4 md:px-6 max-w-7xl mx-auto">
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
             <WorkspaceMenuButton />
             <button
               aria-label="Open categories"
@@ -232,22 +232,26 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
               onMouseEnter={handleHoverOpen}
               onMouseLeave={scheduleHoverClose}
               onClick={togglePinned}
-              className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition"
+              className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground transition shrink-0"
               type="button"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/" className="flex items-center gap-2 font-bold text-lg" aria-label="SouthCaravan home">
+            <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0" aria-label="SouthCaravan home">
               <SiteLogoMark />
-              <span className="hidden sm:inline">SouthCaravan</span>
+              <span className="hidden lg:inline">SouthCaravan</span>
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 flex-1 max-w-3xl">
-            <HeaderSearch />
-            <PostMyRfqButton>Post My RFQ</PostMyRfqButton>
-            <Button variant="ghost" size="icon" aria-label="Messages" asChild>
+          <div className="flex items-center gap-1 md:gap-1.5 lg:gap-2 flex-1 min-w-0 max-w-3xl justify-end">
+            <div className="flex-1 min-w-0">
+              <HeaderSearch />
+            </div>
+            <PostMyRfqButton className="shrink-0 whitespace-nowrap h-9 px-2.5 md:px-3 text-xs md:text-sm">
+              Post RFQ
+            </PostMyRfqButton>
+            <Button variant="ghost" size="icon" className="shrink-0" aria-label="Messages" asChild>
               <Link href={messagesHref}>
                 <MessagesSquare className="w-5 h-5" />
               </Link>
@@ -307,31 +311,35 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
         <>
           {/* Mobile: top row (non-persistent) */}
           <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-            <div className="relative flex h-12 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
+            <div className="relative flex h-12 items-center justify-between gap-2 px-3 sm:px-4 max-w-7xl mx-auto">
               <Link
                 href="/"
                 aria-label="SouthCaravan home"
                 className="shrink-0 inline-flex items-center gap-2 min-w-0"
               >
                 <SiteLogoMark />
-                <span className="font-semibold text-sm tracking-tight truncate">SouthCaravan</span>
+                <span className="font-semibold text-sm tracking-tight truncate max-[380px]:hidden sm:inline">
+                  SouthCaravan
+                </span>
               </Link>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <CurrencySelector compact />
-                <Button variant="ghost" size="icon" aria-label="Messages" asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Messages" asChild>
                   <Link href={messagesHref}>
                     <MessagesSquare className="h-5 w-5" />
                   </Link>
                 </Button>
-                <PostMyRfqButton size="sm" className="shrink-0 h-8 px-2.5 text-xs" />
+                <PostMyRfqButton size="sm" className="shrink-0 h-8 px-2 sm:px-2.5 text-[11px] sm:text-xs whitespace-nowrap">
+                  Post RFQ
+                </PostMyRfqButton>
               </div>
             </div>
           </nav>
 
           {/* Mobile: lower row (persistent) */}
           <nav className="md:hidden border-b border-border bg-white/95 backdrop-blur sticky top-0 z-50 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-            <div className="flex h-14 items-center gap-2 px-4 max-w-7xl mx-auto">
+            <div className="flex h-14 items-center gap-1.5 sm:gap-2 px-3 sm:px-4 max-w-7xl mx-auto">
               <WorkspaceMenuButton />
               <button
                 aria-label="Open categories"
@@ -349,7 +357,12 @@ export function Header({ showMobile = true }: { showMobile?: boolean } = {}) {
                 <HeaderSearch mobile />
               </div>
 
-              <PostMyRfqButton size="sm" className="shrink-0 h-8 px-2.5 text-xs hidden min-[480px]:inline-flex" />
+              <PostMyRfqButton
+                size="sm"
+                className="shrink-0 h-8 px-2 sm:px-2.5 text-[11px] sm:text-xs whitespace-nowrap hidden min-[480px]:inline-flex"
+              >
+                Post RFQ
+              </PostMyRfqButton>
               <CartNavButton mobile className="shrink-0" />
 
               <div

@@ -2,13 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LayoutGrid, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { href: '/admin/products', label: 'All products', match: (path: string) => path === '/admin/products' },
+  {
+    href: '/admin/products',
+    label: 'All products',
+    icon: LayoutGrid,
+    match: (path: string) => path === '/admin/products',
+  },
   {
     href: '/admin/products/featured',
     label: 'Featured order',
+    icon: Star,
     match: (path: string) => path.startsWith('/admin/products/featured'),
   },
 ] as const;
@@ -18,20 +25,25 @@ export default function AdminProductsLayout({ children }: { children: React.Reac
 
   return (
     <div className="space-y-6">
-      <nav className="flex flex-wrap gap-1 border-b border-border/60 pb-3" aria-label="Products admin">
+      <nav
+        className="inline-flex w-full max-w-md gap-1 rounded-xl border border-border/60 bg-muted/40 p-1"
+        aria-label="Products admin"
+      >
         {TABS.map((tab) => {
           const active = tab.match(pathname);
+          const Icon = tab.icon;
           return (
             <Link
               key={tab.href}
               href={tab.href}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                'inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
               )}
             >
+              <Icon className="h-4 w-4 shrink-0" />
               {tab.label}
             </Link>
           );

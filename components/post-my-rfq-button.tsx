@@ -49,7 +49,7 @@ export function PostMyRfqButton({
     >
       {children ?? (
         <>
-          Post My RFQ
+          Post RFQ
           {showArrow ? <ArrowRight className="w-4 h-4 ml-2" /> : null}
         </>
       )}
