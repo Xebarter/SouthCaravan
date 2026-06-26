@@ -492,6 +492,7 @@ export default function VendorProductsPage() {
   const { user } = useAuth();
   const currencyCtx = useCurrencyOptional();
   const listingCurrency = currencyCtx?.pricingCurrency ?? 'USD';
+  const formCurrency = currencyCtx?.dashboardSettingsReady ? listingCurrency : null;
   const [products, setProducts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -763,6 +764,10 @@ export default function VendorProductsPage() {
   }
 
   async function onSubmit(values: ProductFormValues) {
+    if (!formCurrency) {
+      toast.error('Currency settings are still loading. Please try again in a moment.');
+      return;
+    }
     setSubmitting(true);
     setUploadUi({ status: 'uploading', progress: 0 });
     try {
@@ -782,7 +787,7 @@ export default function VendorProductsPage() {
       );
       formData.append('minimumOrder', String(values.minimumOrder));
       formData.append('unit', values.unit);
-      formData.append('currency', mode === 'edit' && editingProduct?.currency ? editingProduct.currency : listingCurrency);
+      formData.append('currency', formCurrency);
       formData.append('inStock', String(values.inStock));
       formData.append('specifications', JSON.stringify(specificationMap));
       for (const image of newImages) formData.append('images', image.file);
@@ -1257,7 +1262,11 @@ export default function VendorProductsPage() {
                     </div>
                   </div>
 
-                  <DualPricingFormSection control={form.control} />
+                  <DualPricingFormSection
+                    control={form.control}
+                    currencyCode={formCurrency ?? undefined}
+                    currencyLoading={!formCurrency}
+                  />
 
                   <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
                     <FormField control={form.control} name="inStock" render={({ field }) => (
@@ -1377,7 +1386,7 @@ export default function VendorProductsPage() {
                         {featureSubmitting ? 'Submitting…' : 'Submit for featured'}
                       </Button>
                     ) : null}
-                    <Button type="submit" disabled={submitting || featureSubmitting} className="w-full min-w-0 sm:min-w-32 sm:w-auto">
+                    <Button type="submit" disabled={submitting || featureSubmitting || !formCurrency} className="w-full min-w-0 sm:min-w-32 sm:w-auto">
                     {submitting ? (
                       <>
                         {uploadUi.status === 'success' ? (

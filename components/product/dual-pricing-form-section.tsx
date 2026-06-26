@@ -28,6 +28,7 @@ type Props<T extends FieldValues & PricingFormValues> = {
   showUnitField?: boolean;
   unitOptions?: React.ReactNode;
   currencyCode?: string;
+  currencyLoading?: boolean;
 };
 
 export function DualPricingFormSection<T extends FieldValues & PricingFormValues>({
@@ -36,11 +37,20 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
   showUnitField = false,
   unitOptions,
   currencyCode,
+  currencyLoading = false,
 }: Props<T>) {
   const ctx = useCurrencyOptional();
   const code = (currencyCode ?? ctx?.pricingCurrency ?? 'USD').toUpperCase();
   const currency = getCurrencyByCode(code);
   const symbol = currency?.symbol ?? code;
+
+  if (currencyLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
+        <p className="text-sm text-muted-foreground">Loading currency settings…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-4">
@@ -50,11 +60,13 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
           <Badge variant="secondary" className="text-[10px] font-medium">
             Single &amp; bulk
           </Badge>
+          <Badge variant="outline" className="text-[10px] font-semibold tabular-nums">
+            {code}
+          </Badge>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
-          Set a <strong>bulk price</strong> for orders at or above your MOQ, and optionally a{' '}
-          <strong>retail price</strong> for smaller single purchases. Leave retail empty to keep bulk-only pricing
-          (existing listings stay unchanged).
+          Enter amounts in <strong>{code}</strong> ({currency?.name ?? code}). This matches your base pricing currency
+          from vendor settings.
         </p>
       </div>
 
@@ -136,7 +148,7 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
         ) : null}
       </div>
 
-      <PricingPreview control={control} symbol={symbol} />
+      <PricingPreview control={control} symbol={symbol} currencyCode={code} />
     </div>
   );
 }
@@ -144,9 +156,11 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
 function PricingPreview<T extends FieldValues & PricingFormValues>({
   control,
   symbol,
+  currencyCode,
 }: {
   control: Control<T>;
   symbol: string;
+  currencyCode: string;
 }) {
   const watched = useWatch({ control });
   const values = watched as PricingFormValues;
@@ -163,7 +177,7 @@ function PricingPreview<T extends FieldValues & PricingFormValues>({
 
   return (
     <div className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
-      <p className="font-medium text-foreground">Buyer preview</p>
+      <p className="font-medium text-foreground">Buyer preview ({currencyCode})</p>
       {dual ? (
         <>
           <p>
