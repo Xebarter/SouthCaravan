@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Loader2, Search, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,6 +33,7 @@ import {
 } from '@/lib/services-taxonomy'
 import { cn } from '@/lib/utils'
 import { useCurrencyOptional } from '@/components/currency/currency-provider'
+import { getCurrencyByCode } from '@/lib/currencies'
 
 type CatalogPick = { category: string; item: string }
 
@@ -75,6 +76,8 @@ export function ServicesOfferingCatalog({
   onAddBatch,
 }: Props) {
   const ctx = useCurrencyOptional()
+  const formCurrency = ctx?.dashboardSettingsReady ? (ctx.pricingCurrency ?? 'USD') : null
+  const currencyMeta = formCurrency ? getCurrencyByCode(formCurrency) : null
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState(
     DEFAULT_SERVICES_TAXONOMY[0]?.title ?? '',
@@ -83,18 +86,12 @@ export function ServicesOfferingCatalog({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pricingType, setPricingType] = useState<'fixed' | 'hourly'>('fixed')
   const [rate, setRate] = useState('')
-  const [currency, setCurrency] = useState('USD')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (ctx?.pricingCurrency) setCurrency(ctx.pricingCurrency)
-  }, [ctx?.pricingCurrency])
-
   const openAddDialog = () => {
     setError('')
-    setCurrency(ctx?.pricingCurrency ?? 'USD')
     setDialogOpen(true)
   }
 
@@ -129,6 +126,10 @@ export function ServicesOfferingCatalog({
 
   async function handleConfirmAdd() {
     setError('')
+    if (!formCurrency) {
+      setError('Currency settings are still loading. Please try again in a moment.')
+      return
+    }
     const rateNum = rate.trim() === '' ? 0 : Number(rate)
     if (Number.isNaN(rateNum) || rateNum < 0) {
       setError('Enter a valid rate (0 is allowed for “contact for quote”).')
@@ -143,7 +144,7 @@ export function ServicesOfferingCatalog({
       description: description.trim(),
       pricing_type: pricingType,
       rate: rateNum,
-      currency: currency.trim() || 'USD',
+      currency: formCurrency,
       is_active: true,
     }))
 
@@ -377,9 +378,29 @@ export function ServicesOfferingCatalog({
           <DialogHeader>
             <DialogTitle>Add {pickedList.length} service{pickedList.length === 1 ? '' : 's'}</DialogTitle>
             <DialogDescription>
-              Same pricing applies to each selected listing. You can edit individual listings afterward.
+              Same pricing applies to each selected listing. Amounts use your base pricing currency from service
+              settings.
             </DialogDescription>
           </DialogHeader>
+
+          {!formCurrency ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-4 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              Loading currency settings…
+            </div>
+          ) : null}
+
+          {formCurrency ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-semibold tabular-nums">
+                {formCurrency}
+              </Badge>
+              <p className="text-xs text-muted-foreground">
+                Enter rates in <strong>{formCurrency}</strong>
+                {currencyMeta?.name ? ` (${currencyMeta.name})` : ''} — matches your service provider settings.
+              </p>
+            </div>
+          ) : null}
 
           {error ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -402,12 +423,12 @@ export function ServicesOfferingCatalog({
           </ScrollArea>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Pricing</Label>
               <Select
                 value={pricingType}
                 onValueChange={(v) => setPricingType(v as 'fixed' | 'hourly')}
-                disabled={submitting}
+                disabled={submitting || !formCurrency}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -418,28 +439,18 @@ export function ServicesOfferingCatalog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Currency</Label>
-              <Input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                placeholder={ctx?.pricingCurrency ?? 'USD'}
-                disabled={submitting}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Defaults to your base pricing currency from settings.
-              </p>
-            </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>
-                {pricingType === 'hourly' ? 'Rate per hour' : 'Starting from (optional)'}
+                {pricingType === 'hourly'
+                  ? `Rate per hour (${formCurrency ?? '…'})`
+                  : `Starting from (${formCurrency ?? '…'}, optional)`}
               </Label>
               <Input
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
                 inputMode="decimal"
-                placeholder={pricingType === 'hourly' ? 'e.g. 45' : 'e.g. 500 or 0 for quote'}
-                disabled={submitting}
+                placeholder={pricingType === 'hourly' ? 'e.g. 4500' : 'e.g. 50000 or 0 for quote'}
+                disabled={submitting || !formCurrency}
               />
               <p className="text-[11px] text-muted-foreground">
                 Use 0 if you prefer buyers to request a quote.
@@ -451,7 +462,7 @@ export function ServicesOfferingCatalog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g. Typical turnaround, what you need to start, regions you cover…"
-                disabled={submitting}
+                disabled={submitting || !formCurrency}
                 className="min-h-[88px] resize-y"
               />
             </div>
@@ -466,7 +477,11 @@ export function ServicesOfferingCatalog({
             >
               Cancel
             </Button>
-            <Button type="button" onClick={() => void handleConfirmAdd()} disabled={submitting}>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmAdd()}
+              disabled={submitting || !formCurrency}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />

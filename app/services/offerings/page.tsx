@@ -17,6 +17,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth-context'
 import { cn } from '@/lib/utils'
+import { Money } from '@/components/money'
 import { serviceCatalogKey } from '@/lib/services-taxonomy'
 import {
   ServicesOfferingCatalog,
@@ -294,7 +295,7 @@ export default function ServicesOfferingsPage() {
                         {o.pricing_type === 'hourly' ? 'Hourly' : 'Fixed'}
                       </span>
                       {' · '}
-                      {o.currency} {Number(o.rate ?? 0).toLocaleString()}
+                      <Money amount={Number(o.rate ?? 0)} baseCurrency={o.currency ?? 'USD'} />
                     </p>
                     <OfferingImagesEditor
                       offeringId={o.id}
