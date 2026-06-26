@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthedServicesUserId } from '@/lib/services-auth'
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images'
+import { resolveListingCurrency } from '@/lib/product-currency'
 
 function isMissingTableError(error: any) {
   const msg = String(error?.message ?? '').toLowerCase()
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
     body = {}
   }
 
+  const currency = await resolveListingCurrency(
+    auth.userId,
+    typeof body?.currency === 'string' ? body.currency : undefined,
+  )
+
   const payload = {
     provider_user_id: auth.userId,
     category: String(body?.category ?? '').trim(),
@@ -48,7 +54,7 @@ export async function POST(req: NextRequest) {
     description: String(body?.description ?? '').trim(),
     pricing_type: String(body?.pricing_type ?? 'fixed').trim(),
     rate: Number(body?.rate ?? 0),
-    currency: String(body?.currency ?? 'USD').trim(),
+    currency,
     is_active: Boolean(body?.is_active ?? true),
     images: normalizeOfferingImageUrls(body?.images),
   }

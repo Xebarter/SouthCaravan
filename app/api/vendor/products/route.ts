@@ -6,6 +6,7 @@ import { getServerSupabaseClient } from '@/lib/supabase/server';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { getVendorVerificationStatus } from '@/lib/vendor-verification-status';
 import { parseRetailPriceFromForm, validateDualPricingConfig } from '@/lib/product-pricing';
+import { resolveListingCurrency } from '@/lib/product-currency';
 
 const BUCKET = 'product-images';
 
@@ -197,6 +198,8 @@ export async function POST(req: NextRequest) {
     if (pricingError) return NextResponse.json({ error: pricingError }, { status: 422 });
     const unit = (formData.get('unit') as string | null) ?? 'piece';
     const inStock = parseBoolean(formData.get('inStock'), true);
+    const currencyInput = (formData.get('currency') as string | null)?.trim() ?? '';
+    const currency = await resolveListingCurrency(auth.vendorId, currencyInput || undefined);
     const specificationsRaw = (formData.get('specifications') as string | null) ?? '{}';
 
     let specifications: Record<string, string> = {};
@@ -227,6 +230,7 @@ export async function POST(req: NextRequest) {
         sub_subcategory: subSubcategory || 'General',
         price: Number.isFinite(price) ? price : 0,
         retail_price: retailPrice,
+        currency,
         minimum_order: Number.isFinite(minimumOrder) ? minimumOrder : 1,
         unit,
         images: imageUrls,
@@ -263,6 +267,11 @@ export async function POST(req: NextRequest) {
   const bodyPricingError = validateDualPricingConfig(bodyPrice, bodyRetail, bodyMoq);
   if (bodyPricingError) return NextResponse.json({ error: bodyPricingError }, { status: 422 });
 
+  const currency = await resolveListingCurrency(
+    auth.vendorId,
+    typeof body?.currency === 'string' ? body.currency : undefined,
+  );
+
   const { data: product, error } = await supabaseAdmin
     .from('products')
     .insert({
@@ -274,6 +283,7 @@ export async function POST(req: NextRequest) {
       sub_subcategory: subSubCategory || 'General',
       price: bodyPrice,
       retail_price: bodyRetail,
+      currency,
       minimum_order: bodyMoq,
       unit: typeof body?.unit === 'string' ? body.unit : 'piece',
       images: Array.isArray(body?.images) ? body.images : [],
@@ -334,6 +344,10 @@ export async function PATCH(req: NextRequest) {
     if (minimumOrder != null) patchData.minimum_order = parseInt(minimumOrder, 10);
     const unit = formData.get('unit') as string | null;
     if (unit != null) patchData.unit = unit;
+    const currencyRaw = formData.get('currency') as string | null;
+    if (currencyRaw != null && currencyRaw.trim()) {
+      patchData.currency = await resolveListingCurrency(auth.vendorId, currencyRaw);
+    }
     const inStockRaw = formData.get('inStock');
     if (inStockRaw != null) patchData.in_stock = parseBoolean(inStockRaw, true);
     const specificationsRaw = formData.get('specifications') as string | null;
@@ -367,6 +381,9 @@ export async function PATCH(req: NextRequest) {
     if (body.retailPrice !== undefined) patchData.retail_price = parseRetailPriceFromForm(body.retailPrice);
     if (typeof body.minimumOrder === 'number') patchData.minimum_order = body.minimumOrder;
     if (typeof body.unit === 'string') patchData.unit = body.unit;
+    if (typeof body.currency === 'string' && body.currency.trim()) {
+      patchData.currency = await resolveListingCurrency(auth.vendorId, body.currency);
+    }
     if (typeof body.inStock === 'boolean') patchData.in_stock = body.inStock;
     if (body.specifications && typeof body.specifications === 'object') patchData.specifications = body.specifications;
     if (Array.isArray(body.images)) patchData.images = body.images;

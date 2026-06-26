@@ -1,6 +1,23 @@
+import { getPlatformCurrencyConfig, isCurrencyEnabled } from '@/lib/currency/config';
+import { resolveVendorPricingCurrency } from '@/lib/currency/resolve';
+import { normalizeCurrencyCode } from '@/lib/currency/types';
+
 export function normalizeProductCurrency(value: unknown): string {
   const raw = String(value ?? 'USD').trim().toUpperCase();
   return /^[A-Z]{3}$/.test(raw) ? raw : 'USD';
+}
+
+/** Resolve listing currency from explicit input or the vendor's base pricing currency. */
+export async function resolveListingCurrency(
+  vendorId: string,
+  input?: string | null,
+): Promise<string> {
+  const config = await getPlatformCurrencyConfig();
+  if (typeof input === 'string' && input.trim()) {
+    const code = normalizeCurrencyCode(input.trim());
+    if (isCurrencyEnabled(code, config)) return code;
+  }
+  return resolveVendorPricingCurrency(vendorId);
 }
 
 export function mapProductPriceCurrency<T extends Record<string, unknown>>(row: T): T & { price_currency: string } {

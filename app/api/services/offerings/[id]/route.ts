@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getAuthedServicesUserId } from '@/lib/services-auth'
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images'
+import { resolveListingCurrency } from '@/lib/product-currency'
 
 function isMissingTableError(error: any) {
   const msg = String(error?.message ?? '').toLowerCase()
@@ -27,7 +28,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (body.description != null) updates.description = String(body.description).trim()
   if (body.pricing_type != null) updates.pricing_type = String(body.pricing_type).trim()
   if (body.rate != null) updates.rate = Number(body.rate ?? 0)
-  if (body.currency != null) updates.currency = String(body.currency).trim()
+  if (body.currency != null) {
+    updates.currency = await resolveListingCurrency(auth.userId, String(body.currency))
+  }
   if (body.is_active != null) updates.is_active = Boolean(body.is_active)
   if (body.images != null) updates.images = normalizeOfferingImageUrls(body.images)
 

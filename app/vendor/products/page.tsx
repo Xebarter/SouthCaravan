@@ -56,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { stripHtmlForPreview } from '@/lib/strip-html';
 import { MAX_PRODUCT_IMAGE_BYTES, productImageMaxSizeLabel } from '@/lib/product-image-limits';
 import { Money } from '@/components/money';
+import { useCurrencyOptional } from '@/components/currency/currency-provider';
 import { useAuth } from '@/lib/auth-context';
 import { validateDualPricingConfig } from '@/lib/product-pricing';
 import { DualPricingFormSection } from '@/components/product/dual-pricing-form-section';
@@ -83,6 +84,7 @@ interface SupabaseProduct {
   sub_subcategory: string;
   price: number;
   retail_price: number | null;
+  currency: string;
   minimum_order: number;
   unit: string;
   images: string[];
@@ -488,6 +490,8 @@ function ImageUploader({
 
 export default function VendorProductsPage() {
   const { user } = useAuth();
+  const currencyCtx = useCurrencyOptional();
+  const listingCurrency = currencyCtx?.pricingCurrency ?? 'USD';
   const [products, setProducts] = useState<SupabaseProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -614,9 +618,15 @@ export default function VendorProductsPage() {
   const stats = useMemo(() => {
     const total = products.length;
     const inStock = products.filter((p) => p.in_stock).length;
-    const totalValue = products.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
+    const totalValue = products.reduce((sum, p) => {
+      const amount = Number(p.price ?? 0);
+      if (!Number.isFinite(amount)) return sum;
+      const from = (p.currency ?? listingCurrency).toUpperCase();
+      if (!currencyCtx || from === listingCurrency) return sum + amount;
+      return sum + currencyCtx.convert(amount, from, listingCurrency);
+    }, 0);
     return { total, inStock, outOfStock: total - inStock, totalValue };
-  }, [products]);
+  }, [products, listingCurrency, currencyCtx]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -772,6 +782,7 @@ export default function VendorProductsPage() {
       );
       formData.append('minimumOrder', String(values.minimumOrder));
       formData.append('unit', values.unit);
+      formData.append('currency', mode === 'edit' && editingProduct?.currency ? editingProduct.currency : listingCurrency);
       formData.append('inStock', String(values.inStock));
       formData.append('specifications', JSON.stringify(specificationMap));
       for (const image of newImages) formData.append('images', image.file);
@@ -895,7 +906,7 @@ export default function VendorProductsPage() {
             { label: 'Total products', value: stats.total,    color: 'bg-primary',   icon: Package },
             { label: 'In stock',       value: stats.inStock,  color: 'bg-emerald-500', icon: Package },
             { label: 'Out of stock',   value: stats.outOfStock, color: 'bg-red-500',   icon: Package },
-            { label: 'Total value',    value: <Money amountUSD={stats.totalValue} notation="compact" />, color: 'bg-violet-500', icon: TrendingUp },
+            { label: 'Total value',    value: <Money amount={stats.totalValue} baseCurrency={listingCurrency} notation="compact" />, color: 'bg-violet-500', icon: TrendingUp },
           ] as const
         ).map(({ label, value, color, icon: Icon }) => (
           <Card key={label} className="border-border/60">
@@ -1055,7 +1066,7 @@ export default function VendorProductsPage() {
                       </Badge>
                     </td>
                     <td className="px-5 py-4 font-semibold tabular-nums text-sm">
-                      <Money amountUSD={Number(product.price)} />
+                      <Money amount={Number(product.price)} baseCurrency={product.currency ?? listingCurrency} />
                     </td>
                     <td className="px-5 py-4 text-sm text-muted-foreground">
                       {product.minimum_order} {product.unit}
