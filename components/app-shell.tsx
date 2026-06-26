@@ -27,6 +27,7 @@ const publicRoutePrefixes = [
   '/public',
   '/categories',
   '/featured',
+  '/search',
   '/cart',
   '/checkout',
   '/features',

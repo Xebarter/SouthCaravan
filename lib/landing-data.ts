@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCached } from '@/lib/memory-cache';
 import { filterProductsByVerifiedVendor } from '@/lib/vendor-verification';
 import { normalizeOfferingImageUrls } from '@/lib/service-offering-images';
+import { DEFAULT_MARKETPLACE_TAXONOMY } from '@/lib/default-marketplace-taxonomy';
 import { DEFAULT_SERVICES_TAXONOMY } from '@/lib/services-taxonomy';
 import { mapProductPriceCurrency } from '@/lib/product-currency';
 
@@ -234,42 +235,113 @@ export async function getSponsoredProducts(limit = DEFAULT_SPONSORED_LIMIT): Pro
   });
 }
 
-async function fetchUniqueMarketplaceCategories(): Promise<string[]> {
-  const { data: categoriesData, error: categoryError } = await supabaseAdmin
-    .from('products')
-    .select('category')
-    .order('category', { ascending: true })
-    .limit(LANDING_CATEGORIES_MAX);
+function getStaticMarketplaceCategoryNames(): string[] {
+  const names = [
+    ...DEFAULT_MARKETPLACE_TAXONOMY.map((section) => section.title),
+    ...DEFAULT_SERVICES_TAXONOMY.map((section) => section.title),
+  ];
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
 
-  if (categoryError) {
-    console.error('[marketplace categories]', categoryError.message);
+async function fetchProductCategoryNamesFromTaxonomyTable(): Promise<string[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('product_categories')
+      .select('name')
+      .eq('level', 1)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .limit(LANDING_CATEGORIES_MAX);
+
+    if (error || !data?.length) return [];
+
+    return Array.from(
+      new Set(data.map((row) => String(row.name ?? '').trim()).filter(Boolean)),
+    );
+  } catch {
     return [];
   }
+}
 
-  const productCategories = Array.from(
-    new Set((categoriesData ?? []).map((item: any) => item.category?.trim()).filter(Boolean)),
-  );
+async function fetchServiceCategoryNames(): Promise<string[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('service_offerings')
+      .select('category')
+      .eq('is_active', true)
+      .limit(2000);
 
-  let serviceCategories: string[] = [];
-  const { data: serviceCatRows, error: serviceCatErr } = await supabaseAdmin
-    .from('service_offerings')
-    .select('category')
-    .eq('is_active', true)
-    .limit(2000);
+    if (error) {
+      if (!isMissingServiceOfferingsTable(error)) {
+        console.warn('[marketplace service categories]', error.message);
+      }
+      return DEFAULT_SERVICES_TAXONOMY.map((section) => section.title);
+    }
 
-  if (serviceCatErr && !isMissingServiceOfferingsTable(serviceCatErr)) {
-    console.error('[marketplace service categories]', serviceCatErr.message);
-  } else {
-    serviceCategories = Array.from(
-      new Set((serviceCatRows ?? []).map((r: any) => String(r.category ?? '').trim()).filter(Boolean)),
+    const fromDb = Array.from(
+      new Set((data ?? []).map((row) => String(row.category ?? '').trim()).filter(Boolean)),
     );
-  }
 
-  return Array.from(new Set([...productCategories, ...serviceCategories])).sort((a, b) => a.localeCompare(b));
+    return fromDb.length > 0
+      ? fromDb
+      : DEFAULT_SERVICES_TAXONOMY.map((section) => section.title);
+  } catch {
+    return DEFAULT_SERVICES_TAXONOMY.map((section) => section.title);
+  }
+}
+
+async function fetchUniqueMarketplaceCategories(): Promise<string[]> {
+  try {
+    const { data: categoriesData, error: categoryError } = await supabaseAdmin
+      .from('products')
+      .select('category')
+      .order('category', { ascending: true })
+      .limit(LANDING_CATEGORIES_MAX);
+
+    let productCategories: string[] = [];
+
+    if (categoryError) {
+      console.warn('[marketplace categories]', categoryError.message);
+      productCategories = await fetchProductCategoryNamesFromTaxonomyTable();
+      if (productCategories.length === 0) {
+        productCategories = DEFAULT_MARKETPLACE_TAXONOMY.map((section) => section.title);
+      }
+    } else {
+      productCategories = Array.from(
+        new Set((categoriesData ?? []).map((item: any) => item.category?.trim()).filter(Boolean)),
+      );
+      if (productCategories.length === 0) {
+        productCategories = await fetchProductCategoryNamesFromTaxonomyTable();
+      }
+    }
+
+    const serviceCategories = await fetchServiceCategoryNames();
+
+    const merged = Array.from(new Set([...productCategories, ...serviceCategories])).sort((a, b) =>
+      a.localeCompare(b),
+    );
+
+    return merged.length > 0 ? merged : getStaticMarketplaceCategoryNames();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'fetch failed';
+    console.warn('[marketplace categories]', message);
+
+    const taxonomyCategories = await fetchProductCategoryNamesFromTaxonomyTable();
+    if (taxonomyCategories.length > 0) {
+      const serviceCategories = DEFAULT_SERVICES_TAXONOMY.map((section) => section.title);
+      return Array.from(new Set([...taxonomyCategories, ...serviceCategories])).sort((a, b) =>
+        a.localeCompare(b),
+      );
+    }
+
+    return getStaticMarketplaceCategoryNames();
+  }
 }
 
 export async function getMarketplaceCategoryNames(): Promise<string[]> {
-  return getCached('marketplace-category-names-v1', 60_000, fetchUniqueMarketplaceCategories);
+  return getCached('marketplace-category-names-v2', 60_000, fetchUniqueMarketplaceCategories);
 }
 
 export async function getLandingCategoryFeedSections(params: {
