@@ -15,6 +15,7 @@ import {
   Plus,
   PlusCircle,
   RefreshCw,
+  Search,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -503,6 +504,7 @@ export default function VendorProductsPage() {
   const [promotionNeedsSetup, setPromotionNeedsSetup] = useState(false);
   const [featureMessage, setFeatureMessage] = useState('');
   const [featureSubmitting, setFeatureSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -615,6 +617,30 @@ export default function VendorProductsPage() {
     const totalValue = products.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
     return { total, inStock, outOfStock: total - inStock, totalValue };
   }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return products;
+
+    return products.filter((product) => {
+      const haystack = [
+        product.name,
+        stripHtmlForPreview(product.description ?? ''),
+        product.category,
+        product.subcategory,
+        product.sub_subcategory,
+        product.unit,
+        product.in_stock ? 'in stock' : 'out of stock',
+        product.is_featured ? 'featured' : '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(q);
+    });
+  }, [products, searchQuery]);
+
+  const hasSearch = Boolean(searchQuery.trim());
 
   const pendingFeaturedRequest = useMemo(() => {
     if (!editingProduct?.id) return null;
@@ -917,6 +943,49 @@ export default function VendorProductsPage() {
           )}
         </div>
       ) : (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products by name, category, or description…"
+                className="rounded-xl border-border/60 bg-background pl-9 pr-9"
+                aria-label="Search products"
+              />
+              {hasSearch ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+            {hasSearch ? (
+              <p className="text-sm text-muted-foreground shrink-0">
+                {filteredProducts.length} of {products.length} product{products.length === 1 ? '' : 's'}
+              </p>
+            ) : null}
+          </div>
+
+          {filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-border/60 py-20 text-center">
+              <div className="rounded-full bg-secondary p-4 mb-4">
+                <Search className="h-6 w-6 text-muted-foreground/60" />
+              </div>
+              <p className="text-base font-semibold">No products match your search</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                Try a different name, category, or keyword.
+              </p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => setSearchQuery('')}>
+                Clear search
+              </Button>
+            </div>
+          ) : (
         <div className="rounded-xl border border-border/60 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
@@ -943,7 +1012,7 @@ export default function VendorProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <tr
                     key={product.id}
                     className="group hover:bg-secondary/30 transition-colors"
@@ -1037,6 +1106,8 @@ export default function VendorProductsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+          )}
         </div>
       )}
 
