@@ -12,6 +12,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { hasDualPricing, validateDualPricingConfig } from '@/lib/product-pricing';
+import { useCurrencyOptional } from '@/components/currency/currency-provider';
+import { getCurrencyByCode } from '@/lib/currencies';
 
 type PricingFormValues = {
   price: number;
@@ -25,6 +27,7 @@ type Props<T extends FieldValues & PricingFormValues> = {
   unitFieldName?: FieldPath<T>;
   showUnitField?: boolean;
   unitOptions?: React.ReactNode;
+  currencyCode?: string;
 };
 
 export function DualPricingFormSection<T extends FieldValues & PricingFormValues>({
@@ -32,7 +35,13 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
   unitFieldName,
   showUnitField = false,
   unitOptions,
+  currencyCode,
 }: Props<T>) {
+  const ctx = useCurrencyOptional();
+  const code = (currencyCode ?? ctx?.pricingCurrency ?? 'USD').toUpperCase();
+  const currency = getCurrencyByCode(code);
+  const symbol = currency?.symbol ?? code;
+
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-5 space-y-4">
       <div className="space-y-1">
@@ -55,7 +64,7 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
           name={'price' as FieldPath<T>}
           render={({ field }) => (
             <FormItem data-field="price" className="min-w-0">
-              <FormLabel>Bulk price (USD) *</FormLabel>
+              <FormLabel>Bulk price ({code}) *</FormLabel>
               <FormControl>
                 <Input {...field} type="number" step="0.01" min={0} placeholder="9.00" />
               </FormControl>
@@ -72,7 +81,7 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
           name={'retailPrice' as FieldPath<T>}
           render={({ field }) => (
             <FormItem data-field="retailPrice" className="min-w-0">
-              <FormLabel>Retail price (USD)</FormLabel>
+              <FormLabel>Retail price ({code})</FormLabel>
               <FormControl>
                 <Input
                   {...field}
@@ -127,12 +136,18 @@ export function DualPricingFormSection<T extends FieldValues & PricingFormValues
         ) : null}
       </div>
 
-      <PricingPreview control={control} />
+      <PricingPreview control={control} symbol={symbol} />
     </div>
   );
 }
 
-function PricingPreview<T extends FieldValues & PricingFormValues>({ control }: { control: Control<T> }) {
+function PricingPreview<T extends FieldValues & PricingFormValues>({
+  control,
+  symbol,
+}: {
+  control: Control<T>;
+  symbol: string;
+}) {
   const watched = useWatch({ control });
   const values = watched as PricingFormValues;
   const bulk = Number(values?.price) || 0;
@@ -152,16 +167,16 @@ function PricingPreview<T extends FieldValues & PricingFormValues>({ control }: 
       {dual ? (
         <>
           <p>
-            Retail: <span className="font-semibold text-foreground">${retail?.toFixed(2)}</span> each (below {moq}{' '}
+            Retail: <span className="font-semibold text-foreground">{symbol}{retail?.toFixed(2)}</span> each (below {moq}{' '}
             {unit})
           </p>
           <p>
-            Bulk: <span className="font-semibold text-foreground">${bulk.toFixed(2)}</span> each (from {moq} {unit})
+            Bulk: <span className="font-semibold text-foreground">{symbol}{bulk.toFixed(2)}</span> each (from {moq} {unit})
           </p>
         </>
       ) : (
         <p>
-          Bulk only: <span className="font-semibold text-foreground">${bulk.toFixed(2)}</span> each · MOQ {moq} {unit}
+          Bulk only: <span className="font-semibold text-foreground">{symbol}{bulk.toFixed(2)}</span> each · MOQ {moq} {unit}
         </p>
       )}
       {configError ? <p className="text-amber-700">{configError}</p> : null}

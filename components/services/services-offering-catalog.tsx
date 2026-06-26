@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Loader2, Search, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,7 @@ import {
   type ServiceTaxonomySection,
 } from '@/lib/services-taxonomy'
 import { cn } from '@/lib/utils'
+import { useCurrencyOptional } from '@/components/currency/currency-provider'
 
 type CatalogPick = { category: string; item: string }
 
@@ -73,6 +74,7 @@ export function ServicesOfferingCatalog({
   needsSetup,
   onAddBatch,
 }: Props) {
+  const ctx = useCurrencyOptional()
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState(
     DEFAULT_SERVICES_TAXONOMY[0]?.title ?? '',
@@ -85,6 +87,16 @@ export function ServicesOfferingCatalog({
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (ctx?.pricingCurrency) setCurrency(ctx.pricingCurrency)
+  }, [ctx?.pricingCurrency])
+
+  const openAddDialog = () => {
+    setError('')
+    setCurrency(ctx?.pricingCurrency ?? 'USD')
+    setDialogOpen(true)
+  }
 
   const filteredSections = useMemo(
     () => filterTaxonomy(DEFAULT_SERVICES_TAXONOMY, search),
@@ -348,10 +360,7 @@ export function ServicesOfferingCatalog({
                     type="button"
                     size="sm"
                     disabled={pickerDisabled || pickedList.length === 0}
-                    onClick={() => {
-                      setError('')
-                      setDialogOpen(true)
-                    }}
+                    onClick={openAddDialog}
                     className="gap-1.5"
                   >
                     Set price &amp; add
@@ -413,10 +422,13 @@ export function ServicesOfferingCatalog({
               <Label>Currency</Label>
               <Input
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                placeholder="USD"
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                placeholder={ctx?.pricingCurrency ?? 'USD'}
                 disabled={submitting}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Defaults to your base pricing currency from settings.
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>

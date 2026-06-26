@@ -24,14 +24,23 @@ type PlatformConfig = {
   showUsdReference: boolean;
 };
 
+type DashboardCurrencySettings = {
+  dashboardCurrency?: string;
+  pricingCurrency?: string;
+};
+
 type CurrencyContextValue = {
   preference: string;
+  dashboardCurrency: string | null;
+  pricingCurrency: string | null;
+  dashboardSettingsReady: boolean;
   displayCurrency: string;
   displaySource: string;
   platformConfig: PlatformConfig | null;
   rates: Record<string, number>;
   ratesLoading: boolean;
   setPreference: (code: string) => void;
+  updateDashboardCurrencySettings: (settings: DashboardCurrencySettings) => Promise<void>;
   convert: (amount: number, from: string, to?: string) => number;
   format: (amount: number, currency?: string) => string;
   enabledCurrencies: Currency[];
@@ -69,6 +78,10 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [hasMounted, setHasMounted] = useState(false);
   const [geoCurrency, setGeoCurrency] = useState<string | null>(null);
   const [dashboardCurrency, setDashboardCurrency] = useState<string | null>(null);
+  const [pricingCurrency, setPricingCurrency] = useState<string | null>(null);
+  const [dashboardSettingsReady, setDashboardSettingsReady] = useState(
+    () => portal !== 'vendor' && portal !== 'services',
+  );
   const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
   const [rates, setRates] = useState<Record<string, number>>({ USD: 1 });
   const [ratesLoading, setRatesLoading] = useState(true);
@@ -107,14 +120,27 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, [preference, geoCurrency, dashboardCurrency, platformConfig, portal, hasMounted]);
 
   useEffect(() => {
-    setPreferenceState(getSavedCurrencyPreference('AUTO'));
+    if (portal !== 'vendor' && portal !== 'services') {
+      setPreferenceState(getSavedCurrencyPreference('AUTO'));
+    }
     setHasMounted(true);
+  }, [portal]);
+
+  const applyDashboardCurrency = useCallback((code: string) => {
+    const next = code.trim().toUpperCase() || 'AUTO';
+    setPreferenceState(next);
+    setDashboardCurrency(next);
+    saveCurrencyPreference(next);
+    return next;
   }, []);
 
   const setPreference = useCallback((code: string) => {
     const next = code.trim().toUpperCase() || 'AUTO';
     setPreferenceState(next);
     saveCurrencyPreference(next);
+    if (portal === 'vendor' || portal === 'services') {
+      setDashboardCurrency(next);
+    }
 
     if (user?.id) {
       if (portal === 'buyer' || portal === 'storefront') {
@@ -138,6 +164,39 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [user?.id, portal]);
+
+  const updateDashboardCurrencySettings = useCallback(async (settings: DashboardCurrencySettings) => {
+    const patch: DashboardCurrencySettings = {};
+    if (typeof settings.dashboardCurrency === 'string') {
+      patch.dashboardCurrency = applyDashboardCurrency(settings.dashboardCurrency);
+    }
+    if (typeof settings.pricingCurrency === 'string') {
+      const next = settings.pricingCurrency.trim().toUpperCase() || 'USD';
+      setPricingCurrency(next);
+      patch.pricingCurrency = next;
+    }
+
+    if (!user?.id || Object.keys(patch).length === 0) return;
+
+    const apiBase =
+      portal === 'vendor' ? '/api/vendor/currency' : portal === 'services' ? '/api/services/currency' : null;
+    if (!apiBase) return;
+
+    const res = await fetch(apiBase, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? 'Save failed');
+
+    if (typeof data.dashboardCurrency === 'string') {
+      applyDashboardCurrency(data.dashboardCurrency);
+    }
+    if (typeof data.pricingCurrency === 'string') {
+      setPricingCurrency(data.pricingCurrency.toUpperCase());
+    }
+  }, [user?.id, portal, applyDashboardCurrency]);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,31 +232,55 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (portal === 'vendor' || portal === 'services') {
+      setDashboardSettingsReady(false);
+    } else {
+      setDashboardSettingsReady(true);
+      setPreferenceState(getSavedCurrencyPreference('AUTO'));
+    }
+  }, [portal]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      if (portal === 'vendor' || portal === 'services') {
+        setDashboardSettingsReady(true);
+      }
+      return;
+    }
     let cancelled = false;
 
     void (async () => {
-      if (portal === 'buyer' || portal === 'storefront') {
-        const res = await fetch('/api/buyer/preferences');
-        const data = await res.json().catch(() => ({}));
-        const pref = data?.prefs?.currency_preference;
-        if (!cancelled && typeof pref === 'string' && pref) {
-          setPreferenceState(pref.toUpperCase());
-          saveCurrencyPreference(pref.toUpperCase());
+      try {
+        if (portal === 'buyer' || portal === 'storefront') {
+          const res = await fetch('/api/buyer/preferences');
+          const data = await res.json().catch(() => ({}));
+          const pref = data?.prefs?.currency_preference;
+          if (!cancelled && typeof pref === 'string' && pref) {
+            setPreferenceState(pref.toUpperCase());
+            saveCurrencyPreference(pref.toUpperCase());
+          }
+        } else if (portal === 'vendor' || portal === 'services') {
+          const apiBase = portal === 'vendor' ? '/api/vendor/currency' : '/api/services/currency';
+          const res = await fetch(apiBase, { cache: 'no-store' });
+          const data = await res.json().catch(() => ({}));
+          if (!cancelled) {
+            if (typeof data?.dashboardCurrency === 'string') {
+              applyDashboardCurrency(data.dashboardCurrency);
+            }
+            if (typeof data?.pricingCurrency === 'string') {
+              setPricingCurrency(data.pricingCurrency.toUpperCase());
+            }
+          }
         }
-      } else if (portal === 'vendor') {
-        const res = await fetch('/api/vendor/currency');
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled && data?.dashboardCurrency) setDashboardCurrency(data.dashboardCurrency);
-      } else if (portal === 'services') {
-        const res = await fetch('/api/services/currency');
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled && data?.dashboardCurrency) setDashboardCurrency(data.dashboardCurrency);
+      } finally {
+        if (!cancelled && (portal === 'vendor' || portal === 'services')) {
+          setDashboardSettingsReady(true);
+        }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [user?.id, portal]);
+  }, [user?.id, portal, applyDashboardCurrency]);
 
 
   const enabledCurrencies = useMemo(() => {
@@ -220,20 +303,25 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       preference,
+      dashboardCurrency,
+      pricingCurrency,
+      dashboardSettingsReady,
       displayCurrency,
       displaySource,
       platformConfig,
       rates,
       ratesLoading,
       setPreference,
+      updateDashboardCurrencySettings,
       convert,
       format,
       enabledCurrencies,
       showUsdReference: platformConfig?.showUsdReference ?? true,
     }),
     [
-      preference, displayCurrency, displaySource, platformConfig, rates, ratesLoading,
-      setPreference, convert, format, enabledCurrencies,
+      preference, dashboardCurrency, pricingCurrency, dashboardSettingsReady,
+      displayCurrency, displaySource, platformConfig, rates, ratesLoading,
+      setPreference, updateDashboardCurrencySettings, convert, format, enabledCurrencies,
     ],
   );
 

@@ -17,48 +17,29 @@ type Props = {
 };
 
 export function DashboardCurrencySettings({
-  apiBase,
   title = 'Currency preferences',
   description = 'Choose how prices, earnings, and reports are displayed in your dashboard.',
 }: Props) {
   const ctx = useCurrencyOptional();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dashboardCurrency, setDashboardCurrency] = useState('AUTO');
   const [pricingCurrency, setPricingCurrency] = useState('USD');
-  const [enabled, setEnabled] = useState<string[]>([]);
 
   useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(apiBase, { cache: 'no-store' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? 'Failed to load');
-        setDashboardCurrency(data.dashboardCurrency ?? 'AUTO');
-        setPricingCurrency(data.pricingCurrency ?? 'USD');
-        setEnabled(data.enabledCurrencies ?? []);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not load currency settings');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [apiBase]);
+    if (!ctx) return;
+    setDashboardCurrency(ctx.preference || 'AUTO');
+    if (ctx.pricingCurrency) setPricingCurrency(ctx.pricingCurrency);
+  }, [ctx?.preference, ctx?.pricingCurrency]);
 
-  const currencyOptions = CURRENCIES.filter((c) => enabled.length === 0 || enabled.includes(c.code));
+  const currencyOptions = CURRENCIES.filter(
+    (c) => !ctx?.enabledCurrencies.length || ctx.enabledCurrencies.some((e) => e.code === c.code),
+  );
 
   async function save() {
+    if (!ctx) return;
     setSaving(true);
     try {
-      const res = await fetch(apiBase, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dashboardCurrency, pricingCurrency }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Save failed');
-      ctx?.setPreference(dashboardCurrency);
+      await ctx.updateDashboardCurrencySettings({ dashboardCurrency, pricingCurrency });
       toast.success('Currency preferences saved');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Save failed');
@@ -67,7 +48,7 @@ export function DashboardCurrencySettings({
     }
   }
 
-  if (loading) {
+  if (!ctx?.dashboardSettingsReady) {
     return (
       <Card>
         <CardContent className="py-10 flex justify-center text-muted-foreground gap-2">
@@ -97,7 +78,7 @@ export function DashboardCurrencySettings({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Used for revenue, analytics, and reports in this dashboard.
+              Used for revenue, analytics, and reports in this dashboard. Also shown in the header currency selector.
             </p>
           </div>
           <div className="space-y-2">
